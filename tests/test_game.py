@@ -518,3 +518,9 @@ def test_legal_moves_default_to_the_side_to_move():
 
 def test_rules_are_reported_by_name():
     assert Game(9, rules="new-zealand").to_dict()["rules"] == rules.get_rules("new-zealand").name
+
+
+@pytest.mark.parametrize("komi", [float("nan"), float("inf"), float("-inf")])
+def test_a_non_finite_komi_is_refused(komi):
+    with pytest.raises(ValueError):
+        Game(9, komi=komi)
