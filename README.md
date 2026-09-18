@@ -9,3 +9,4 @@ Bootstrapped via `GHJig-Claude` stage-0 (`/bootstrap-repo`); the application is 
 ## Documentation
 
 - [`MISSION.md`](MISSION.md) — canonical direction for this project.
+- [`SPEC.md`](SPEC.md) — behavioural contract of both launch modes (single source of truth for behaviour).
