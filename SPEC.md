@@ -124,7 +124,7 @@ and the 4th line for 13 and up, in GTP's order. Allowed counts:
 | 7, and even sizes 8 and up | 2–4 |
 | odd sizes 9 and up | 2–9 |
 
-A handicap of 0 or 1 means no handicap. When komi is not given it is the rule set's default, or
+A handicap of 0 or 1 means no handicap; a negative count is refused. When komi is not given it is the rule set's default, or
 **0.5** in a handicap game; a handicap game starts with White to move. The server, not the browser,
 decides the effective komi: the browser sends `null` unless the user typed a number.
 
@@ -138,7 +138,7 @@ under a rule set that forbids suicide, or when it violates the ko rule:
 - **situational superko** — the resulting position with the same player to move has occurred before.
 
 Captures are resolved before the suicide check. Where suicide is legal, a suicidal move removes the
-player's own group. A legality check costs time proportional to the board area, independent of the
+player's own group, and those stones count as prisoners for the opponent. A legality check costs time proportional to the board area, independent of the
 game's length, and reading an SGF is linear in its number of moves.
 
 `resign` is not a vertex: resigning is its own action, which sets the result (`W+R` when Black
@@ -158,7 +158,7 @@ move while the cursor is in the past discards the moves after it (the browser is
 move N"). Undo removes the move before the cursor, together with anything after it. The
 browser-facing game state carries size, komi, rules, handicap, stones, capture counts, side to move,
 cursor, move count, game-over flag, result, player names, last move, setup stones, the move list,
-and the move number of every stone still on the board.
+and the move number of every stone still on the board (`moveNumbers`, vertex → move number).
 
 ### 1.5 SGF
 
@@ -177,11 +177,11 @@ and the move number of every stone still on the board.
   present. `AB`/`AW` accept FF[4] compressed point lists (`aa:cc`); a point listed twice in one
   colour counts once; `AE` in the root is ignored. `KM` must be a finite number. Move comments are kept; comments on the root or
   other non-move nodes are not.
-- A move that is illegal under the loaded rules or off the board, and setup (`AB`/`AW`/`AE`) in
+- A move that is illegal under the loaded rules, off the board or not a valid point, and setup (`AB`/`AW`/`AE`) in
   a node after the root, stop reading: the game keeps every move before that node. Everything else
   that cannot be read — text that is not SGF, no nodes, a rectangular or out-of-range `SZ`, a
   non-numeric `HA`, a non-finite `KM`, a malformed or off-board `AB`/`AW` point, a point in both
-  `AB` and `AW`, variations nested deeper than a fixed bound — is an SGF error that changes nothing.
+  `AB` and `AW`, variations nested more than 1,000 levels deep — is an SGF error that changes nothing.
 - Saving offers the user a file name before download (default `gowui.sgf`).
 
 ## 2. Engine protocols
