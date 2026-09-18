@@ -23,51 +23,51 @@
 | &nbsp;&nbsp;§1.5 | SGF | 163 |
 | §2 | Engine protocols | 193 |
 | &nbsp;&nbsp;§2.1 | Transport | 195 |
-| &nbsp;&nbsp;§2.2 | Shared analysis shape | 202 |
-| &nbsp;&nbsp;§2.3 | GTP | 214 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 232 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 241 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 280 |
-| §3 | Session and boards | 286 |
-| &nbsp;&nbsp;§3.1 | Spaces | 288 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 294 |
-| &nbsp;&nbsp;§3.3 | Boards | 311 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 323 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 328 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 333 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 337 |
-| §4 | WebSocket protocol | 342 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 346 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 370 |
-| §5 | HTTP routes | 384 |
-| §6 | Launch modes and policies | 403 |
-| &nbsp;&nbsp;§6.1 | The rule | 405 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 422 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 428 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 442 |
-| §7 | Authentication and security | 448 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 450 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 460 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 468 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 476 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 490 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 497 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 514 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 524 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 530 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 536 |
-| §8 | Persistence | 546 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 548 |
-| &nbsp;&nbsp;§8.2 | Saving | 567 |
-| &nbsp;&nbsp;§8.3 | Local state file | 572 |
-| &nbsp;&nbsp;§8.4 | Server database | 581 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 586 |
-| §9 | Command line | 590 |
-| §10 | Configuration (server) | 605 |
-| §11 | Feature inventory | 625 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 631 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 669 |
-| §12 | Non-goals | 687 |
+| &nbsp;&nbsp;§2.2 | Shared analysis shape | 221 |
+| &nbsp;&nbsp;§2.3 | GTP | 241 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 276 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 292 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 331 |
+| §3 | Session and boards | 347 |
+| &nbsp;&nbsp;§3.1 | Spaces | 349 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 355 |
+| &nbsp;&nbsp;§3.3 | Boards | 372 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 384 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 389 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 394 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 398 |
+| §4 | WebSocket protocol | 403 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 407 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 431 |
+| §5 | HTTP routes | 445 |
+| §6 | Launch modes and policies | 464 |
+| &nbsp;&nbsp;§6.1 | The rule | 466 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 483 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 489 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 503 |
+| §7 | Authentication and security | 509 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 511 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 521 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 529 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 537 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 551 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 558 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 575 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 585 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 591 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 597 |
+| §8 | Persistence | 607 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 609 |
+| &nbsp;&nbsp;§8.2 | Saving | 628 |
+| &nbsp;&nbsp;§8.3 | Local state file | 633 |
+| &nbsp;&nbsp;§8.4 | Server database | 642 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 647 |
+| §9 | Command line | 651 |
+| §10 | Configuration (server) | 666 |
+| §11 | Feature inventory | 686 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 692 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 730 |
+| §12 | Non-goals | 748 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -199,6 +199,25 @@ connection surfaces as an engine error on whatever was waiting; nothing hangs on
 Engine traffic (sent and received lines, and client-side notes prefixed `#`) goes to the session's
 traffic log (§3.6).
 
+- **One error kind.** Every failure an engine client raises is an engine error: refused or failed
+  connects, timeouts (connecting, waiting for a reply) and a closed connection (*connection
+  closed* is a kind of engine error, not a separate family).
+- **No address in the text.** An engine error's message never contains the engine's host or port,
+  and neither do the client's `#` notes; the address travels alongside the error as a separate
+  field, so only an engine-address policy that exposes addresses (§6.3) ever shows it (§7.7).
+- **Bounded input.** A received line is at most 1 MiB, and a whole GTP reply is capped in total
+  size. Overflow is an engine error and leaves the connection unusable.
+- **One line out.** A command containing CR, LF or NUL is refused with an engine error before
+  anything is sent; this includes raw console commands (§2.3).
+- **Unusable connection.** A timeout, a reply whose id does not match the command it answers, a
+  command cancelled while waiting for its reply, or a stop that exceeds its bound (§2.3) leaves the
+  connection unusable: the stream position is no longer known, so every later call fails with an
+  engine error at once instead of reading a reply meant for something else.
+- **Lost connection is reported once.** When the connection is lost — whether or not a command is
+  waiting — the client first marks it dead, then reports it exactly once through a disconnect
+  callback. The callback is scheduled, never awaited inline by the reader, so it may itself close
+  the engine without waiting on its own reader. Later calls fail with *connection closed* at once.
+
 ### 2.2 Shared analysis shape
 
 All protocols report into one shape, sent to the browser as `analysis`:
@@ -211,23 +230,48 @@ Numbers are Black's perspective (§0). `prior` is the raw policy probability; `p
 board of priors when the protocol provides one (otherwise empty and the browser falls back to the
 candidates' `prior`). `compare` is used by handol-mux only (§2.5).
 
+Engine output is untrusted and is sanitised on the way in, so `analysis` is always valid JSON:
+
+- A number that is non-finite (NaN, ±infinity, or overflowing such as `1e999`) or malformed becomes
+  `null`; inside the per-point arrays (`ownership`, `policy`) it becomes `0`.
+- A vertex that is not on the board and is not `pass` is dropped (from `moveInfos` and from a `pv`).
+- A report that cannot be read at all is skipped with a `#` note in the traffic log, and the stream
+  continues with the next report.
+
 ### 2.3 GTP
 
 - On connect the client asks `name`, `version` and `list_commands`; an engine that answers no
-  command list is refused.
+  command list is refused, and a JSON reply is refused with a hint that the engine speaks the
+  analysis protocol (§2.4).
 - The client keeps a mirror of the engine's board and brings it up to date incrementally: a
   changed size, komi, rules or setup resets the board (`boardsize`, `clear_board`, `komi`,
   `kata-set-rules` when supported, setup `play`s); otherwise it undoes up to three moves or resets,
   then plays the missing moves. Any failure mid-sync drops the mirror so the next sync starts over.
 - Analysis uses `kata-analyze` (falling back to `lz-analyze`) with the report interval, ownership
-  when requested, and `rootInfo`; an engine that rejects `rootInfo` is retried once without it and
-  remembered as not supporting it. An engine that rejects `ownership true` still analyses without
-  ownership. Reports stream until interrupted; stopping sends the interrupt and waits a bounded time.
+  when requested, and `rootInfo`. Reports stream until interrupted; stopping sends the interrupt
+  and waits a bounded time (past the bound the connection is unusable, §2.1).
+- **Option fallback.** When the engine rejects the options, `kata-analyze` and
+  `kata-genmove_analyze` are retried in this order, stopping at the first attempt accepted:
+  1. as asked;
+  2. without `rootInfo`;
+  3. with `rootInfo` but without ownership;
+  4. without both.
+  "Without ownership" means the `ownership` key is left out of the command entirely (never
+  `ownership false`). A capability is remembered as missing only once an attempt without it has
+  been accepted, and later commands on that connection skip it. Each fallback step writes one `#`
+  note to the traffic log. If every attempt is rejected, the command fails with an engine error.
+  Ownership that could not be requested arrives as an empty `ownership` array.
+- **`lz-analyze`.** An engine without `kata-analyze` is analysed with `lz-analyze`. Its reports
+  carry no `rootInfo` and no ownership; its winrates, on a 0–10000 scale from the side to move, are
+  converted to 0–1 and to Black's view (§0).
 - `genmove` plays the engine's move; with analysis on, `kata-genmove_analyze` is used so the
-  search is shown while the engine thinks. `final_score` is available. Max visits is applied with
-  `kata-set-param maxVisits` when supported.
-- **Raw commands** (the GTP console) are passed through verbatim; afterwards the mirror is dropped
-  and the next sync rebuilds the engine's board, because any raw command may have changed it.
+  search is shown while the engine thinks, and plain `genmove` when the engine lacks it. A move
+  answer that is neither a vertex on the board nor `pass` or `resign` is an engine error.
+  `final_score` is available. Max visits is applied with `kata-set-param maxVisits` when supported.
+- **Raw commands** (the GTP console) are a public client operation: the command is passed through
+  verbatim (subject to the one-line rule, §2.1) and its reply returned; afterwards the mirror is
+  dropped and the next sync rebuilds the engine's board, because any raw command may have changed
+  it.
 
 ### 2.4 KataGo analysis engine
 
@@ -237,6 +281,13 @@ last turn, `includePolicy`, `maxVisits`, optional `includeOwnership` and
 `reportDuringSearchEvery`). Restarting analysis terminates the previous query. There is no native
 genmove: an engine move is a bounded search whose top-ranked move is played, and only the side to
 move can be asked for. There is no final score.
+
+On connect the client sends a `query_version` query; a reply that is not JSON (for example a GTP
+`=` reply) is refused with an engine error suggesting the other protocol, as the GTP client does
+for a JSON reply. An error response to a query is an engine error for that query only; the other
+queries in flight and the connection carry on. A report for an id with no live query (one already
+terminated) is dropped. Reports are sanitised as in §2.2, and a connection lost mid-query is
+reported as in §2.1.
 
 ### 2.5 handol-mux human-policy surface
 
@@ -279,9 +330,19 @@ The surface answers "where would a human of this profile play here?" as a move d
 
 ### 2.6 Fake engine
 
-`tools/fake_engine.py --protocol gtp|analysis|handol --port N` is an in-repo stand-in that speaks
+`tools/fake_engine.py --protocol <protocol> --port N` is an in-repo stand-in that speaks
 each protocol over real TCP with legal but weak moves and plausible analysis. The test suite runs
 entirely against it: no KataGo, GPU or model file is needed.
+
+- It is both an importable module (tests start and stop fake engines in-process, with options that
+  switch off engine features or inject faults such as hang-ups, delays and malformed output) and a
+  command-line program.
+- `--protocol` accepts exactly the registered fake protocols: `gtp` and `analysis`; `handol` is
+  added when the handol-mux client lands (#5).
+- It listens on `127.0.0.1` unless another host is given.
+- `--port 0` binds a free port. Once listening, the program prints one line,
+  `listening on 127.0.0.1:<port>` (with the actual host and bound port), and flushes it, so a
+  caller can read the port without guessing.
 
 ## 3. Session and boards
 
@@ -635,21 +696,21 @@ issue that builds it lands.
 | B1 | Play human vs human, human vs engine, engine vs engine | §3.2 | both | pending |
 | B2 | Engine move on demand (`genmove`) | §3.2 | both | pending |
 | B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | pending |
-| B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | pending |
-| B5 | PV preview on hover with numbered stones | §2.2 | both | pending |
-| B6 | Raw policy heatmap | §2.2 | both | pending |
-| B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | pending |
-| B8 | Winrate and score shown from Black's view | §0 | both | pending |
+| B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B5 | PV preview on hover with numbered stones | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B6 | Raw policy heatmap | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
 | B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: pending |
 | B11 | SGF load | §1.5 | both | `tests/test_sgf.py` |
 | B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; UI: pending |
 | B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: pending |
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; UI: pending |
-| B15 | GTP console | §3.5 | both (server: per catalog entry) | pending |
-| B16 | Final score | §3.5 | both | pending |
-| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | pending |
-| B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | pending |
+| B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; UI: pending |
+| B16 | Final score | §3.5 | both | engine: `tests/test_gtp.py`; UI: pending |
+| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: pending; UI: pending |
+| B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B19 | handol-mux profile picker with explanations | §2.5 | both | pending |
 | B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | pending |
 | B21 | Tuple presets: built-in, save, delete, export, import | §8.5 | both | pending |
