@@ -1,0 +1,27 @@
+"""Engine clients (SPEC §2): KataGo GTP and the KataGo analysis engine, over TCP."""
+
+from __future__ import annotations
+
+from .analysis import AnalysisEngine
+from .base import Engine
+from .errors import ConnectionClosed, EngineError
+from .gtp import GTPEngine
+from .types import Analysis, MoveInfo, Position, RootInfo
+
+#: Registered protocols; handol-mux joins with #5.
+PROTOCOLS: dict[str, type[Engine]] = {"gtp": GTPEngine, "analysis": AnalysisEngine}
+
+
+def create_engine(protocol: str, host: str, port: int, log=None) -> Engine:
+    """A client for ``protocol``; an unregistered protocol is an :class:`EngineError`."""
+    key = protocol.strip().lower() if isinstance(protocol, str) else ""
+    if key not in PROTOCOLS:
+        raise EngineError(f"unknown protocol {protocol!r}; expected one of "
+                          f"{', '.join(PROTOCOLS)}")
+    return PROTOCOLS[key](host, port, log)
+
+
+__all__ = [
+    "Analysis", "AnalysisEngine", "ConnectionClosed", "Engine", "EngineError", "GTPEngine",
+    "MoveInfo", "PROTOCOLS", "Position", "RootInfo", "create_engine",
+]
