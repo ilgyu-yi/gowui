@@ -524,3 +524,44 @@ def test_rules_are_reported_by_name():
 def test_a_non_finite_komi_is_refused(komi):
     with pytest.raises(ValueError):
         Game(9, komi=komi)
+
+
+@pytest.mark.parametrize("komi", [True, False, "abc", [1], 10**400],
+                         ids=["true", "false", "text", "list", "huge-int"])
+def test_a_komi_that_is_not_a_finite_number_is_refused_with_one_message(komi):
+    with pytest.raises(ValueError, match="komi must be a finite number"):
+        Game(9, komi=komi)
+
+
+# -- limits (SPEC §7.6) ---------------------------------------------------------------
+def test_playing_past_the_move_limit_is_refused():
+    game = Game(9)
+    for n in range(2000):
+        game.play(BLACK if n % 2 == 0 else WHITE, None)
+    with pytest.raises(IllegalMove, match="2,000"):
+        game.play(BLACK, None)
+    assert game.move_count == 2000
+
+
+def test_the_move_limit_counts_moves_at_the_cursor():
+    game = Game(9)
+    for n in range(2000):
+        game.play(BLACK if n % 2 == 0 else WHITE, None)
+    game.navigate(1999)
+    game.play(WHITE, (0, 0))
+    assert (game.move_count, game.last_move.point) == (2000, (0, 0))
+
+
+def test_a_repeated_position_is_stored_once():
+    import tracemalloc
+
+    game = Game(25)
+    tracemalloc.start()
+    try:
+        for n in range(1999):
+            game.play(BLACK if n % 2 == 0 else WHITE, None)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    # A snapshot per ply would take at least 1,999 * 625 bytes; one stored position takes 625.
+    assert peak < 1999 * 625 // 2

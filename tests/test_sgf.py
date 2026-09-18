@@ -369,7 +369,7 @@ def test_a_long_capture_recapture_game_loads():
     }
     cycle = [("B", (2, 2)), ("W", (3, 6)), ("B", None),
              ("W", (3, 2)), ("B", (2, 6)), ("W", None)]
-    cycles = 700
+    cycles = 333  # 1,998 moves: inside the 2,000-move limit (SPEC §7.6)
     root = "".join(f"A{c}" + "".join(f"[{coords.to_sgf(p, 9)}]" for p in pts)
                    for c, pts in setup.items())
     body = "".join(f";{c}[{coords.to_sgf(p, 9)}]" for c, p in cycle) * cycles
@@ -435,3 +435,91 @@ def test_a_point_in_both_ab_and_aw_is_an_sgf_error():
 def test_a_compressed_overlap_between_ab_and_aw_is_an_sgf_error():
     with pytest.raises(SGFError):
         load("AB[aa:cc]AW[bb]")
+
+
+# -- reading: limits and bounded cost (SPEC §1.5, §7.6) -------------------------------------
+@pytest.mark.parametrize("prop", ["SZ[" + "9" * 5000 + "]", "SZ[" + "9" * 5000 + ":9]",
+                                  "HA[" + "9" * 5000 + "]AB[aa]", "HA[" + "9" * 5000 + "]"],
+                         ids=["sz", "sz-pair", "ha-with-setup", "ha-alone"])
+def test_a_huge_sz_or_ha_is_an_sgf_error(prop):
+    with pytest.raises(SGFError):
+        Game.from_sgf(f"(;{prop})")
+
+
+@pytest.mark.parametrize("ha", ["-1", "82", "626", "0" * 10 + "82"])
+def test_ha_outside_0_to_size_squared_is_an_sgf_error(ha):
+    with pytest.raises(SGFError):
+        load(f"HA[{ha}]AB[aa][bb]")
+
+
+@pytest.mark.parametrize("ha", ["0", "81", "007"])
+def test_ha_from_0_to_size_squared_is_read(ha):
+    load(f"HA[{ha}]AB[aa][bb]")
+
+
+def test_a_move_earlier_in_the_failing_node_is_kept():
+    game = Game.from_sgf("(;SZ[9];B[aa]W[aa];B[bb])")
+    assert move_vertices(game) == ["A9"]
+
+
+def test_setup_may_list_size_squared_points():
+    game = load("AB[aa:ii]", size=9)
+    assert len(game.to_dict()["setupStones"]) == 81
+
+
+@pytest.mark.parametrize("props", ["AB[aa:ii][aa]", "AB" + "[aa]" * 82, "AB[aa:ii][aa:ii]"],
+                         ids=["rectangle-and-repeat", "82-repeats", "two-rectangles"])
+def test_more_than_size_squared_setup_points_is_an_sgf_error(props):
+    with pytest.raises(SGFError):
+        load(props)
+
+
+def test_a_megabyte_of_setup_rectangles_is_refused_before_expanding_them():
+    text = "(;SZ[25]AB" + "[aa:yy]" * 149796 + ")"  # about 1 MiB
+    expanded = []
+    real = coords.sgf_point
+
+    def counting(value, size):
+        expanded.append(value)
+        return real(value, size)
+
+    import time
+    from unittest import mock
+
+    start = time.perf_counter()
+    with mock.patch.object(coords, "sgf_point", counting), pytest.raises(SGFError):
+        Game.from_sgf(text)
+    elapsed = time.perf_counter() - start
+    # Each rectangle's two corners are read once; no point inside one is visited.
+    assert len(expanded) <= 2 * 149796
+    assert elapsed < 5
+
+
+def test_a_main_line_of_10000_nodes_is_read():
+    game = Game.from_sgf("(;SZ[9]" + ";" * 9999 + ")")
+    assert game.move_count == 0
+
+
+def test_a_main_line_of_more_than_10000_nodes_is_an_sgf_error():
+    with pytest.raises(SGFError):
+        Game.from_sgf("(;SZ[9]" + ";" * 10000 + ")")
+
+
+def test_a_megabyte_of_empty_nodes_is_an_sgf_error_without_building_them():
+    import tracemalloc
+
+    text = "(;" + ";" * 1048572 + ")"
+    tracemalloc.start()
+    try:
+        with pytest.raises(SGFError):
+            sgf.parse(text)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 16 << 20
+
+
+def test_reading_stops_after_the_move_limit():
+    body = ";B[];W[]" * 1001
+    game = Game.from_sgf(f"(;SZ[9]{body})")
+    assert game.move_count == 2000
