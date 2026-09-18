@@ -21,53 +21,53 @@
 | &nbsp;&nbsp;§1.3 | Legality | 131 |
 | &nbsp;&nbsp;§1.4 | Game model | 153 |
 | &nbsp;&nbsp;§1.5 | SGF | 163 |
-| §2 | Engine protocols | 187 |
-| &nbsp;&nbsp;§2.1 | Transport | 189 |
-| &nbsp;&nbsp;§2.2 | Shared analysis shape | 196 |
-| &nbsp;&nbsp;§2.3 | GTP | 208 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 226 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 235 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 274 |
-| §3 | Session and boards | 280 |
-| &nbsp;&nbsp;§3.1 | Spaces | 282 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 288 |
-| &nbsp;&nbsp;§3.3 | Boards | 305 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 317 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 322 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 327 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 331 |
-| §4 | WebSocket protocol | 336 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 340 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 364 |
-| §5 | HTTP routes | 378 |
-| §6 | Launch modes and policies | 397 |
-| &nbsp;&nbsp;§6.1 | The rule | 399 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 416 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 422 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 436 |
-| §7 | Authentication and security | 442 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 444 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 454 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 462 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 470 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 484 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 491 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 506 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 516 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 522 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 528 |
-| §8 | Persistence | 538 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 540 |
-| &nbsp;&nbsp;§8.2 | Saving | 559 |
-| &nbsp;&nbsp;§8.3 | Local state file | 564 |
-| &nbsp;&nbsp;§8.4 | Server database | 573 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 578 |
-| §9 | Command line | 582 |
-| §10 | Configuration (server) | 597 |
-| §11 | Feature inventory | 617 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 623 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 661 |
-| §12 | Non-goals | 679 |
+| §2 | Engine protocols | 193 |
+| &nbsp;&nbsp;§2.1 | Transport | 195 |
+| &nbsp;&nbsp;§2.2 | Shared analysis shape | 202 |
+| &nbsp;&nbsp;§2.3 | GTP | 214 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 232 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 241 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 280 |
+| §3 | Session and boards | 286 |
+| &nbsp;&nbsp;§3.1 | Spaces | 288 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 294 |
+| &nbsp;&nbsp;§3.3 | Boards | 311 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 323 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 328 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 333 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 337 |
+| §4 | WebSocket protocol | 342 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 346 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 370 |
+| §5 | HTTP routes | 384 |
+| §6 | Launch modes and policies | 403 |
+| &nbsp;&nbsp;§6.1 | The rule | 405 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 422 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 428 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 442 |
+| §7 | Authentication and security | 448 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 450 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 460 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 468 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 476 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 490 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 497 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 514 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 524 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 530 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 536 |
+| §8 | Persistence | 546 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 548 |
+| &nbsp;&nbsp;§8.2 | Saving | 567 |
+| &nbsp;&nbsp;§8.3 | Local state file | 572 |
+| &nbsp;&nbsp;§8.4 | Server database | 581 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 586 |
+| §9 | Command line | 590 |
+| §10 | Configuration (server) | 605 |
+| §11 | Feature inventory | 625 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 631 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 669 |
+| §12 | Non-goals | 687 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -112,7 +112,7 @@ the engine scores the game the way gowui adjudicates it.
 ### 1.2 New games and handicap
 
 A new game takes a size (2–25), a rule set, an optional komi and a handicap count. A size outside
-2–25, an unknown rule set, a komi that is not a finite number, or a handicap count the size does
+2–25, an unknown rule set, a komi that is not a finite number (a boolean is not a number), or a handicap count the size does
 not allow is refused with an error and changes nothing.
 
 Handicap stones use GTP's fixed placement (GTP 2 `fixed_handicap`): on the 3rd line for sizes 7–12
@@ -174,14 +174,20 @@ and the move number of every stone still on the board (`moveNumbers`, vertex →
   `_` for `-`); an unknown or missing rule set becomes `japanese`. `PL` sets the first player.
   Handicap in an SGF is free placement: the stones are the `AB` points, the §1.2 table does not
   apply, and `HA` takes effect (half-point komi convention, White first) only when setup stones are
-  present. `AB`/`AW` accept FF[4] compressed point lists (`aa:cc`); a point listed twice in one
-  colour counts once; `AE` in the root is ignored. `KM` must be a finite number. Move comments are kept; comments on the root or
-  other non-move nodes are not.
-- A move that is illegal under the loaded rules, off the board or not a valid point, and setup (`AB`/`AW`/`AE`) in
-  a node after the root, stop reading: the game keeps every move before that node. Everything else
-  that cannot be read — text that is not SGF, no nodes, a rectangular or out-of-range `SZ`, a
-  non-numeric `HA`, a non-finite `KM`, a malformed or off-board `AB`/`AW` point, a point in both
-  `AB` and `AW`, variations nested more than 1,000 levels deep — is an SGF error that changes nothing.
+  present; `HA` is a number from 0 to size². `AB`/`AW` accept FF[4] compressed point lists
+  (`aa:cc`); a point listed twice in one colour counts once, but together they may list at most
+  size² points counting repeats and expanded lists. `AE` in the root is ignored. `KM` must be a
+  finite number. Move comments are kept; comments on the root or other non-move nodes are not.
+- Reading stops, keeping everything read so far, at a move that is illegal under the loaded rules,
+  off the board or not a valid point (the game keeps every move before that move, even one earlier
+  in the same node), at setup (`AB`/`AW`/`AE`) in a node after the root (every move before that
+  node is kept), and after the game's move limit (§7.6: the first 2,000 moves are kept).
+  Everything else that cannot be read — text that is not SGF, no nodes, a main line of more than
+  10,000 nodes, a rectangular or out-of-range `SZ`, an `HA` that is not a number in range, a
+  non-finite `KM`, a malformed or off-board `AB`/`AW` point, too many setup points, a point in both
+  `AB` and `AW`, variations nested more than 1,000 levels deep — is an SGF error that changes
+  nothing. Reading costs time and memory linear in the text, and each distinct position is stored
+  once however often it recurs.
 - Saving offers the user a file name before download (default `gowui.sgf`).
 
 ## 2. Engine protocols
@@ -495,6 +501,8 @@ error messages) is inserted as text, never as HTML.
 | WebSocket frame | 1 MiB |
 | SGF body (`POST /api/sgf`, `load_sgf`) | 1 MiB |
 | Boards per space | 64 |
+| Moves per game | 2,000 (playing past it is refused) |
+| SGF main line | 10,000 nodes |
 | Board name | 40 characters (longer names are truncated, §3.3) |
 | Max visits, eval visits | 1 … 1,000,000 (eval visits may be 0) |
 | Report interval | 0.1 s … 10 s |
