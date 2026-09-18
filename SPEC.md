@@ -25,49 +25,49 @@
 | &nbsp;&nbsp;§2.1 | Transport | 195 |
 | &nbsp;&nbsp;§2.2 | Shared analysis shape | 221 |
 | &nbsp;&nbsp;§2.3 | GTP | 241 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 276 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 292 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 331 |
-| §3 | Session and boards | 347 |
-| &nbsp;&nbsp;§3.1 | Spaces | 349 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 355 |
-| &nbsp;&nbsp;§3.3 | Boards | 372 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 384 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 389 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 394 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 398 |
-| §4 | WebSocket protocol | 403 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 407 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 431 |
-| §5 | HTTP routes | 445 |
-| §6 | Launch modes and policies | 464 |
-| &nbsp;&nbsp;§6.1 | The rule | 466 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 483 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 489 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 503 |
-| §7 | Authentication and security | 509 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 511 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 521 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 529 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 537 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 551 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 558 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 575 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 585 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 591 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 597 |
-| §8 | Persistence | 607 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 609 |
-| &nbsp;&nbsp;§8.2 | Saving | 628 |
-| &nbsp;&nbsp;§8.3 | Local state file | 633 |
-| &nbsp;&nbsp;§8.4 | Server database | 642 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 647 |
-| §9 | Command line | 651 |
-| §10 | Configuration (server) | 666 |
-| §11 | Feature inventory | 686 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 692 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 730 |
-| §12 | Non-goals | 748 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 277 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 293 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 332 |
+| §3 | Session and boards | 348 |
+| &nbsp;&nbsp;§3.1 | Spaces | 350 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 356 |
+| &nbsp;&nbsp;§3.3 | Boards | 373 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 385 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 390 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 395 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 399 |
+| §4 | WebSocket protocol | 404 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 408 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 432 |
+| §5 | HTTP routes | 446 |
+| §6 | Launch modes and policies | 465 |
+| &nbsp;&nbsp;§6.1 | The rule | 467 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 484 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 490 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 504 |
+| §7 | Authentication and security | 510 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 512 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 522 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 530 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 538 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 552 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 559 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 576 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 586 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 592 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 598 |
+| §8 | Persistence | 608 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 610 |
+| &nbsp;&nbsp;§8.2 | Saving | 629 |
+| &nbsp;&nbsp;§8.3 | Local state file | 634 |
+| &nbsp;&nbsp;§8.4 | Server database | 643 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 648 |
+| §9 | Command line | 652 |
+| §10 | Configuration (server) | 667 |
+| §11 | Feature inventory | 687 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 693 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 731 |
+| §12 | Non-goals | 749 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -262,14 +262,15 @@ Engine output is untrusted and is sanitised on the way in, so `analysis` is alwa
   note to the traffic log. If every attempt is rejected, the command fails with an engine error.
   Ownership that could not be requested arrives as an empty `ownership` array.
 - **`lz-analyze`.** An engine without `kata-analyze` is analysed with `lz-analyze`. Its reports
-  carry no `rootInfo` and no ownership; its winrates, on a 0–10000 scale from the side to move, are
-  converted to 0–1 and to Black's view (§0).
+  carry no `rootInfo` and no ownership; its winrates, priors and lower confidence bounds, on a
+  0–10000 scale, are converted to 0–1, and winrates and bounds to Black's view (§0).
 - `genmove` plays the engine's move; with analysis on, `kata-genmove_analyze` is used so the
   search is shown while the engine thinks, and plain `genmove` when the engine lacks it. A move
   answer that is neither a vertex on the board nor `pass` or `resign` is an engine error.
   `final_score` is available. Max visits is applied with `kata-set-param maxVisits` when supported.
 - **Raw commands** (the GTP console) are a public client operation: the command is passed through
-  verbatim (subject to the one-line rule, §2.1) and its reply returned; afterwards the mirror is
+  verbatim (subject to the one-line rule, §2.1) and its reply returned — a `?` reply is an engine
+  error carrying the engine's message; either way the mirror is
   dropped and the next sync rebuilds the engine's board, because any raw command may have changed
   it.
 
