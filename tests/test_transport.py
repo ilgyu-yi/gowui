@@ -48,7 +48,13 @@ class Peer:
         return self
 
     async def __aexit__(self, *exc) -> None:
+        # A connection the loop accepted but not yet handed to handle() is in no list here; let it
+        # arrive, else (Python 3.12+) wait_closed() waits for it forever.
+        for _ in range(5):
+            await asyncio.sleep(0)
         self._server.close()
+        if hasattr(self._server, "close_clients"):  # Python 3.13+
+            self._server.close_clients()
         for writer in self._writers:
             writer.close()
         await asyncio.wait_for(self._server.wait_closed(), HANG)
