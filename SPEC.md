@@ -15,59 +15,59 @@
 | Section | Title | Line |
 |---|---|---|
 | §0 | Purpose and conventions | 73 |
-| §1 | Rules and SGF | 94 |
-| &nbsp;&nbsp;§1.1 | Rule sets | 96 |
-| &nbsp;&nbsp;§1.2 | New games and handicap | 110 |
-| &nbsp;&nbsp;§1.3 | Legality | 118 |
-| &nbsp;&nbsp;§1.4 | Game model | 131 |
-| &nbsp;&nbsp;§1.5 | SGF | 141 |
-| §2 | Engine protocols | 154 |
-| &nbsp;&nbsp;§2.1 | Transport | 156 |
-| &nbsp;&nbsp;§2.2 | Shared analysis shape | 163 |
-| &nbsp;&nbsp;§2.3 | GTP | 175 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 193 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 202 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 241 |
-| §3 | Session and boards | 247 |
-| &nbsp;&nbsp;§3.1 | Spaces | 249 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 255 |
-| &nbsp;&nbsp;§3.3 | Boards | 272 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 284 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 289 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 294 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 298 |
-| §4 | WebSocket protocol | 303 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 307 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 331 |
-| §5 | HTTP routes | 345 |
-| §6 | Launch modes and policies | 364 |
-| &nbsp;&nbsp;§6.1 | The rule | 366 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 383 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 389 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 403 |
-| §7 | Authentication and security | 409 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 411 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 421 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 429 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 437 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 451 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 458 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 473 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 483 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 489 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 495 |
-| §8 | Persistence | 505 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 507 |
-| &nbsp;&nbsp;§8.2 | Saving | 526 |
-| &nbsp;&nbsp;§8.3 | Local state file | 531 |
-| &nbsp;&nbsp;§8.4 | Server database | 540 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 545 |
-| §9 | Command line | 549 |
-| §10 | Configuration (server) | 564 |
-| §11 | Feature inventory | 584 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 590 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 628 |
-| §12 | Non-goals | 646 |
+| §1 | Rules and SGF | 96 |
+| &nbsp;&nbsp;§1.1 | Rule sets | 98 |
+| &nbsp;&nbsp;§1.2 | New games and handicap | 112 |
+| &nbsp;&nbsp;§1.3 | Legality | 131 |
+| &nbsp;&nbsp;§1.4 | Game model | 153 |
+| &nbsp;&nbsp;§1.5 | SGF | 163 |
+| §2 | Engine protocols | 193 |
+| &nbsp;&nbsp;§2.1 | Transport | 195 |
+| &nbsp;&nbsp;§2.2 | Shared analysis shape | 202 |
+| &nbsp;&nbsp;§2.3 | GTP | 214 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 232 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 241 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 280 |
+| §3 | Session and boards | 286 |
+| &nbsp;&nbsp;§3.1 | Spaces | 288 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 294 |
+| &nbsp;&nbsp;§3.3 | Boards | 311 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 323 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 328 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 333 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 337 |
+| §4 | WebSocket protocol | 342 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 346 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 370 |
+| §5 | HTTP routes | 384 |
+| §6 | Launch modes and policies | 403 |
+| &nbsp;&nbsp;§6.1 | The rule | 405 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 422 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 428 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 442 |
+| §7 | Authentication and security | 448 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 450 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 460 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 468 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 476 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 490 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 497 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 514 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 524 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 530 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 536 |
+| §8 | Persistence | 546 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 548 |
+| &nbsp;&nbsp;§8.2 | Saving | 567 |
+| &nbsp;&nbsp;§8.3 | Local state file | 572 |
+| &nbsp;&nbsp;§8.4 | Server database | 581 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 586 |
+| §9 | Command line | 590 |
+| §10 | Configuration (server) | 605 |
+| §11 | Feature inventory | 625 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 631 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 669 |
+| §12 | Non-goals | 687 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -81,8 +81,10 @@ changes what a feature does.
 Conventions used throughout:
 
 - **Colours** are `black` / `white` in browser messages and `B` / `W` towards engines.
-- **Vertices** use GTP notation: columns `A`–`Z` without `I`, rows `1` (bottom) to `size` (top);
-  `pass` is a move, `resign` ends the game. SGF coordinates are used only inside SGF text.
+- **Vertices** use GTP notation: one column letter `A`–`Z` without `I` (either case), then the row
+  as 1–2 ASCII digits without a leading zero, `1` at the bottom to `size` at the top; anything else,
+  including an empty string or a point off the board, is refused. `pass` is a move; `resign` is
+  never a vertex (§1.3). SGF coordinates are used only inside SGF text.
 - **Board arrays** (stones, policy, ownership) are row-major from the top-left point; a policy array
   has one extra trailing entry for `pass`.
 - **Perspective.** Every winrate, score lead and ownership value that leaves the server is from
@@ -109,11 +111,22 @@ the engine scores the game the way gowui adjudicates it.
 
 ### 1.2 New games and handicap
 
-A new game takes a size, a rule set, an optional komi and a handicap count. When komi is not given
-it is the rule set's default, or **0.5** when the handicap is 2 or more. Handicap stones go on the
-standard star points for the size (the usual 2–9 stone patterns); a handicap game starts with White
-to move. The server, not the browser, decides the effective komi: the browser sends `null` unless
-the user typed a number.
+A new game takes a size (2–25), a rule set, an optional komi and a handicap count. A size outside
+2–25, an unknown rule set, a komi that is not a finite number (a boolean is not a number), or a handicap count the size does
+not allow is refused with an error and changes nothing.
+
+Handicap stones use GTP's fixed placement (GTP 2 `fixed_handicap`): on the 3rd line for sizes 7–12
+and the 4th line for 13 and up, in GTP's order. Allowed counts:
+
+| Size | Handicap |
+|---|---|
+| below 7 | none |
+| 7, and even sizes 8 and up | 2–4 |
+| odd sizes 9 and up | 2–9 |
+
+A handicap of 0 or 1 means no handicap; a negative count is refused. When komi is not given it is the rule set's default, or
+**0.5** in a handicap game; a handicap game starts with White to move. The server, not the browser,
+decides the effective komi: the browser sends `null` unless the user typed a number.
 
 ### 1.3 Legality
 
@@ -125,30 +138,56 @@ under a rule set that forbids suicide, or when it violates the ko rule:
 - **situational superko** — the resulting position with the same player to move has occurred before.
 
 Captures are resolved before the suicide check. Where suicide is legal, a suicidal move removes the
-player's own group. Two consecutive passes end the game; a resignation sets the result (`W+R` /
-`B+R`).
+player's own group, and those stones count as prisoners for the opponent. A legality check costs time proportional to the board area, independent of the
+game's length, and reading an SGF is linear in its number of moves.
+
+`resign` is not a vertex: resigning is its own action, which sets the result (`W+R` when Black
+resigns, `B+R` when White does) and ends the game. A move played after a result is set — at the
+end, or branching from an earlier position — clears the result, and so does undo.
+
+**Game over** is a property of the position at the cursor: the two moves before it are passes, or
+the result is a resignation (`B+R`, `W+R`, `B+Resign`, `W+Resign`) and the cursor is at the last
+move. Any other result (`B+3.5`, `W+T`, `Void`, `?`, …) is kept as text and round-trips, but does not
+by itself end the game — a loaded game with a scored result stays open to analysis.
 
 ### 1.4 Game model
 
 A game is one line of play — setup stones plus a move list — and a **cursor** (0 … number of moves)
-naming the position on screen. Navigating moves only the cursor. Playing a move while the cursor is
-in the past discards the moves after it (the browser is told "branched at move N"). Undo removes the
-move before the cursor, together with anything after it. The browser-facing game state carries
-size, komi, rules, handicap, stones, capture counts, side to move, cursor, move count, game-over
-flag, result, player names, last move, setup stones, the move list, and the move number of every
-stone still on the board.
+naming the position on screen. Navigating moves only the cursor, clamped to that range. Playing a
+move while the cursor is in the past discards the moves after it (the browser is told "branched at
+move N"). Undo removes the move before the cursor, together with anything after it. The
+browser-facing game state carries size, komi, rules, handicap, stones, capture counts, side to move,
+cursor, move count, game-over flag, result, player names, last move, setup stones, the move list,
+and the move number of every stone still on the board (`moveNumbers`, vertex → move number).
 
 ### 1.5 SGF
 
-- **Written** properties: `GM[1] FF[4] CA[UTF-8] AP SZ KM RU PB PW`, plus `HA` for handicap ≥ 2,
-  `PL` when the first player differs from the default, `RE` when there is a result, `AB`/`AW` for
-  setup stones, and one node per move (`B`/`W`, with `C` comments). Output round-trips through the
+- **Written** properties: `GM[1] FF[4] CA[UTF-8] AP[gowui:<version>] SZ KM RU PB PW`, plus `HA`
+  for a handicap game, `PL` when the first player differs from the default, `RE` when there is a
+  result, `AB`/`AW` for setup stones, and one node per move (`B`/`W`, with `C` comments). A pass is
+  written as an empty value. `\` and `]` in values are escaped. Output round-trips through the
   reader to the same game.
-- **Read**: the main line only (variations are dropped). `RU` is matched case-insensitively with
-  aliases (`jp`, `cn`, `nz`, `trompTaylor`, spaces or `_` for `-`); an unknown or missing rule set
-  becomes `japanese`. `PL` sets the first player. A move that is illegal under the loaded rules
-  stops reading: the game keeps every move before it. Text that is not SGF, or has no nodes, is an
-  error that changes nothing.
+- **Read**: the main line only (variations are dropped). In values `\` escapes the next
+  character, and a backslash followed by a line break (LF, CR, CRLF or LFCR) is a soft break and is
+  removed. A pass is an empty value, or `tt` on boards up to 19×19. `SZ` is `n` or `n:n` with n in
+  2–25. `RU` is matched case-insensitively with aliases (`jp`, `cn`, `nz`, `trompTaylor`, spaces or
+  `_` for `-`); an unknown or missing rule set becomes `japanese`. `PL` sets the first player.
+  Handicap in an SGF is free placement: the stones are the `AB` points, the §1.2 table does not
+  apply, and `HA` takes effect (half-point komi convention, White first) only when setup stones are
+  present; `HA` is a number from 0 to size². `AB`/`AW` accept FF[4] compressed point lists
+  (`aa:cc`); a point listed twice in one colour counts once, but together they may list at most
+  size² points counting repeats and expanded lists. `AE` in the root is ignored. `KM` must be a
+  finite number. Move comments are kept; comments on the root or other non-move nodes are not.
+- Reading stops, keeping everything read so far, at a move that is illegal under the loaded rules,
+  off the board or not a valid point (the game keeps every move before that move, even one earlier
+  in the same node), at setup (`AB`/`AW`/`AE`) in a node after the root (every move before that
+  node is kept), and after the game's move limit (§7.6: the first 2,000 moves are kept).
+  Everything else that cannot be read — text that is not SGF, no nodes, a main line of more than
+  10,000 nodes, a rectangular or out-of-range `SZ`, an `HA` that is not a number in range, a
+  non-finite `KM`, a malformed or off-board `AB`/`AW` point, too many setup points, a point in both
+  `AB` and `AW`, variations nested more than 1,000 levels deep — is an SGF error that changes
+  nothing. Reading costs time and memory linear in the text, and each distinct position is stored
+  once however often it recurs.
 - Saving offers the user a file name before download (default `gowui.sgf`).
 
 ## 2. Engine protocols
@@ -462,6 +501,8 @@ error messages) is inserted as text, never as HTML.
 | WebSocket frame | 1 MiB |
 | SGF body (`POST /api/sgf`, `load_sgf`) | 1 MiB |
 | Boards per space | 64 |
+| Moves per game | 2,000 (playing past it is refused) |
+| SGF main line | 10,000 nodes |
 | Board name | 40 characters (longer names are truncated, §3.3) |
 | Max visits, eval visits | 1 … 1,000,000 (eval visits may be 0) |
 | Report interval | 0.1 s … 10 s |
@@ -599,12 +640,12 @@ issue that builds it lands.
 | B6 | Raw policy heatmap | §2.2 | both | pending |
 | B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | pending |
 | B8 | Winrate and score shown from Black's view | §0 | both | pending |
-| B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | pending |
-| B10 | New game: size, komi, rules, handicap | §1.2 | both | pending |
-| B11 | SGF load | §1.5 | both | pending |
-| B12 | SGF save with a user-chosen file name | §1.5 | both | pending |
-| B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | pending |
-| B14 | Undo, pass, resign | §1.4, §3.2 | both | pending |
+| B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
+| B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: pending |
+| B11 | SGF load | §1.5 | both | `tests/test_sgf.py` |
+| B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; UI: pending |
+| B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: pending |
+| B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; UI: pending |
 | B15 | GTP console | §3.5 | both (server: per catalog entry) | pending |
 | B16 | Final score | §3.5 | both | pending |
 | B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | pending |
@@ -622,8 +663,8 @@ issue that builds it lands.
 | B29 | Several tabs share one view | §3.1 | both | pending |
 | B30 | Engine traffic log | §3.6 | both | pending |
 | B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | pending |
-| B32 | Move numbers on stones, toggleable | §1.4 | both | pending |
-| B33 | Capture counts per colour | §1.4 | both | pending |
+| B32 | Move numbers on stones, toggleable | §1.4 | both | model: `tests/test_game.py`; UI: pending |
+| B33 | Capture counts per colour | §1.4 | both | model: `tests/test_board.py`, `tests/test_game.py`; UI: pending |
 
 ### 11.2 New in this rebuild
 
