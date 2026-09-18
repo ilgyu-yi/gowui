@@ -9,5 +9,5 @@ dist/
 .DS_Store
 *.sgf
 !tests/data/*.sgf
-state.json
-data/
+/state.json
+/data/
