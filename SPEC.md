@@ -23,51 +23,51 @@
 | &nbsp;&nbsp;§1.5 | SGF | 163 |
 | §2 | Engine protocols | 193 |
 | &nbsp;&nbsp;§2.1 | Transport | 195 |
-| &nbsp;&nbsp;§2.2 | Shared analysis shape | 223 |
-| &nbsp;&nbsp;§2.3 | GTP | 243 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 282 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 298 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 337 |
-| §3 | Session and boards | 353 |
-| &nbsp;&nbsp;§3.1 | Spaces | 355 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 361 |
-| &nbsp;&nbsp;§3.3 | Boards | 378 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 390 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 395 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 400 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 404 |
-| §4 | WebSocket protocol | 409 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 413 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 437 |
-| §5 | HTTP routes | 451 |
-| §6 | Launch modes and policies | 470 |
-| &nbsp;&nbsp;§6.1 | The rule | 472 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 489 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 495 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 509 |
-| §7 | Authentication and security | 515 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 517 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 527 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 535 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 543 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 557 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 564 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 581 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 591 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 597 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 603 |
-| §8 | Persistence | 613 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 615 |
-| &nbsp;&nbsp;§8.2 | Saving | 634 |
-| &nbsp;&nbsp;§8.3 | Local state file | 639 |
-| &nbsp;&nbsp;§8.4 | Server database | 648 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 653 |
-| §9 | Command line | 657 |
-| §10 | Configuration (server) | 672 |
-| §11 | Feature inventory | 692 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 698 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 736 |
-| §12 | Non-goals | 754 |
+| &nbsp;&nbsp;§2.2 | Shared analysis shape | 236 |
+| &nbsp;&nbsp;§2.3 | GTP | 258 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 303 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 319 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 358 |
+| §3 | Session and boards | 374 |
+| &nbsp;&nbsp;§3.1 | Spaces | 376 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 382 |
+| &nbsp;&nbsp;§3.3 | Boards | 399 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 411 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 416 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 421 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 425 |
+| §4 | WebSocket protocol | 430 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 434 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 458 |
+| §5 | HTTP routes | 472 |
+| §6 | Launch modes and policies | 491 |
+| &nbsp;&nbsp;§6.1 | The rule | 493 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 510 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 516 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 530 |
+| §7 | Authentication and security | 536 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 538 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 548 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 556 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 564 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 578 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 585 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 602 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 612 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 618 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 624 |
+| §8 | Persistence | 634 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 636 |
+| &nbsp;&nbsp;§8.2 | Saving | 655 |
+| &nbsp;&nbsp;§8.3 | Local state file | 660 |
+| &nbsp;&nbsp;§8.4 | Server database | 669 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 674 |
+| §9 | Command line | 678 |
+| §10 | Configuration (server) | 693 |
+| §11 | Feature inventory | 713 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 719 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 757 |
+| §12 | Non-goals | 775 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -207,9 +207,22 @@ traffic log (§3.6).
   field, so only an engine-address policy that exposes addresses (§6.3) ever shows it (§7.7).
 - **Bounded input.** A received line is at most 1 MiB, and a whole GTP reply is capped at 4 MiB in total
   size. Overflow is an engine error and leaves the connection unusable.
-- **One line out.** A command containing CR, LF or NUL is refused with an engine error before
-  anything is sent; this includes raw console commands (§2.3).
-- **Unusable connection.** A timeout, a reply whose id does not match the command it answers, a
+- **One line out.** A command containing CR, LF or NUL, or text that cannot be encoded as UTF-8
+  (a lone surrogate), is refused with an engine error before anything is sent; this includes raw
+  console commands (§2.3).
+- **Valid address.** An engine address is a non-empty host of at most 253 characters without NUL
+  and a port in 1–65535; anything else, or a host the resolver cannot encode, fails to connect with
+  an engine error that names no address.
+- **Bounded waits both ways.** Sending waits a bounded time for the engine to accept the data; an
+  engine that stops reading leaves the connection unusable instead of hanging the sender, and
+  closing a connection never waits on a peer that does not read. A reply has one deadline for the
+  whole reply (not per line), so stray output cannot hold a command open; stray lines are logged
+  clipped. A reply id longer than 18 digits is a mismatch.
+- **Clipped engine text.** Engine text carried into an error message or a `#` note is clipped to
+  500 characters; notes about a failing callback name only the exception's type.
+- **Reconnect.** Connecting a client that is already connected first tears the old connection down
+  (socket and reader); every connection starts with a fresh board mirror and capability memory.
+- **Unusable connection.** A timeout, a send that is not accepted in time, a reply whose id does not match the command it answers, a
   command cancelled while waiting for its reply, or a stop that exceeds its bound (§2.3) leaves the
   connection unusable: the stream position is no longer known, so every later call fails with an
   engine error at once instead of reading a reply meant for something else. A GTP reply that echoes
@@ -237,10 +250,18 @@ Engine output is untrusted and is sanitised on the way in, so `analysis` is alwa
 - A number that is non-finite (NaN, ±infinity, or overflowing such as `1e999`) or malformed becomes
   `null`; inside the per-point arrays (`ownership`, `policy`) it becomes `0`.
 - A vertex that is not on the board and is not `pass` is dropped (from `moveInfos` and from a `pv`).
+- A per-point array of the wrong length (`ownership` not size², `policy` not size² + 1) is dropped
+  (sent empty); a turn number is clamped to 0 … 10,000.
 - A report that cannot be read at all is skipped with a `#` note in the traffic log, and the stream
   continues with the next report.
 
 ### 2.3 GTP
+
+**Engine perspective (both KataGo protocols).** The clients expect winrates, scores and ownership
+from the **side to move** — KataGo's `reportAnalysisWinratesAs = SIDETOMOVE`, which is its default
+when the key is unset — and convert them to Black's view. An engine configured with
+`reportAnalysisWinratesAs = BLACK` or `WHITE` (the stock `analysis_example.cfg` sets `BLACK`) is
+misconfigured for gowui and must be changed to `SIDETOMOVE`.
 
 - On connect the client asks `name`, `version` and `list_commands`; an engine that answers no
   command list is refused, and a JSON reply is refused with a hint that the engine speaks the

@@ -15,6 +15,10 @@ pytest
 
 The tests need no KataGo, GPU or model file.
 
+### Engine configuration
+
+gowui expects KataGo to report winrates from the side to move: set `reportAnalysisWinratesAs = SIDETOMOVE` (or leave it unset) in the engine's config. The stock `analysis_example.cfg` sets `BLACK` and must be changed (SPEC §2.3).
+
 ### Fake engine
 
 `tools/fake_engine.py` is an in-repo stand-in engine that speaks the engine protocols over real TCP
