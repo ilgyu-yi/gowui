@@ -1007,6 +1007,14 @@ async def test_an_overlong_reply_id_is_an_engine_error(fake_engine, connect, rep
         await asyncio.wait_for(engine.raw("final_score"), HANG)
 
 
+async def test_a_reply_id_over_18_digits_is_a_mismatch_even_when_it_equals_ours(fake_engine,
+                                                                                 connect):
+    # Zero-padded to 20+ digits, the id still names the command in flight as a number.
+    engine = await connect(await fake_engine("gtp", reply_id={"final_score": "0" * 18 + "%ID%"}))
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.raw("final_score"), HANG)
+
+
 async def test_an_overlong_reply_id_leaves_the_connection_unusable(fake_engine, connect):
     engine = await connect(await fake_engine("gtp", reply_id={"final_score": "9" * 5000}))
     with contextlib.suppress(EngineError):
@@ -1107,9 +1115,16 @@ async def test_a_reconnect_forgets_a_missing_capability(fake_engine, connect):
 
 
 # -- overlapping calls ----------------------------------------------------------------------------
-async def test_a_command_queued_behind_an_analysis_start_runs(fake_engine, connect):
+async def slow_sink(analysis) -> None:
+    """An async analysis callback that yields, as the session's broadcast does."""
+    await asyncio.sleep(0.01)
+
+
+@pytest.mark.parametrize("callback", ["sync", "async"])
+async def test_a_command_queued_behind_an_analysis_start_runs(fake_engine, connect, callback):
     engine = await connect(await fake_engine("gtp", delay={"kata-analyze": 0.3}))
-    starting = asyncio.create_task(engine.start_analysis(position_from(game_with(9)), Reports(),
+    sink = Reports() if callback == "sync" else slow_sink
+    starting = asyncio.create_task(engine.start_analysis(position_from(game_with(9)), sink,
                                                          interval=0.1))
     await asyncio.sleep(0.05)
     try:
@@ -1121,8 +1136,8 @@ async def test_a_command_queued_behind_an_analysis_start_runs(fake_engine, conne
 
 async def test_an_analysis_restart_queued_behind_another_leaves_one_stream(fake_engine, connect):
     engine = await connect(await fake_engine("gtp", delay={"kata-analyze": 0.3}))
-    first, second = Reports(), Reports()
-    starting = asyncio.create_task(engine.start_analysis(position_from(game_with(9)), first,
+    second = Reports()
+    starting = asyncio.create_task(engine.start_analysis(position_from(game_with(9)), slow_sink,
                                                          interval=0.1))
     await asyncio.sleep(0.05)
     await asyncio.wait_for(engine.start_analysis(position_from(game_with(9)), second,

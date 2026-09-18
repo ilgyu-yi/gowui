@@ -575,6 +575,16 @@ async def test_gtp_reply_id_answers_with_the_given_id(fake_engine):
     assert head.startswith("=" + "9" * 30 + " ")
 
 
+async def test_gtp_reply_id_expands_the_commands_own_id(fake_engine):
+    _, client = await gtp_client(fake_engine, reply_id={"final_score": "00%ID%"})
+    try:
+        await client.send("41 final_score")
+        head = await client.line()
+    finally:
+        await client.close()
+    assert head.startswith("=0041 ")
+
+
 async def test_gtp_stray_writes_lines_while_a_reply_is_held(fake_engine):
     _, client = await gtp_client(fake_engine, delay={"final_score": 0.35}, stray=(0.1, "noise"))
     try:

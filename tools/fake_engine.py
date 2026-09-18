@@ -84,7 +84,7 @@ class FakeOptions:
     never_read: bool = False
     #: GTP: answer every command without echoing its id (``=`` / ``?`` alone).
     no_reply_id: bool = False
-    #: GTP: answer these commands with this literal id instead of theirs.
+    #: GTP: answer these commands with this id instead of theirs (``%ID%`` becomes their id).
     reply_id: dict[str, str] = field(default_factory=dict)
     #: GTP ``(every, line)``: while a delayed reply is held, write ``line`` every ``every`` seconds.
     stray: tuple[float, str] | None = None
@@ -237,7 +237,7 @@ class FakeGTPEngine:
         if options.no_reply_id:
             return ""
         if name in options.reply_id:
-            return options.reply_id[name]
+            return options.reply_id[name].replace("%ID%", command_id)
         if name == options.wrong_id_on:
             return str(int(command_id or "0") + 1000)
         return command_id
