@@ -1,7 +1,8 @@
 """The game model (SPEC §1.2-§1.5): setup stones, one line of play and a cursor.
 
-Every ply is stored once as an immutable ``bytes`` snapshot of the stones (which is also its
-positional key) with the prisoner counts after it. Two indexes map a positional key, and a
+Every ply keeps an immutable ``bytes`` snapshot of the stones (which is also its positional key)
+with the prisoner counts after it; a ply that repeats a position shares the first ply's snapshot,
+so each distinct position is stored once. Two indexes map a positional key, and a
 (key, player to move) pair, to the first ply where it occurred; a position has occurred at the
 cursor iff that first ply is at or before the cursor. A legality check therefore costs time
 proportional to the board area, whatever the game's length.
@@ -24,9 +25,12 @@ from .sgf import SGFError, SGFNode, dump as sgf_dump, parse as sgf_parse
 
 RESULT_UNKNOWN = ""
 
+#: Most moves a game holds (SPEC §7.6); playing past it is refused and reading an SGF stops there.
+MAX_MOVES = 2000
+
 _RESIGNATION = re.compile(r"[BW]\+R(esign)?")
 _SZ = re.compile(r"([0-9]+)(?::([0-9]+))?")
-_HA = re.compile(r"[+-]?[0-9]+")
+_HA = re.compile(r"([+-]?)([0-9]+)")
 _KM = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
 
 _RULE_ALIASES = {
@@ -42,6 +46,25 @@ def _version() -> str:
         return importlib.metadata.version("gowui")
     except importlib.metadata.PackageNotFoundError:
         return "unknown"
+
+
+def _finite_komi(komi: Any) -> float:
+    """``komi`` as a float, or ValueError when it is not a finite number (a boolean is not one)."""
+    if isinstance(komi, bool):
+        raise ValueError("komi must be a finite number")
+    try:
+        value = float(komi)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("komi must be a finite number") from None
+    if not math.isfinite(value):
+        raise ValueError("komi must be a finite number")
+    return value
+
+
+def _small_int(digits: str) -> int | None:
+    """A decimal digit string as an int, or ``None`` when it has more than four significant digits."""
+    digits = digits.lstrip("0") or "0"
+    return int(digits) if len(digits) <= 4 else None
 
 
 def _color_name(color: int) -> str:
@@ -68,8 +91,8 @@ class Game:
         rule_set = get_rules(rules)
         if isinstance(handicap, bool) or not isinstance(handicap, int):
             raise ValueError("handicap must be an integer")
-        if komi is not None and not math.isfinite(float(komi)):
-            raise ValueError("komi must be a finite number")
+        if komi is not None:
+            komi = _finite_komi(komi)
         points = coords.handicap_points(size, handicap)
         count = len(points)
         self._setup(size, rule_set, komi, count, [(BLACK, x, y) for x, y in points],
@@ -133,6 +156,8 @@ class Game:
         """Try the move at the cursor: (reason it is illegal or None, resulting board, captures)."""
         if color not in (BLACK, WHITE):
             return "unknown colour", None, 0
+        if self.cursor >= MAX_MOVES:
+            return f"a game holds at most {MAX_MOVES:,} moves", None, 0
         board = self.board
         if point is None:
             return None, board, 0
@@ -194,6 +219,9 @@ class Game:
         self._truncate(self.cursor)
         move = Move(color, point, captured, comment)
         key = bytes(board.stones)
+        seen = self._first_seen.get(key)
+        if seen is not None:
+            key = self._snapshots[seen]  # store each distinct position once
         ply = len(self._snapshots)
         self.moves.append(move)
         self._snapshots.append(key)
@@ -297,7 +325,7 @@ class Game:
         size = _sgf_size(root)
         rule_set = get_rules(_sgf_rules(root.get("RU")))
         komi = _sgf_komi(root)
-        ha = _sgf_handicap(root)
+        ha = _sgf_handicap(root, size)
         setup = _sgf_setup(root, size)
         handicap = ha if setup and ha >= 2 else 0
         first = WHITE if handicap else BLACK
@@ -332,9 +360,9 @@ def _sgf_size(root: SGFNode) -> int:
     match = _SZ.fullmatch(root.get("SZ"))
     if match is None or (match.group(2) is not None and match.group(2) != match.group(1)):
         raise SGFError(f"unsupported SZ {root.get('SZ')!r}")
-    size = int(match.group(1))
-    if not 2 <= size <= 25:
-        raise SGFError(f"SZ {size} is outside 2-25")
+    size = _small_int(match.group(1))
+    if size is None or not 2 <= size <= 25:
+        raise SGFError(f"SZ {root.get('SZ')[:10]!r} is outside 2-25")
     return size
 
 
@@ -356,39 +384,56 @@ def _sgf_komi(root: SGFNode) -> float | None:
     return float(value)
 
 
-def _sgf_handicap(root: SGFNode) -> int:
+def _sgf_handicap(root: SGFNode, size: int) -> int:
     if "HA" not in root.properties:
         return 0
     value = root.get("HA").strip()
-    if _HA.fullmatch(value) is None:
-        raise SGFError(f"HA {value!r} is not a number")
-    return int(value)
+    match = _HA.fullmatch(value)
+    if match is None:
+        raise SGFError(f"HA {value[:10]!r} is not a number")
+    ha = _small_int(match.group(2))
+    if ha is not None and match.group(1) == "-":
+        ha = -ha
+    if ha is None or not 0 <= ha <= size * size:
+        raise SGFError(f"HA {value[:10]!r} is outside 0-{size * size}")
+    return ha
 
 
 def _sgf_setup(root: SGFNode, size: int) -> list[tuple[int, int, int]]:
-    setup: list[tuple[int, int, int]] = []
-    owner: dict[tuple[int, int], int] = {}
+    # Count every listed point (repeats and rectangle areas) before expanding any rectangle.
+    rects: list[tuple[int, tuple[int, int, int, int]]] = []
+    listed = 0
     for key, color in (("AB", BLACK), ("AW", WHITE)):
         for value in root.properties.get(key, []):
-            for point in _sgf_points(value, size):
+            rect = _sgf_rect(value, size)
+            listed += (rect[2] - rect[0] + 1) * (rect[3] - rect[1] + 1)
+            if listed > size * size:
+                raise SGFError(f"AB and AW list more than {size * size} points")
+            rects.append((color, rect))
+    setup: list[tuple[int, int, int]] = []
+    owner: dict[tuple[int, int], int] = {}
+    for color, (x1, y1, x2, y2) in rects:
+        for y in range(y1, y2 + 1):
+            for x in range(x1, x2 + 1):
+                point = (x, y)
                 seen = owner.get(point)
                 if seen == color:
                     continue
                 if seen is not None:
                     raise SGFError(f"{coords.to_sgf(point, size)} is in both AB and AW")
                 owner[point] = color
-                setup.append((color, point[0], point[1]))
+                setup.append((color, x, y))
     return setup
 
 
-def _sgf_points(value: str, size: int) -> list[tuple[int, int]]:
-    """One point, or an FF[4] compressed rectangle ``aa:cc``."""
+def _sgf_rect(value: str, size: int) -> tuple[int, int, int, int]:
+    """One point, or an FF[4] compressed rectangle ``aa:cc``, as (x1, y1, x2, y2) corners."""
     try:
         if ":" not in value:
-            return [coords.sgf_point(value, size)]
+            x, y = coords.sgf_point(value, size)
+            return x, y, x, y
         first, _, second = value.partition(":")
         (x1, y1), (x2, y2) = coords.sgf_point(first, size), coords.sgf_point(second, size)
     except CoordinateError as exc:
         raise SGFError(f"bad setup point {value!r}: {exc}") from None
-    return [(x, y) for y in range(min(y1, y2), max(y1, y2) + 1)
-            for x in range(min(x1, x2), max(x1, x2) + 1)]
+    return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)

@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 
 #: Deepest variation nesting the reader accepts (SPEC §1.5).
 MAX_DEPTH = 1000
+#: Longest main line the reader accepts, in nodes (SPEC §1.5, §7.6).
+MAX_NODES = 10_000
 
 _PLAIN = re.compile(r"[^\\\]]*")
 _IDENT = re.compile(r"[A-Za-z]+")
@@ -78,6 +80,8 @@ class _Reader:
             if char == ";":
                 if frame[1]:
                     raise SGFError(f"node after a variation at offset {self.pos}")
+                if frame[0] and len(nodes) >= MAX_NODES:
+                    raise SGFError(f"main line longer than {MAX_NODES} nodes")
                 self.pos += 1
                 node = self._node()
                 if frame[0]:
