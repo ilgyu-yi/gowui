@@ -346,6 +346,11 @@ def test_an_off_board_move_on_19x19_stops_reading():
     assert move_vertices(load(";B[aa];W[ua];B[bb]", size=19)) == ["A19"]
 
 
+@pytest.mark.parametrize("value", ["a", "zzz", "a1", "1a", " ", "aa:bb"])
+def test_a_move_that_is_not_a_valid_point_stops_reading(value):
+    assert move_vertices(load(f";B[aa];W[{value}];B[bb]")) == ["A9"]
+
+
 @pytest.mark.parametrize("prop", ["AB[cc]", "AW[cc]", "AE[aa]"])
 def test_setup_after_the_root_stops_reading(prop):
     assert move_vertices(load(f";B[aa];{prop};W[bb]")) == ["A9"]
