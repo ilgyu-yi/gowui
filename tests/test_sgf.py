@@ -490,8 +490,8 @@ def test_a_megabyte_of_setup_rectangles_is_refused_before_expanding_them():
     with mock.patch.object(coords, "sgf_point", counting), pytest.raises(SGFError):
         Game.from_sgf(text)
     elapsed = time.perf_counter() - start
-    # Each rectangle's two corners are read once; no point inside one is visited.
-    assert len(expanded) <= 2 * 149796
+    # Refused at the second rectangle, from the corners alone: two corners each, no more.
+    assert len(expanded) <= 4
     assert elapsed < 5
 
 
