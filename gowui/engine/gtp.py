@@ -15,7 +15,7 @@ import asyncio
 import re
 from typing import Any
 
-from .base import AnalysisCallback, Engine, LogCallback, color_letter, deliver
+from .base import TEXT_LIMIT, AnalysisCallback, Engine, LogCallback, clip, color_letter, deliver
 from .errors import ConnectionClosed, EngineError
 from .transport import LineConnection, check_line
 from .types import (Analysis, MoveInfo, Position, RootInfo, board_vertex, board_vertices, finite,
@@ -24,8 +24,11 @@ from .types import (Analysis, MoveInfo, Position, RootInfo, board_vertex, board_
 #: A whole reply is capped at this many bytes (§2.1).
 MAX_REPLY = 4 * 1024 * 1024
 #: Lines the reader may queue ahead of the consumer before it stops reading (backpressure).
-_QUEUE_LINES = 64
+#: With lines of at most 1 MiB this bounds the queued input to 16 MiB per connection.
+_QUEUE_LINES = 16
 _HEAD = re.compile(r"([=?])([0-9]*)(.*)", re.DOTALL)
+#: A reply id longer than this is a mismatch (§2.1); it could not name a command we sent.
+_MAX_ID_DIGITS = 18
 _KATA_OPTIONS = (("ownership", "ownership"), ("rootInfo", "rootInfo"))
 
 #: Single-valued keys in a ``kata-analyze`` / ``lz-analyze`` report.
@@ -72,6 +75,13 @@ class GTPEngine(Engine):
 
     # -- lifecycle ---------------------------------------------------------------------------
     async def connect(self) -> None:
+        await self._drop_connection()
+        # Every connection starts afresh: new socket, empty mirror, no remembered capability.
+        self._conn = LineConnection(self.host, self.port)
+        self.invalidate_mirror()
+        self._commands = set()
+        self._has_root_info = True
+        self._has_ownership = True
         self._arm()
         self._lines = asyncio.Queue(maxsize=_QUEUE_LINES)
         await self._conn.connect(timeout=self.connect_timeout)
@@ -97,6 +107,16 @@ class GTPEngine(Engine):
             except (EngineError, asyncio.TimeoutError):
                 pass
         await self._teardown()
+
+    async def _drop_connection(self) -> None:
+        """Tear down a live connection (stream, reader and socket) before connecting again."""
+        stream, self._stream_task = self._stream_task, None
+        if stream is not None:
+            stream.cancel()
+            await asyncio.gather(stream, return_exceptions=True)
+        if self._reader_task is not None or self._conn.connected:
+            self._closing = True
+            await self._teardown()
 
     async def _teardown(self) -> None:
         task, self._reader_task = self._reader_task, None
@@ -126,16 +146,23 @@ class GTPEngine(Engine):
         except Exception as exc:  # noqa: BLE001 - the reader is the last line of defence
             self._set_failure(self.error(f"the engine reader failed: {type(exc).__name__}"))
 
-    async def _next_line(self, timeout: float | None) -> str:
-        """The next received line; a timeout leaves the connection unusable."""
+    async def _next_line(self, timeout: float | None, deadline: float | None = None) -> str:
+        """The next received line, waiting at most ``timeout`` -- or, given a ``deadline`` (loop
+        time), only until then; a timeout leaves the connection unusable."""
         assert self._lines is not None
+        wait = timeout
+        if deadline is not None:
+            wait = deadline - asyncio.get_running_loop().time()
+            if wait <= 0:
+                self._check()
+                raise self._unusable(f"the engine did not answer within {timeout:g}s")
         if not self._lines.empty():
             return self._lines.get_nowait()
         self._check()
         getter = asyncio.ensure_future(self._lines.get())
         waiting = {getter} if self._failed is None else {getter, self._failed}
         try:
-            await asyncio.wait(waiting, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+            await asyncio.wait(waiting, timeout=wait, return_when=asyncio.FIRST_COMPLETED)
         finally:
             if not getter.done():
                 getter.cancel()
@@ -144,30 +171,40 @@ class GTPEngine(Engine):
         self._check()
         raise self._unusable(f"the engine did not answer within {timeout:g}s")
 
-    async def _write(self, line: str) -> None:
+    async def _write(self, line: str, bound: float | None = None) -> None:
+        """Send one line; a send the engine does not accept in time leaves the connection
+        unusable (§2.1)."""
         self._check()
         try:
-            await self._conn.write_line(line)
+            await self._conn.write_line(line, timeout=self._send_limit(bound))
         except ConnectionClosed as exc:
             self._lost(exc)
             raise self._failure.copy() if self._failure else exc from None
+        except EngineError as exc:
+            if self._conn.broken:
+                raise self._unusable(exc.message) from None
+            raise
 
     # -- one command -----------------------------------------------------------------------------
-    async def _send(self, command: str) -> int:
+    async def _send(self, command: str, bound: float | None = None) -> int:
         """Write one command line with a fresh id; the caller holds the lock."""
         check_line(command)
         self._check()
         command_id = self._next_id
         self._next_id += 1
         line = f"{command_id} {command}"
-        await self._write(line)
+        await self._write(line, bound)
         self.log("send", line)
         return command_id
 
-    async def _head(self, command_id: int, timeout: float) -> tuple[bool, str]:
+    def _deadline(self, timeout: float) -> float:
+        """One deadline for a whole reply (§2.1), in loop time."""
+        return asyncio.get_running_loop().time() + timeout
+
+    async def _head(self, command_id: int, timeout: float, deadline: float) -> tuple[bool, str]:
         """Skip stray output until the ``=``/``?`` line answering ``command_id``."""
         while True:
-            line = await self._next_line(timeout)
+            line = await self._next_line(timeout, deadline)
             if line.lstrip().startswith("{"):
                 raise self._unusable(
                     "the engine answered with JSON: this looks like the KataGo analysis engine, "
@@ -175,19 +212,22 @@ class GTPEngine(Engine):
             match = _HEAD.match(line)
             if match:
                 ok, digits, rest = match.group(1) == "=", match.group(2), match.group(3)
-                if digits and int(digits) != command_id:
-                    raise self._unusable(f"a reply for command {int(digits)} arrived while "
+                # Compare at most 18 digits as a number; anything longer cannot be ours.
+                if digits and (len(digits) > _MAX_ID_DIGITS or int(digits) != command_id):
+                    shown = digits if len(digits) <= _MAX_ID_DIGITS else (
+                        digits[:_MAX_ID_DIGITS] + "...")
+                    raise self._unusable(f"a reply for command {shown} arrived while "
                                          f"waiting for command {command_id}")
                 return ok, rest.strip()
             if line.strip():
-                self.log("recv", line)
+                self.log("recv", clip(line))
 
-    async def _body(self, first: str, timeout: float) -> str:
+    async def _body(self, first: str, timeout: float, deadline: float) -> str:
         """The rest of a reply up to its blank line, capped at :data:`MAX_REPLY` in total."""
         lines = [first] if first else []
         total = len(first.encode()) + 1
         while True:
-            line = await self._next_line(timeout)
+            line = await self._next_line(timeout, deadline)
             if line == "":
                 return "\n".join(lines)
             total += len(line.encode()) + 1
@@ -197,24 +237,37 @@ class GTPEngine(Engine):
 
     async def _exchange(self, command: str, timeout: float) -> str:
         """Send ``command`` and return its payload; a ``?`` reply raises :class:`_Rejected`."""
-        command_id = await self._send(command)
+        deadline = self._deadline(timeout)
+        command_id = await self._send(command, timeout)
         try:
-            ok, first = await self._head(command_id, timeout)
-            payload = (await self._body(first, timeout)).strip()
+            ok, first = await self._head(command_id, timeout, deadline)
+            payload = (await self._body(first, timeout, deadline)).strip()
         except asyncio.CancelledError:
             self._unusable(f"{command.split()[0] if command.split() else 'a command'} was "
                            "cancelled while waiting for its reply")
             raise
+        except EngineError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - untrusted input must not escape as a bug
+            raise self._unusable(f"the engine's reply could not be read "
+                                 f"({type(exc).__name__})") from None
         self.log("recv", f"{'=' if ok else '?'} {payload}".rstrip())
         if not ok:
-            raise _Rejected(payload or f"the engine rejected {command.split()[0]!r}",
+            raise _Rejected(clip(payload, TEXT_LIMIT)
+                            or f"the engine rejected {command.split()[0]!r}",
                             address=self.address)
         return payload
+
+    async def _stop_stream_locked(self) -> None:
+        """Stop a stream started while we waited for the lock (the lock is held)."""
+        if self._stream_task is not None:
+            await self.stop_analysis()
 
     async def _command(self, command: str, timeout: float | None = None) -> str:
         """One ordinary command: stop any analysis stream first, then exchange under the lock."""
         await self.stop_analysis()
         async with self._lock:
+            await self._stop_stream_locked()
             return await self._exchange(command, self.command_timeout if timeout is None
                                         else timeout)
 
@@ -323,6 +376,7 @@ class GTPEngine(Engine):
         await self.sync(position)
         black = letter == "B"
         async with self._lock:
+            await self._stop_stream_locked()
             await self._open_stream("kata-genmove_analyze", letter, interval, include_ownership,
                                     self.genmove_timeout)
             try:
@@ -374,11 +428,13 @@ class GTPEngine(Engine):
                 command += " ownership true"
             if root_info:
                 command += " rootInfo true"
-            command_id = await self._send(command)
+            deadline = self._deadline(timeout)
+            command_id = await self._send(command, timeout)
             try:
-                ok, first = await self._head(command_id, timeout)
+                ok, first = await self._head(command_id, timeout, deadline)
                 if not ok:
-                    error = (await self._body(first, timeout)).strip() or "rejected"
+                    error = clip((await self._body(first, timeout, deadline)).strip()
+                                 or "rejected", TEXT_LIMIT)
             except asyncio.CancelledError:
                 self._unusable(f"{name} was cancelled while waiting for its reply")
                 raise
@@ -406,6 +462,7 @@ class GTPEngine(Engine):
         await self.sync(position)
         color = position.to_play
         async with self._lock:
+            await self._stop_stream_locked()
             await self._open_stream(name, color, interval, include_ownership,
                                     self.command_timeout)
             self._stream_task = asyncio.create_task(
@@ -558,7 +615,7 @@ def parse_analysis_line(text: str, black_to_play: bool, size: int, *, lz: bool =
         ))
     sort_by_order(analysis.move_infos)
     if ownership is not None and not lz:
-        analysis.ownership = point_values(ownership, flip=not black_to_play)
+        analysis.ownership = point_values(ownership, flip=not black_to_play, length=size * size)
     if root is not None:
         analysis.root = RootInfo(
             visits=finite_int(root.get("visits")),

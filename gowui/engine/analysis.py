@@ -13,19 +13,16 @@ import json
 from typing import Any, Callable
 
 from .base import AnalysisCallback, Engine, LogCallback, color_letter, deliver
+from .base import clip as _clip
 from .errors import ConnectionClosed, EngineError
 from .transport import LineConnection
-from .types import (Analysis, MoveInfo, Position, RootInfo, board_vertex, board_vertices, finite,
-                    finite_int, flip_rate, flip_score, point_values, sort_by_order)
+from .types import (Analysis, MoveInfo, Position, RootInfo, board_vertex, board_vertices,
+                    clamp_turn, finite, finite_int, flip_rate, flip_score, point_values,
+                    sort_by_order)
 
 DEFAULT_MAX_VISITS = 500
-_LOG_LIMIT = 4000
 
 Handler = Callable[[dict], Any]
-
-
-def _clip(text: str, limit: int = _LOG_LIMIT) -> str:
-    return text if len(text) <= limit else text[:limit] + " ..."
 
 
 class AnalysisEngine(Engine):
@@ -53,6 +50,11 @@ class AnalysisEngine(Engine):
 
     # -- lifecycle ---------------------------------------------------------------------------
     async def connect(self) -> None:
+        if self._reader_task is not None or self._conn.connected:
+            # Connecting again tears the live connection down first (§2.1).
+            self._closing = True
+            await self._teardown()
+        self._conn = LineConnection(self.host, self.port)
         self._arm()
         await self._conn.connect(timeout=self.connect_timeout)
         self._reader_task = asyncio.create_task(self._read_loop())
@@ -152,14 +154,20 @@ class AnalysisEngine(Engine):
         except Exception as exc:  # noqa: BLE001 - a vanished consumer must not end the read
             self.note(f"# dropped an analysis report: {type(exc).__name__}")
 
-    async def _send(self, payload: dict) -> None:
+    async def _send(self, payload: dict, bound: float | None = None) -> None:
+        """Send one query; a send the engine does not accept in time (at most ``bound``) leaves
+        the connection unusable (§2.1)."""
         self._check()
         text = json.dumps(payload)
         try:
-            await self._conn.write_line(text)
+            await self._conn.write_line(text, timeout=self._send_limit(bound))
         except ConnectionClosed as exc:
             self._lost(exc)
             raise self._failure.copy() if self._failure else exc from None
+        except EngineError as exc:
+            if self._conn.broken:
+                raise self._unusable(exc.message) from None
+            raise
         self.log("send", _clip(text))
 
     async def _request(self, payload: dict, timeout: float) -> dict:
@@ -167,11 +175,14 @@ class AnalysisEngine(Engine):
         self._check()
         query_id = str(payload.get("id") or self._next_id("req"))
         payload = {**payload, "id": query_id}
-        future = asyncio.get_running_loop().create_future()
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
         self._waiters[query_id] = future
+        deadline = loop.time() + timeout
         try:
-            await self._send(payload)
-            return await asyncio.wait_for(asyncio.shield(future), timeout=timeout)
+            await self._send(payload, timeout)  # sending counts against the query's deadline
+            return await asyncio.wait_for(asyncio.shield(future),
+                                          timeout=max(0.0, deadline - loop.time()))
         except asyncio.TimeoutError:
             raise self._unusable(f"the engine did not answer within {timeout:g}s") from None
         except asyncio.CancelledError:
@@ -181,6 +192,8 @@ class AnalysisEngine(Engine):
             self._waiters.pop(query_id, None)
             if not future.done():
                 future.cancel()
+            elif not future.cancelled():
+                future.exception()  # failed while sending: already raised another way
 
     # -- analysis ------------------------------------------------------------------------------
     @staticmethod
@@ -280,7 +293,7 @@ def parse_result(message: dict, black_to_play: bool, size: int, turn: int) -> An
     """
     reported_turn = finite_int(message.get("turnNumber"))
     analysis = Analysis(
-        turn=turn if reported_turn is None else reported_turn,
+        turn=clamp_turn(turn if reported_turn is None else reported_turn),
         complete=not bool(message.get("isDuringSearch")),
         source="analysis",
         current_player="B" if black_to_play else "W",
@@ -317,6 +330,7 @@ def parse_result(message: dict, black_to_play: bool, size: int, turn: int) -> An
         score_mean=flip_score(root.get("scoreMean"), black_to_play),
     )
     # Row-major from the top-left; policy has a trailing pass entry and -1 for illegal points.
-    analysis.policy = point_values(message.get("policy"))
-    analysis.ownership = point_values(message.get("ownership"), flip=not black_to_play)
+    analysis.policy = point_values(message.get("policy"), length=size * size + 1)
+    analysis.ownership = point_values(message.get("ownership"), flip=not black_to_play,
+                                      length=size * size)
     return analysis

@@ -16,7 +16,21 @@ AnalysisCallback = Callable[[Analysis], "Awaitable[None] | None"]
 LogCallback = Callable[[str, str], Any]
 DisconnectCallback = Callable[[EngineError], "Awaitable[None] | None"]
 
-__all__ = ["AnalysisCallback", "Engine", "EngineError", "LogCallback", "Position", "deliver"]
+__all__ = ["AnalysisCallback", "Engine", "EngineError", "LogCallback", "Position", "clip",
+           "deliver"]
+
+#: Received engine lines are logged clipped to this many characters.
+LOG_LIMIT = 4000
+#: Engine text carried into an error message or a ``#`` note is clipped to this (§2.1).
+TEXT_LIMIT = 500
+#: While closing, a send waits at most this long, so closing never waits on a peer that does
+#: not read (§2.1).
+CLOSE_SEND_TIMEOUT = 1.0
+
+
+def clip(text: str, limit: int = LOG_LIMIT) -> str:
+    """``text`` cut to ``limit`` characters (marked with `` ...`` when cut)."""
+    return text if len(text) <= limit else text[:limit] + " ..."
 
 
 async def deliver(callback: Callable[[Any], Any], payload: Any) -> None:
@@ -43,6 +57,8 @@ class Engine(abc.ABC):
         #: Called once with an :class:`EngineError` when the connection is lost (sync or async).
         self.on_disconnect: DisconnectCallback | None = None
         self.connect_timeout = 10.0
+        #: How long a send may wait for the engine to accept the data (§2.1).
+        self.send_timeout = 10.0
         self._failure: EngineError | None = None
         self._failed: asyncio.Future | None = None
         self._closing = False
@@ -68,6 +84,16 @@ class Engine(abc.ABC):
 
     def error(self, message: str) -> EngineError:
         return EngineError(message, address=self.address)
+
+    def _send_limit(self, bound: float | None = None) -> float:
+        """How long the next send may wait: :attr:`send_timeout`, shorter while closing or
+        when the caller's own deadline (``bound``) is nearer."""
+        limit = self.send_timeout
+        if self._closing:
+            limit = min(limit, CLOSE_SEND_TIMEOUT)
+        if bound is not None:
+            limit = min(limit, bound)
+        return max(0.0, limit)
 
     # -- failure bookkeeping -------------------------------------------------------------
     def _arm(self) -> None:
@@ -123,7 +149,7 @@ class Engine(abc.ABC):
         try:
             result = callback(error)
         except Exception as exc:  # noqa: BLE001
-            self.note(f"# disconnect handler failed: {exc!r}")
+            self.note(f"# disconnect handler failed: {type(exc).__name__}")
             return
         if inspect.isawaitable(result):
             task = asyncio.ensure_future(result)
@@ -133,7 +159,7 @@ class Engine(abc.ABC):
     def _callback_done(self, task: asyncio.Task) -> None:
         self._callback_tasks.discard(task)
         if not task.cancelled() and task.exception() is not None:
-            self.note(f"# disconnect handler failed: {task.exception()!r}")
+            self.note(f"# disconnect handler failed: {type(task.exception()).__name__}")
 
     # -- the surface -------------------------------------------------------------------------
     @abc.abstractmethod

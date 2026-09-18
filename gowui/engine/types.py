@@ -40,9 +40,14 @@ def finite_int(value: Any) -> int | None:
     return None if number is None else int(number)
 
 
-def point_values(values: Any, flip: bool = False) -> list[float]:
-    """A per-point array (ownership, policy): anything not a finite number becomes ``0``."""
+def point_values(values: Any, flip: bool = False, length: int | None = None) -> list[float]:
+    """A per-point array (ownership, policy): anything not a finite number becomes ``0``.
+
+    An array that is not ``length`` long (when given) is dropped whole: ``[]``.
+    """
     if not isinstance(values, (list, tuple)):
+        return []
+    if length is not None and len(values) != length:
         return []
     out: list[float] = []
     for value in values:
@@ -52,6 +57,14 @@ def point_values(values: Any, flip: bool = False) -> list[float]:
         else:
             out.append(-number if flip else number)
     return out
+
+
+#: A reported turn number is clamped to this range (§2.2).
+MAX_TURN = 10000
+
+
+def clamp_turn(value: int) -> int:
+    return max(0, min(MAX_TURN, value))
 
 
 def board_vertex(move: Any, size: int) -> str | None:
