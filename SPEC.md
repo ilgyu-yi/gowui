@@ -555,7 +555,7 @@ One command, `gowui`:
   [--log-level info]` — local mode. The engine flags fill the page's connect form; `--connect`
   connects at startup (unless a restored snapshot already reconnects). Prints the URL it serves.
 - `gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` — server mode, configured by §10.
-  Runs without forwarded-header rewriting (§7.3).
+  Runs without generic forwarded-header rewriting: only the headers of §7.10 are read, and only from trusted proxies.
 - `gowui user add NAME`, `gowui user passwd NAME` — prompt twice for the password, or read one line
   from stdin with `--password-stdin`; `gowui user remove NAME`; `gowui user list`. They operate on
   `GOWUI_DB`, print `ok` on success, and exit non-zero with a message for an invalid name, a short
