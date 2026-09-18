@@ -23,51 +23,51 @@
 | &nbsp;&nbsp;§1.5 | SGF | 163 |
 | §2 | Engine protocols | 193 |
 | &nbsp;&nbsp;§2.1 | Transport | 195 |
-| &nbsp;&nbsp;§2.2 | Shared analysis shape | 221 |
-| &nbsp;&nbsp;§2.3 | GTP | 241 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 277 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 293 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 332 |
-| §3 | Session and boards | 348 |
-| &nbsp;&nbsp;§3.1 | Spaces | 350 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 356 |
-| &nbsp;&nbsp;§3.3 | Boards | 373 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 385 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 390 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 395 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 399 |
-| §4 | WebSocket protocol | 404 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 408 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 432 |
-| §5 | HTTP routes | 446 |
-| §6 | Launch modes and policies | 465 |
-| &nbsp;&nbsp;§6.1 | The rule | 467 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 484 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 490 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 504 |
-| §7 | Authentication and security | 510 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 512 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 522 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 530 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 538 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 552 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 559 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 576 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 586 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 592 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 598 |
-| §8 | Persistence | 608 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 610 |
-| &nbsp;&nbsp;§8.2 | Saving | 629 |
-| &nbsp;&nbsp;§8.3 | Local state file | 634 |
-| &nbsp;&nbsp;§8.4 | Server database | 643 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 648 |
-| §9 | Command line | 652 |
-| §10 | Configuration (server) | 667 |
-| §11 | Feature inventory | 687 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 693 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 731 |
-| §12 | Non-goals | 749 |
+| &nbsp;&nbsp;§2.2 | Shared analysis shape | 223 |
+| &nbsp;&nbsp;§2.3 | GTP | 243 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 282 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 298 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 337 |
+| §3 | Session and boards | 353 |
+| &nbsp;&nbsp;§3.1 | Spaces | 355 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 361 |
+| &nbsp;&nbsp;§3.3 | Boards | 378 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 390 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 395 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 400 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 404 |
+| §4 | WebSocket protocol | 409 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 413 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 437 |
+| §5 | HTTP routes | 451 |
+| §6 | Launch modes and policies | 470 |
+| &nbsp;&nbsp;§6.1 | The rule | 472 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 489 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 495 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 509 |
+| §7 | Authentication and security | 515 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 517 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 527 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 535 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 543 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 557 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 564 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 581 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 591 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 597 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 603 |
+| §8 | Persistence | 613 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 615 |
+| &nbsp;&nbsp;§8.2 | Saving | 634 |
+| &nbsp;&nbsp;§8.3 | Local state file | 639 |
+| &nbsp;&nbsp;§8.4 | Server database | 648 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 653 |
+| §9 | Command line | 657 |
+| §10 | Configuration (server) | 672 |
+| §11 | Feature inventory | 692 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 698 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 736 |
+| §12 | Non-goals | 754 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -212,7 +212,9 @@ traffic log (§3.6).
 - **Unusable connection.** A timeout, a reply whose id does not match the command it answers, a
   command cancelled while waiting for its reply, or a stop that exceeds its bound (§2.3) leaves the
   connection unusable: the stream position is no longer known, so every later call fails with an
-  engine error at once instead of reading a reply meant for something else.
+  engine error at once instead of reading a reply meant for something else. A GTP reply that echoes
+  no id is taken as the answer to the command in flight; only a present, different id counts as a
+  mismatch.
 - **Lost connection is reported once.** When the connection is lost — whether or not a command is
   waiting — the client first marks it dead, then reports it exactly once through a disconnect
   callback. The callback is scheduled, never awaited inline by the reader, so it may itself close
@@ -264,6 +266,9 @@ Engine output is untrusted and is sanitised on the way in, so `analysis` is alwa
 - **`lz-analyze`.** An engine without `kata-analyze` is analysed with `lz-analyze`. Its reports
   carry no `rootInfo` and no ownership; its winrates, priors and lower confidence bounds, on a
   0–10000 scale, are converted to 0–1, and winrates and bounds to Black's view (§0).
+  Whenever a GTP report has no `rootInfo` (with `lz-analyze`, or after `rootInfo` was dropped by
+  the fallback), the root is derived from the candidates: visits summed, winrate and scores taken
+  from the best candidate.
 - `genmove` plays the engine's move; with analysis on, `kata-genmove_analyze` is used so the
   search is shown while the engine thinks, and plain `genmove` when the engine lacks it. A move
   answer that is neither a vertex on the board nor `pass` or `resign` is an engine error.
