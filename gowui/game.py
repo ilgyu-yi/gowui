@@ -68,6 +68,8 @@ class Game:
         rule_set = get_rules(rules)
         if isinstance(handicap, bool) or not isinstance(handicap, int):
             raise ValueError("handicap must be an integer")
+        if komi is not None and not math.isfinite(float(komi)):
+            raise ValueError("komi must be a finite number")
         points = coords.handicap_points(size, handicap)
         count = len(points)
         self._setup(size, rule_set, komi, count, [(BLACK, x, y) for x, y in points],
