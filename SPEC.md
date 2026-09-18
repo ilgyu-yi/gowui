@@ -205,7 +205,7 @@ traffic log (§3.6).
 - **No address in the text.** An engine error's message never contains the engine's host or port,
   and neither do the client's `#` notes; the address travels alongside the error as a separate
   field, so only an engine-address policy that exposes addresses (§6.3) ever shows it (§7.7).
-- **Bounded input.** A received line is at most 1 MiB, and a whole GTP reply is capped in total
+- **Bounded input.** A received line is at most 1 MiB, and a whole GTP reply is capped at 4 MiB in total
   size. Overflow is an engine error and leaves the connection unusable.
 - **One line out.** A command containing CR, LF or NUL is refused with an engine error before
   anything is sent; this includes raw console commands (§2.3).
