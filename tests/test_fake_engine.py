@@ -552,3 +552,77 @@ async def test_analysis_overlong_line_is_over_one_mib(fake_engine):
     finally:
         await client.close()
     assert len(line.encode()) > 1024 * 1024
+
+
+# -- fault options added for the transport rules (§2.1) -----------------------------------------
+async def test_gtp_no_reply_id_answers_without_an_id(fake_engine):
+    _, client = await gtp_client(fake_engine, no_reply_id=True)
+    try:
+        await client.send("41 name")
+        head = await client.line()
+    finally:
+        await client.close()
+    assert head == "= FakeKataGo"
+
+
+async def test_gtp_reply_id_answers_with_the_given_id(fake_engine):
+    _, client = await gtp_client(fake_engine, reply_id={"final_score": "9" * 30})
+    try:
+        await client.send("41 final_score")
+        head = await client.line()
+    finally:
+        await client.close()
+    assert head.startswith("=" + "9" * 30 + " ")
+
+
+async def test_gtp_stray_writes_lines_while_a_reply_is_held(fake_engine):
+    _, client = await gtp_client(fake_engine, delay={"final_score": 0.35}, stray=(0.1, "noise"))
+    try:
+        await client.send("1 final_score")
+        lines = [await client.line() for _ in range(4)]
+    finally:
+        await client.close()
+    assert lines[:3] == ["noise"] * 3 and lines[3].startswith("=1")
+
+
+async def test_gtp_reject_message_is_the_error_text(fake_engine):
+    _, client = await gtp_client(fake_engine, reject=["final_score"], reject_message="nope")
+    try:
+        ok, payload = await client.gtp("final_score")
+    finally:
+        await client.close()
+    assert (ok, payload) == (False, "nope")
+
+
+async def test_gtp_never_read_stops_reading_after_the_handshake(fake_engine):
+    server, client = await gtp_client(fake_engine, never_read=True)
+    try:
+        for command in ("name", "version", "list_commands"):
+            await client.gtp(command)
+        await client.send("4 final_score")
+        await asyncio.sleep(0.3)
+    finally:
+        await client.close()
+    assert [line.split()[-1] for line in server.requests] == ["name", "version", "list_commands"]
+
+
+async def test_analysis_never_read_stops_reading_after_query_version(fake_engine):
+    server, client = await analysis_client(fake_engine, never_read=True)
+    try:
+        await client.json({"id": "v", "action": "query_version"})
+        await client.json_line()
+        await client.json(query())
+        await asyncio.sleep(0.3)
+    finally:
+        await client.close()
+    assert len(server.requests) == 1
+
+
+async def test_open_connections_counts_live_connections(gtp_server):
+    client = await RawClient.open(gtp_server.port)
+    try:
+        await client.gtp("name")
+        live = gtp_server.open_connections
+    finally:
+        await client.close()
+    assert live == 1

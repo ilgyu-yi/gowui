@@ -79,6 +79,25 @@ class FakeOptions:
     wrong_id_on: str | None = None
     #: Analysis: seconds to hold back each query, ``query_delay(query) -> float``.
     query_delay: Callable[[dict], float] | None = None
+    #: Stop reading after the handshake (GTP: ``list_commands``; analysis: ``query_version``),
+    #: like a wedged engine that no longer drains its input.
+    never_read: bool = False
+    #: GTP: answer every command without echoing its id (``=`` / ``?`` alone).
+    no_reply_id: bool = False
+    #: GTP: answer these commands with this literal id instead of theirs.
+    reply_id: dict[str, str] = field(default_factory=dict)
+    #: GTP ``(every, line)``: while a delayed reply is held, write ``line`` every ``every`` seconds.
+    stray: tuple[float, str] | None = None
+    #: GTP: the message of a ``?`` answer for a command in ``reject``.
+    reject_message: str = "rejected by the fake engine"
+
+
+def _command_name(line: str) -> str:
+    """The command name of a GTP line, with or without a numeric id."""
+    parts = line.split()
+    if parts and parts[0].isdigit():
+        parts = parts[1:]
+    return parts[0] if parts else ""
 
 
 # -- invented analysis --------------------------------------------------------------------------
@@ -174,6 +193,9 @@ class FakeGTPEngine:
                 text = raw.decode(errors="replace").rstrip("\r\n")
                 self.requests.append(text)
                 await lines.put(text)
+                if self.options.never_read and _command_name(text) == "list_commands":
+                    writer.transport.pause_reading()  # the handshake is done: never read again
+                    return
 
         pump_task = asyncio.create_task(pump())
         try:
@@ -195,7 +217,7 @@ class FakeGTPEngine:
                     break
                 delay = self.options.delay.get(name)
                 if delay:
-                    await asyncio.sleep(delay)
+                    await self._hold(delay)
                 if name in _STREAMS and self._known(name) and name not in self.options.reject:
                     if not await self._stream(lines, command_id, name, args):
                         break
@@ -209,6 +231,33 @@ class FakeGTPEngine:
     def _known(self, name: str) -> bool:
         return self.options.kata or name not in _KATA_ONLY
 
+    def _reply_id(self, command_id: str, name: str) -> str:
+        """The id a reply echoes, after the id faults of :class:`FakeOptions`."""
+        options = self.options
+        if options.no_reply_id:
+            return ""
+        if name in options.reply_id:
+            return options.reply_id[name]
+        if name == options.wrong_id_on:
+            return str(int(command_id or "0") + 1000)
+        return command_id
+
+    async def _hold(self, delay: float) -> None:
+        """Hold a reply for ``delay`` seconds, writing stray lines meanwhile if asked to."""
+        if not self.options.stray:
+            await asyncio.sleep(delay)
+            return
+        every, text = self.options.stray
+        loop = asyncio.get_running_loop()
+        end = loop.time() + delay
+        while True:
+            left = end - loop.time()
+            if left <= 0:
+                return
+            await asyncio.sleep(min(every, left))
+            if loop.time() < end:
+                await self._write(text + "\n")
+
     async def _write(self, text: str) -> None:
         assert self._writer is not None
         self._writer.write(text.encode())
@@ -217,9 +266,7 @@ class FakeGTPEngine:
     async def _answer(self, command_id: str, name: str, args: list[str]) -> bool:
         """Answer one ordinary command; False when the connection should close."""
         options = self.options
-        reply_id = command_id
-        if name == options.wrong_id_on:
-            reply_id = str(int(command_id or "0") + 1000)
+        reply_id = self._reply_id(command_id, name)
         if name == options.overlong_line:
             await self._write(f"={reply_id} " + "x" * (MIB + 64) + "\n\n")
             return True
@@ -229,7 +276,7 @@ class FakeGTPEngine:
             await self._write(f"={reply_id} " + "\n".join([chunk] * count) + "\n\n")
             return True
         if name in options.reject:
-            await self._write(f"?{reply_id} rejected by the fake engine\n\n")
+            await self._write(f"?{reply_id} {options.reject_message}\n\n")
             return True
         if name in options.replies:
             await self._write(f"={reply_id} {options.replies[name]}\n\n")
@@ -357,15 +404,16 @@ class FakeGTPEngine:
             else:
                 index += 1
         kata = name != "lz-analyze"
+        reply_id = self._reply_id(command_id, name)
         if kata and "rootInfo" in options and not self.options.root_info:
-            await self._write(f"?{command_id} unknown analyze option: rootInfo\n\n")
+            await self._write(f"?{reply_id} unknown analyze option: rootInfo\n\n")
             return True
         if kata and "ownership" in options and not self.options.ownership:
-            await self._write(f"?{command_id} unknown analyze option: ownership\n\n")
+            await self._write(f"?{reply_id} unknown analyze option: ownership\n\n")
             return True
         want_ownership = kata and options.get("ownership") == "true"
         want_root = kata and options.get("rootInfo") == "true"
-        await self._write(f"={command_id}\n")
+        await self._write(f"={reply_id}\n")
 
         async def emit(text: str) -> bool:
             await self._write(text + "\n")
@@ -439,6 +487,9 @@ class FakeAnalysisEngine:
                     await self._send({"error": "could not parse the query as a JSON object"})
                     continue
                 await self._handle_query(query)
+                if self.options.never_read and query.get("action") == "query_version":
+                    writer.transport.pause_reading()  # the handshake is done: never read again
+                    await asyncio.Event().wait()
         finally:
             await self._hangup()
 
@@ -606,6 +657,11 @@ class FakeEngineServer:
             writer.close()
             if task is not None:
                 self._tasks.discard(task)
+
+    @property
+    def open_connections(self) -> int:
+        """Connections accepted and not yet closed by either side."""
+        return len(self._writers)
 
     async def start(self, host: str, port: int) -> None:
         self._server = await asyncio.start_server(self._on_client, host, port, limit=16 * MIB)

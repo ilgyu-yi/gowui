@@ -10,7 +10,7 @@ import json
 import pytest
 
 from gowui import coords
-from gowui.engine import ConnectionClosed, EngineError
+from gowui.engine import ConnectionClosed, EngineError, Position
 from helpers import (HANG, Disconnects, Log, Reports, color_of, game_with, position_from,
                      position_queries, queries, wait_for)
 
@@ -492,3 +492,127 @@ async def test_the_disconnect_callback_may_close_the_engine(fake_engine, connect
 async def test_close_after_a_hangup_does_not_hang(fake_engine, connect):
     engine, _, _ = await analysing_until_hangup(fake_engine, connect)
     await asyncio.wait_for(engine.close(), HANG)
+
+
+# -- per-point arrays and the turn (§2.2) ------------------------------------------------------------
+async def emitted_report(fake_engine, connect, **overrides):
+    engine = await connect(await fake_engine("analysis", emit_line=report_line(**overrides)))
+    return (await analyse(engine, game_with(9), include_ownership=True))[0]
+
+
+@pytest.mark.parametrize("length", [80, 82, 361])
+async def test_ownership_of_the_wrong_length_is_dropped(fake_engine, connect, length):
+    report = await emitted_report(fake_engine, connect, ownership=[0.5] * length)
+    assert report.ownership == []
+
+
+@pytest.mark.parametrize("length", [81, 83, 362])
+async def test_a_policy_of_the_wrong_length_is_dropped(fake_engine, connect, length):
+    report = await emitted_report(fake_engine, connect, policy=[0.25] * length)
+    assert report.policy == []
+
+
+async def test_per_point_arrays_of_the_right_length_are_kept(fake_engine, connect):
+    report = await emitted_report(fake_engine, connect)
+    assert (len(report.ownership), len(report.policy)) == (81, 82)
+
+
+@pytest.mark.parametrize("reported, expected", [(1e308, 10000), (10001, 10000), (-5, 0),
+                                                (42, 42)])
+async def test_the_turn_is_clamped(fake_engine, connect, reported, expected):
+    report = await emitted_report(fake_engine, connect, turnNumber=reported)
+    assert report.turn == expected
+
+
+# -- bounded sends (§2.1) -------------------------------------------------------------------------
+def flood_position() -> Position:
+    """A position whose query is more than a peer that never reads can absorb."""
+    return Position(size=9, komi=6.5, rules="j" * (16 * 1024 * 1024), initial_stones=[],
+                    moves=[])
+
+
+async def test_a_send_the_engine_never_accepts_is_an_engine_error(fake_engine, connect):
+    engine = await connect(await fake_engine("analysis", never_read=True))
+    engine.send_timeout = 0.5
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.start_analysis(flood_position(), Reports()), HANG)
+
+
+async def test_a_send_the_engine_never_accepts_leaves_the_connection_unusable(fake_engine,
+                                                                              connect):
+    engine = await connect(await fake_engine("analysis", never_read=True))
+    engine.send_timeout = 0.5
+    with contextlib.suppress(EngineError):
+        await asyncio.wait_for(engine.start_analysis(flood_position(), Reports()), HANG)
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.start_analysis(position_from(game_with(9)), Reports()),
+                               1.0)
+
+
+async def test_a_query_send_is_bounded_by_the_query_timeout(fake_engine, connect):
+    engine = await connect(await fake_engine("analysis", never_read=True))
+    engine.query_timeout = 1.0
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.genmove(flood_position(), "B"), HANG)
+
+
+@pytest.mark.parametrize("operation", ["genmove", "start_analysis", "stop_analysis", "close"])
+async def test_nothing_hangs_behind_a_send_the_engine_never_accepts(fake_engine, connect,
+                                                                    operation):
+    engine = await connect(await fake_engine("analysis", never_read=True))
+    engine.send_timeout = 0.5
+    stuck = asyncio.create_task(engine.start_analysis(flood_position(), Reports()))
+    await asyncio.sleep(0.1)
+    position = position_from(game_with(9))
+    calls = {
+        "genmove": lambda: engine.genmove(position, "B"),
+        "start_analysis": lambda: engine.start_analysis(position, Reports()),
+        "stop_analysis": engine.stop_analysis,
+        "close": engine.close,
+    }
+    try:
+        with contextlib.suppress(EngineError):
+            await asyncio.wait_for(calls[operation](), HANG)
+    finally:
+        stuck.cancel()
+        await asyncio.gather(stuck, return_exceptions=True)
+
+
+# -- reconnecting (§2.1) ----------------------------------------------------------------------------
+async def test_a_reconnect_while_connected_closes_the_old_connection(analysis_server, connect):
+    engine = await connect(analysis_server)
+    await asyncio.wait_for(engine.connect(), HANG)
+    assert await wait_for(lambda: analysis_server.open_connections == 1)
+
+
+async def test_a_reconnect_to_another_engine_analyses_there(fake_engine, connect):
+    first, second = await fake_engine("analysis"), await fake_engine("analysis")
+    engine = await connect(first)
+    engine.port = second.port
+    await asyncio.wait_for(engine.connect(), HANG)
+    await analyse(engine, game_with(9))
+    assert position_queries(second)
+
+
+# -- callback-failure notes (§2.1) ------------------------------------------------------------------
+@pytest.mark.parametrize("kind", ["sync", "async"])
+async def test_a_failing_disconnect_handler_is_noted_by_type_only(fake_engine, connect, kind):
+    log = Log()
+    server = await fake_engine("analysis")
+    engine = await connect(server, log=log)
+    secret = f"{HOST}:{server.port} secret-detail"
+    called = asyncio.Event()
+
+    def sync_handler(error):
+        called.set()
+        raise OSError(secret)
+
+    async def async_handler(error):
+        called.set()
+        raise OSError(secret)
+
+    engine.on_disconnect = sync_handler if kind == "sync" else async_handler
+    await asyncio.wait_for(server.stop(), HANG)
+    await asyncio.wait_for(called.wait(), HANG)
+    assert await wait_for(lambda: any("OSError" in n for n in log.notes))
+    assert not [n for n in log.notes if "secret-detail" in n or str(server.port) in n]

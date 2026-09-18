@@ -13,7 +13,7 @@ import pytest
 from gowui import coords
 from gowui.engine import ConnectionClosed, EngineError, create_engine
 from helpers import (HANG, Disconnects, Log, Reports, color_of, game_with, gtp_commands,
-                     gtp_names, position_from, strip_ids)
+                     gtp_names, position_from, strip_ids, wait_for)
 
 HOST = "127.0.0.1"
 #: A command list without kata-set-rules / kata-set-param, for "when supported" checks.
@@ -922,3 +922,286 @@ async def test_the_disconnect_callback_may_close_the_engine(fake_engine, connect
 async def test_close_after_a_hangup_does_not_hang(fake_engine, connect):
     engine, _ = await analysing_until_hangup(fake_engine, connect)
     await asyncio.wait_for(engine.close(), HANG)
+
+
+# -- lz-analyze scaling and the derived root (§2.3) ----------------------------------------------
+async def test_lz_prior_is_scaled_to_one(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", kata=False, emit_line=LZ_LINE))
+    reports = await analyse(engine, game_with(9))
+    assert reports[0].move_infos[0].prior == pytest.approx(0.1)
+
+
+async def test_lz_lcb_is_scaled_to_one_for_black_to_move(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", kata=False, emit_line=LZ_LINE))
+    reports = await analyse(engine, game_with(9))
+    assert reports[0].move_infos[0].lcb == pytest.approx(0.58)
+
+
+async def test_lz_lcb_is_scaled_and_flipped_for_white_to_move(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", kata=False, emit_line=LZ_LINE))
+    reports = await analyse(engine, game_with(9, "C3"))
+    assert reports[0].move_infos[0].lcb == pytest.approx(0.42)
+
+
+LZ_TWO = ("info move E5 visits 100 winrate 6000 prior 1000 lcb 5800 order 0 pv E5 D4 "
+          "info move D4 visits 50 winrate 5500 prior 900 lcb 5000 order 1 pv D4")
+KATA_TWO = ("info move E5 visits 100 winrate 0.7 scoreLead 3 scoreMean 2 order 0 pv E5 "
+            "info move D4 visits 50 winrate 0.6 scoreLead 1 scoreMean 1 order 1 pv D4")
+
+
+def root_of(report) -> tuple:
+    root = report.root
+    return (root.visits, root.winrate, root.score_lead, root.score_mean)
+
+
+async def test_lz_root_is_derived_from_the_candidates(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", kata=False, emit_line=LZ_TWO))
+    reports = await analyse(engine, game_with(9))
+    assert root_of(reports[0]) == (150, pytest.approx(0.6), None, None)
+
+
+async def test_lz_derived_root_is_in_blacks_view_for_white_to_move(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", kata=False, emit_line=LZ_TWO))
+    reports = await analyse(engine, game_with(9, "C3"))
+    assert root_of(reports[0]) == (150, pytest.approx(0.4), None, None)
+
+
+async def test_without_root_info_the_root_is_derived_from_the_candidates(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", root_info=False, emit_line=KATA_TWO))
+    reports = await analyse(engine, game_with(9))
+    assert root_of(reports[0]) == (150, pytest.approx(0.7), pytest.approx(3.0),
+                                   pytest.approx(2.0))
+
+
+async def test_without_root_info_the_derived_root_is_in_blacks_view(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", root_info=False, emit_line=KATA_TWO))
+    reports = await analyse(engine, game_with(9, "C3"))
+    assert root_of(reports[0]) == (150, pytest.approx(0.3), pytest.approx(-3.0),
+                                   pytest.approx(-2.0))
+
+
+# -- id-less replies (§2.1) ---------------------------------------------------------------------
+async def test_an_engine_that_echoes_no_id_connects(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", no_reply_id=True))
+    assert engine.name == "FakeKataGo"
+
+
+async def test_an_id_less_reply_is_the_answer_to_the_command_in_flight(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", no_reply_id=True))
+    await sync(engine, game_with(9, "E5"))
+    assert await asyncio.wait_for(engine.raw("final_score"), HANG) == "B+0.5"
+
+
+async def test_an_id_less_analysis_stream_is_read(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", no_reply_id=True))
+    reports = await analyse(engine, game_with(9))
+    assert reports[0].move_infos
+
+
+# -- reply ids ----------------------------------------------------------------------------------
+@pytest.mark.parametrize("reply_id", ["9" * 5000, "1" + "0" * 18, "0" * 19 + "1"],
+                         ids=["5000-digits", "19-digits", "19-digits-leading-zeros"])
+async def test_an_overlong_reply_id_is_an_engine_error(fake_engine, connect, reply_id):
+    engine = await connect(await fake_engine("gtp", reply_id={"final_score": reply_id}))
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.raw("final_score"), HANG)
+
+
+async def test_an_overlong_reply_id_leaves_the_connection_unusable(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", reply_id={"final_score": "9" * 5000}))
+    with contextlib.suppress(EngineError):
+        await asyncio.wait_for(engine.raw("final_score"), HANG)
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.raw("name"), 1.0)
+
+
+async def test_an_overlong_reply_id_during_connect_is_an_engine_error(fake_engine, connect):
+    server = await fake_engine("gtp", reply_id={"name": "9" * 5000})
+    with pytest.raises(EngineError):
+        await connect(server)
+
+
+# -- one deadline per reply, clipped engine text --------------------------------------------------
+async def test_stray_output_does_not_extend_the_reply_deadline(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", delay={"final_score": 3.0},
+                                             stray=(0.1, "stray output")))
+    engine.command_timeout = 0.2
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.raw("final_score"), HANG)
+    assert loop.time() - start < 0.6
+
+
+async def test_stray_lines_are_logged_clipped(fake_engine, connect):
+    log = Log()
+    engine = await connect(await fake_engine("gtp", delay={"final_score": 0.3},
+                                             stray=(0.05, "s" * 20000)), log=log)
+    await asyncio.wait_for(engine.raw("final_score"), HANG)
+    stray = [text for direction, text in log.entries if direction == "recv" and "sss" in text]
+    assert stray and max(len(text) for text in stray) <= 4100
+
+
+async def test_a_rejection_message_is_clipped_in_the_error(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", reject=["final_score"],
+                                             reject_message="r" * 5000))
+    with pytest.raises(EngineError) as caught:
+        await asyncio.wait_for(engine.raw("final_score"), HANG)
+    assert 0 < len(str(caught.value)) <= 600
+
+
+async def test_an_analyze_rejection_is_clipped_in_notes_and_errors(fake_engine, connect):
+    log = Log()
+    engine = await connect(await fake_engine("gtp", reject=["kata-analyze", "lz-analyze"],
+                                             reject_message="r" * 5000), log=log)
+    with pytest.raises(EngineError) as caught:
+        await asyncio.wait_for(engine.start_analysis(position_from(game_with(9)), Reports()),
+                               HANG)
+    assert (len(str(caught.value)) <= 700, max(len(n) for n in log.notes) <= 700) == (True, True)
+
+
+# -- reconnecting (§2.1) ----------------------------------------------------------------------------
+async def test_a_reconnect_after_close_replays_the_board(fake_engine, connect):
+    first, second = await fake_engine("gtp"), await fake_engine("gtp")
+    engine = await connect(first)
+    await sync(engine, game_with(9, "E5"))
+    await asyncio.wait_for(engine.close(), HANG)
+    engine.port = second.port
+    await asyncio.wait_for(engine.connect(), HANG)
+    await sync(engine, game_with(9, "E5", "C3"))
+    commands = gtp_commands(second)
+    assert ("play B E5" in commands, "play W C3" in commands) == (True, True)
+
+
+async def test_a_reconnect_while_connected_replays_the_board(fake_engine, connect):
+    first, second = await fake_engine("gtp"), await fake_engine("gtp")
+    engine = await connect(first)
+    await sync(engine, game_with(9, "E5"))
+    engine.port = second.port
+    await asyncio.wait_for(engine.connect(), HANG)
+    await sync(engine, game_with(9, "E5", "C3"))
+    commands = gtp_commands(second)
+    assert ("play B E5" in commands, "play W C3" in commands) == (True, True)
+
+
+async def test_a_reconnect_while_connected_closes_the_old_connection(gtp_server, connect):
+    engine = await connect(gtp_server)
+    await asyncio.wait_for(engine.connect(), HANG)
+    assert await wait_for(lambda: gtp_server.open_connections == 1)
+
+
+async def test_a_reconnect_while_connected_leaves_a_working_client(gtp_server, connect):
+    engine = await connect(gtp_server)
+    await asyncio.wait_for(engine.connect(), HANG)
+    assert await asyncio.wait_for(engine.raw("name"), HANG) == "FakeKataGo"
+
+
+async def test_a_reconnect_forgets_a_missing_capability(fake_engine, connect):
+    first, second = await fake_engine("gtp", root_info=False), await fake_engine("gtp")
+    engine = await connect(first)
+    await analyse(engine, game_with(9))
+    engine.port = second.port
+    await asyncio.wait_for(engine.connect(), HANG)
+    await analyse(engine, game_with(9))
+    assert kata_analyze_flags(gtp_commands(second)) == [(False, True)]
+
+
+# -- overlapping calls ----------------------------------------------------------------------------
+async def test_a_command_queued_behind_an_analysis_start_runs(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", delay={"kata-analyze": 0.3}))
+    starting = asyncio.create_task(engine.start_analysis(position_from(game_with(9)), Reports(),
+                                                         interval=0.1))
+    await asyncio.sleep(0.05)
+    try:
+        await asyncio.wait_for(engine.raw("showboard"), HANG)
+    finally:
+        await asyncio.gather(starting, return_exceptions=True)
+    assert await asyncio.wait_for(engine.raw("name"), HANG) == "FakeKataGo"
+
+
+async def test_an_analysis_restart_queued_behind_another_leaves_one_stream(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", delay={"kata-analyze": 0.3}))
+    first, second = Reports(), Reports()
+    starting = asyncio.create_task(engine.start_analysis(position_from(game_with(9)), first,
+                                                         interval=0.1))
+    await asyncio.sleep(0.05)
+    await asyncio.wait_for(engine.start_analysis(position_from(game_with(9)), second,
+                                                 interval=0.1), HANG)
+    await asyncio.gather(starting, return_exceptions=True)
+    await second.at_least(1)
+    await asyncio.wait_for(engine.stop_analysis(), HANG)
+    assert await asyncio.wait_for(engine.raw("name"), HANG) == "FakeKataGo"
+
+
+# -- bounded sends (§2.1) -------------------------------------------------------------------------
+#: More than a peer that never reads can absorb in socket buffers.
+FLOOD = "echo " + "x" * (16 * 1024 * 1024)
+
+
+async def wedged(fake_engine, connect):
+    """A client whose engine stopped reading after the handshake, with a send stuck behind it."""
+    engine = await connect(await fake_engine("gtp", never_read=True))
+    engine.send_timeout = 0.5
+    stuck = asyncio.create_task(engine.raw(FLOOD))
+    await asyncio.sleep(0.1)
+    return engine, stuck
+
+
+async def test_a_send_the_engine_never_accepts_is_an_engine_error(fake_engine, connect):
+    engine = await connect(await fake_engine("gtp", never_read=True))
+    engine.send_timeout = 0.5
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.raw(FLOOD), HANG)
+
+
+async def test_a_send_the_engine_never_accepts_leaves_the_connection_unusable(fake_engine,
+                                                                              connect):
+    engine = await connect(await fake_engine("gtp", never_read=True))
+    engine.send_timeout = 0.5
+    with contextlib.suppress(EngineError):
+        await asyncio.wait_for(engine.raw(FLOOD), HANG)
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.raw("name"), 1.0)
+
+
+@pytest.mark.parametrize("operation", ["genmove", "start_analysis", "stop_analysis", "close"])
+async def test_nothing_hangs_behind_a_send_the_engine_never_accepts(fake_engine, connect,
+                                                                    operation):
+    engine, stuck = await wedged(fake_engine, connect)
+    position = position_from(game_with(9))
+    calls = {
+        "genmove": lambda: engine.genmove(position, "B"),
+        "start_analysis": lambda: engine.start_analysis(position, Reports()),
+        "stop_analysis": engine.stop_analysis,
+        "close": engine.close,
+    }
+    try:
+        with contextlib.suppress(EngineError):
+            await asyncio.wait_for(calls[operation](), HANG)
+    finally:
+        stuck.cancel()
+        await asyncio.gather(stuck, return_exceptions=True)
+
+
+# -- callback-failure notes (§2.1) ------------------------------------------------------------------
+@pytest.mark.parametrize("kind", ["sync", "async"])
+async def test_a_failing_disconnect_handler_is_noted_by_type_only(fake_engine, connect, kind):
+    log = Log()
+    server = await fake_engine("gtp")
+    engine = await connect(server, log=log)
+    secret = f"{HOST}:{server.port} secret-detail"
+    called = asyncio.Event()
+
+    def sync_handler(error):
+        called.set()
+        raise OSError(secret)
+
+    async def async_handler(error):
+        called.set()
+        raise OSError(secret)
+
+    engine.on_disconnect = sync_handler if kind == "sync" else async_handler
+    await asyncio.wait_for(server.stop(), HANG)
+    await asyncio.wait_for(called.wait(), HANG)
+    assert await wait_for(lambda: any("OSError" in n for n in log.notes))
+    assert not [n for n in log.notes if "secret-detail" in n or str(server.port) in n]

@@ -276,3 +276,108 @@ async def test_a_refused_line_sends_nothing():
         await conn.close()
         await asyncio.sleep(0.1)
     assert bytes(peer.received) == b""
+
+
+async def test_a_line_that_cannot_be_encoded_is_an_engine_error():
+    async with Peer() as peer:
+        conn = await connected(peer.port)
+        try:
+            with pytest.raises(EngineError):
+                await asyncio.wait_for(conn.write_line("kata-set-rules \ud800"), HANG)
+        finally:
+            await conn.close()
+
+
+async def test_a_line_that_cannot_be_encoded_sends_nothing():
+    async with Peer() as peer:
+        conn = await connected(peer.port)
+        with contextlib.suppress(EngineError):
+            await conn.write_line("name \ud800")
+        await conn.write_line("1 name")
+        await conn.close()
+        await asyncio.sleep(0.1)
+    assert bytes(peer.received) == b"1 name\n"
+
+
+# -- valid address ----------------------------------------------------------------------------
+BAD_ADDRESSES = [
+    ("", 6363),
+    ("bad\x00host", 6363),
+    ("a" * 254, 6363),
+    ("a" * 64 + ".example", 6363),  # a label the resolver cannot encode (IDNA)
+    (None, 6363),
+    (HOST, 0),
+    (HOST, 70000),
+    (HOST, -1),
+    (HOST, True),
+    (HOST, "6363"),
+    (HOST, 63.5),
+]
+BAD_IDS = ["empty-host", "nul-in-host", "host-over-253", "idna-label-too-long", "host-none",
+           "port-0", "port-70000", "port-negative", "port-bool", "port-str", "port-float"]
+
+
+@pytest.mark.parametrize("host, port", BAD_ADDRESSES, ids=BAD_IDS)
+async def test_an_invalid_address_is_an_engine_error(host, port):
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(LineConnection(host, port).connect(timeout=HANG), HANG)
+
+
+@pytest.mark.parametrize("host, port", BAD_ADDRESSES, ids=BAD_IDS)
+async def test_an_invalid_address_error_names_no_address(host, port):
+    try:
+        await asyncio.wait_for(LineConnection(host, port).connect(timeout=HANG), HANG)
+    except EngineError as error:
+        text = str(error)
+        assert (bool(host) and isinstance(host, str) and host in text, str(port) in text) == (
+            False, False)
+    else:
+        pytest.fail("an invalid address connected")
+
+
+# -- bounded sends ----------------------------------------------------------------------------
+async def never_reads(reader, writer):
+    await asyncio.sleep(30)
+
+
+#: More than a peer that never reads can absorb in socket buffers.
+FLOOD = "x" * (16 * MIB)
+
+
+async def test_a_send_the_peer_never_accepts_is_an_engine_error():
+    async with Peer(never_reads) as peer:
+        conn = await connected(peer.port)
+        conn.send_timeout = 0.3
+        try:
+            with pytest.raises(EngineError):
+                await asyncio.wait_for(conn.write_line(FLOOD), HANG)
+        finally:
+            await asyncio.wait_for(conn.close(), HANG)
+
+
+async def test_a_send_the_peer_never_accepts_leaves_the_connection_unusable():
+    async with Peer(never_reads) as peer:
+        conn = await connected(peer.port)
+        conn.send_timeout = 0.3
+        with contextlib.suppress(EngineError):
+            await asyncio.wait_for(conn.write_line(FLOOD), HANG)
+        try:
+            with pytest.raises(EngineError):
+                await asyncio.wait_for(conn.write_line("1 name"), 0.5)
+            assert not conn.connected
+        finally:
+            await asyncio.wait_for(conn.close(), HANG)
+
+
+async def test_close_does_not_wait_on_a_peer_that_never_reads():
+    async with Peer(never_reads) as peer:
+        conn = await connected(peer.port)
+        conn.send_timeout = 30.0
+        sending = asyncio.create_task(conn.write_line(FLOOD))
+        await asyncio.sleep(0.3)
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        await asyncio.wait_for(conn.close(), HANG)
+        elapsed = loop.time() - start
+        await asyncio.wait_for(asyncio.gather(sending, return_exceptions=True), HANG)
+    assert elapsed < 1.5
