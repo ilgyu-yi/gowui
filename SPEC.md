@@ -112,8 +112,8 @@ the engine scores the game the way gowui adjudicates it.
 ### 1.2 New games and handicap
 
 A new game takes a size (2–25), a rule set, an optional komi and a handicap count. A size outside
-2–25, an unknown rule set, or a handicap count the size does not allow is refused with an error and
-changes nothing.
+2–25, an unknown rule set, a komi that is not a finite number, or a handicap count the size does
+not allow is refused with an error and changes nothing.
 
 Handicap stones use GTP's fixed placement (GTP 2 `fixed_handicap`): on the 3rd line for sizes 7–12
 and the 4th line for 13 and up, in GTP's order. Allowed counts:
