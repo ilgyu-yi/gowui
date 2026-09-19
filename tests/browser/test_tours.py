@@ -41,11 +41,11 @@ def wait_state(g: Gowui, predicate, timeout: int = QUICK) -> dict:
     """The newest ``state`` the page received once it satisfies ``predicate``."""
     deadline = time.monotonic() + timeout / 1000
     while True:
-        states = g.received(0, "state")
-        if states and predicate(states[-1]):
-            return states[-1]
+        state = g.last_received("state")
+        if state is not None and predicate(state):
+            return state
         if time.monotonic() > deadline:
-            raise AssertionError(f"no state satisfied the predicate; last {states[-1:]}")
+            raise AssertionError(f"no state satisfied the predicate; last {state}")
         g.page.wait_for_timeout(25)
 
 

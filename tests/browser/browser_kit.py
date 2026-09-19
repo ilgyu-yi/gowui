@@ -172,7 +172,26 @@ class Gowui:
                 if type is None or f.get("type") == type]
 
     def closes(self, since: int = 0) -> list[int]:
-        return [f["code"] for f in self.frames(since) if f["dir"] == "close"]
+        return self.page.evaluate(
+            "(since) => window.__gowuiTest.frames.filter((f) => f.seq > since"
+            " && f.dir === 'close').map((f) => f.code)", since)
+
+    def last_received(self, type: str) -> dict | None:
+        """The newest received frame of ``type``, found in the page: a long engine-vs-engine
+        run records thousands of frames, too many to copy out on every poll."""
+        data = self.page.evaluate("""(type) => {
+            const frames = window.__gowuiTest.frames;
+            for (let i = frames.length - 1; i >= 0; i -= 1) {
+              const f = frames[i];
+              if (f.dir !== 'received' || f.byTest) continue;
+              let parsed;
+              try { parsed = JSON.parse(f.data); } catch (e) { continue; }
+              if (parsed && typeof parsed === 'object' && !('fence' in parsed)
+                  && parsed.type === type) return f.data;
+            }
+            return null;
+        }""", type)
+        return None if data is None else json.loads(data)
 
     def until(self, expression: str, arg: Any = None, *, timeout: int = QUICK) -> Any:
         """Poll ``expression`` (a JS function of ``arg``) until it returns a truthy value."""
@@ -241,9 +260,9 @@ class Gowui:
 
     def state(self) -> dict:
         """The last ``state`` frame the page received."""
-        states = self.received(0, "state")
-        assert states, "the page has received no state"
-        return states[-1]
+        state = self.last_received("state")
+        assert state is not None, "the page has received no state"
+        return state
 
     # -- the page ---------------------------------------------------------------------------------
     def t(self, key: str, variables: dict | None = None) -> str:
