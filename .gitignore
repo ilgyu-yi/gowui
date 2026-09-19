@@ -11,3 +11,6 @@ dist/
 !tests/data/*.sgf
 /state.json
 /data/
+# Playwright's repo-local browsers and the browser tests' screenshots and traces
+/.playwright/
+/test-artifacts/

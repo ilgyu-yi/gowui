@@ -18,6 +18,9 @@ dependencies = [
 # websockets>=15: the tests' client sends a chosen Host while dialling 127.0.0.1
 # (connect(uri, host=, port=), honoured since 13.0) with proxy=None, which 15.0 introduced.
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27", "websockets>=15"]
+# The browser tests (tests/browser, SPEC §3.8, §7.5): Chromium through Playwright, pinned so the
+# CI browser cache and the local .playwright/ download match (README "Frontend checks").
+browser = ["playwright==1.63.0"]
 
 [project.scripts]
 gowui = "gowui.cli:main"
@@ -34,3 +37,8 @@ testpaths = ["tests"]
 pythonpath = [".", "tools"]
 # SPEC §9: lifespan handlers, never the deprecated on_event (issue #7 AC).
 filterwarnings = ["error:.*on_event.*:DeprecationWarning"]
+# The browser tests need Chromium; they run only when asked for (`pytest -m browser`).
+addopts = ["-m", "not browser"]
+markers = [
+    "browser: drives the page in Chromium through Playwright (tests/browser; SPEC §3.8)",
+]

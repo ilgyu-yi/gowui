@@ -188,3 +188,33 @@ async def test_a_thumbnail_shows_its_boards_profile(h):
     await duplicate(h)
     state = await human(h, profile="rank_1d")
     assert board_entry(state, first)["profile"] == "rank_5k"
+
+
+# -- a board entry's human tuple (§4.2 "each boards entry") ---------------------------------------
+async def test_a_board_entry_carries_its_boards_policy_tuple(h):
+    state = await human(h, policy={"min_p": 0.05})
+    assert board_entry(state, state["activeBoard"])["policy"] == {"min_p": 0.05}
+
+
+async def test_a_board_entry_keeps_its_own_policy_tuple_after_another_board_changes(h):
+    await human(h, policy={"min_p": 0.05})
+    first = h.rec.state()["activeBoard"]
+    await duplicate(h)
+    state = await human(h, policy={"temperature": 1.5})
+    assert board_entry(state, first)["policy"] == {"min_p": 0.05}
+
+
+async def test_a_board_entry_says_compare_while_its_board_has_a_compare_tuple(h):
+    state = await human(h, policy={}, compare={"temperature": 1.5})
+    assert board_entry(state, state["activeBoard"])["compare"] is True
+
+
+async def test_a_board_entry_says_no_compare_without_a_compare_tuple(h):
+    state = await human(h, policy={"min_p": 0.05})
+    assert board_entry(state, state["activeBoard"])["compare"] is False
+
+
+async def test_a_board_entry_says_no_compare_once_the_compare_tuple_is_cleared(h):
+    await human(h, policy={}, compare={"temperature": 1.5})
+    state = await human(h, compare=None)
+    assert board_entry(state, state["activeBoard"])["compare"] is False
