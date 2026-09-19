@@ -37,40 +37,40 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 570 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 574 |
 | &nbsp;&nbsp;§3.8 | The page | 583 |
-| §4 | WebSocket protocol | 828 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 832 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 873 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 910 |
-| §5 | HTTP routes | 941 |
-| §6 | Launch modes and policies | 1016 |
-| &nbsp;&nbsp;§6.1 | The rule | 1018 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1054 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1093 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1126 |
-| §7 | Authentication and security | 1145 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1147 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1184 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1202 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1216 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1264 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1279 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1319 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1335 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1349 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1358 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1387 |
-| §8 | Persistence | 1406 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1408 |
-| &nbsp;&nbsp;§8.2 | Saving | 1442 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1471 |
-| &nbsp;&nbsp;§8.4 | Server database | 1513 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1544 |
-| §9 | Command line | 1556 |
-| §10 | Configuration (server) | 1615 |
-| §11 | Feature inventory | 1653 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1660 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1698 |
-| §12 | Non-goals | 1716 |
+| §4 | WebSocket protocol | 830 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 834 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 875 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 912 |
+| §5 | HTTP routes | 943 |
+| §6 | Launch modes and policies | 1018 |
+| &nbsp;&nbsp;§6.1 | The rule | 1020 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1056 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1095 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1128 |
+| §7 | Authentication and security | 1147 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1149 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1196 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1214 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1228 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1276 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1291 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1331 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1347 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1361 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1370 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1399 |
+| §8 | Persistence | 1418 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1420 |
+| &nbsp;&nbsp;§8.2 | Saving | 1454 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1483 |
+| &nbsp;&nbsp;§8.4 | Server database | 1525 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1561 |
+| §9 | Command line | 1573 |
+| §10 | Configuration (server) | 1632 |
+| §11 | Feature inventory | 1670 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1677 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1715 |
+| §12 | Non-goals | 1733 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -724,7 +724,7 @@ trimmed, the port an integer); Disconnect sends `disconnect`.
 - **Log-out.** `me.logout` decides the control: `local` shows a Log out button in a
   `<form method="post" action="/logout">` written in `index.html` and hidden otherwise; `sso` shows
   a Log out link whose `href` is `me.logoutUrl`, set as a property; `""` shows no control. After a
-  log-out the open socket is closed with `4401` (§4.3), and the status says why, as for any
+  log-out the open socket is closed with `4401` (§4.3), and the page goes to `/`, as for any
   `4401`.
 - **Language.** Every string these additions show (the picker's label, the empty-catalog hint,
   the signed-in title, Log out) has a key in both the Korean and English tables. The sign-in page
@@ -789,9 +789,11 @@ errors, engine output — is shown as it arrives.
 **Connection.** One WebSocket per tab to `/ws` (`wss:` under `https:`). Opening it resets the
 reconnect delay and clears the status. When it closes:
 
-- with `4401` or `4403` (§4.3), the page does not reconnect and the status says why — not signed
-  in, or refused by the Host and Origin rules (§7.4) — and keeps saying it until the page is
-  reloaded;
+- with `4401` (§4.3), the page does not reconnect: the status says it is not signed in and the
+  page goes to `/` with `location.assign('/')`, where the request guard (§5, §6.1) sends it to the
+  sign-in page or answers the `401` page. The page itself never learns which mode it runs in;
+- with `4403` (§4.3), the page does not reconnect and the status says why — refused by the Host
+  and Origin rules (§7.4) — and keeps saying it until the page is reloaded;
 - with any other code (`1009`, `1013`, a lost network, a server restart), the status shows the
   lost-connection text (`status.lost`: "Lost the connection to gowui; reconnecting...") and the
   page reconnects after 0.5 s, doubling the delay after each failed try up to 8 s. The attach
@@ -1159,27 +1161,37 @@ printable characters without surrounding spaces; passwords have 8–256 characte
 - **The form.** `POST /login` takes `name`, `password` and an optional `lang` as
   `application/x-www-form-urlencoded`. The body is read as a stream and cut off with `413` past
   8 KiB; more than 4 fields, a missing field, an invalid name or a password outside 8–256
-  characters is a failed attempt. Success answers `303` to `/`; there is no `next` parameter.
+  characters (an empty password included) is refused as wrong at once, before the throttle: it
+  takes no slot and runs no scrypt. Success answers `303` to `/`; there is no `next` parameter.
   Failure answers `303` to `/login?error=wrong`, and a throttled attempt to
   `/login?error=throttled`, each keeping `lang` when it was given.
 - **Verification** runs scrypt in a worker thread, at most 2 at a time. When 8 attempts are already
   waiting for a turn, a further attempt is refused at once as throttled, without running scrypt.
-- **Throttling.** The throttle keeps, per (client address, name), the attempts of the last 10
-  minutes, and per client address the failed attempts of the last 10 minutes whatever the name.
-  Before running scrypt, an attempt takes a slot under the throttle's lock; the attempt is refused
-  as throttled, without running scrypt and even with the right password, when that (client, name)
-  already has 5 slots or that client already has 30. An attempt in flight counts as a failure, so
-  concurrent attempts cannot all pass the check; a failure keeps its slot, and a success clears the
-  (client, name) entry and releases its own slot from the client's budget. Entries older than the
-  window expire. The table holds at most 10,000 entries: expired entries are purged first, a live
-  entry is never evicted, and when the table is still full an attempt that would need a new entry
-  is refused as throttled (fail closed). The trade-off is accepted: an attacker who fills the table
-  locks out sign-ins that need a new entry until entries expire (at most 10 minutes), and the
-  per-client budget means filling it takes at least 334 client addresses.
+- **Throttling.** Only a well-formed attempt (above) reaches the throttle. The throttle keeps, in
+  a 10-minute window, the attempts per (client, name), the failed attempts per client whatever
+  the name, and the failed attempts per name whatever the client. Before running scrypt, an
+  attempt takes a slot under the throttle's lock; the attempt is refused as throttled, without
+  running scrypt and even with the right password, when that (client, name) already has 5 slots,
+  that client already has 30, or that name already has 20. The per-name cap holds for any number
+  of client addresses, so no spread of addresses buys more than 20 guesses at one account per 10
+  minutes; the trade-off is accepted that an attacker can so keep one account from signing in with
+  its password for as long as the attack lasts (SSO and existing sessions are unaffected). An
+  attempt in flight counts as a failure, so concurrent attempts cannot all pass the check; a
+  failure keeps its slot, and a success clears the (client, name) entry and releases its own slot
+  from the client's and the name's budgets. Entries older than the window expire. The name in a
+  throttle key is the validated name, at most 64 characters. Each table holds at most 10,000
+  entries: expired entries are purged first, a live entry is never evicted, and when a table is
+  still full an attempt that would need a new entry is refused as throttled (fail closed). The
+  trade-off is accepted: an attacker who fills the table locks out sign-ins that need a new entry
+  until entries expire (at most 10 minutes); since a malformed attempt takes no slot and every
+  client key has a budget of 30, filling it takes at least 334 distinct client keys, that is 334
+  IPv4 addresses or 334 IPv6 /64 networks, each spending well-formed attempts.
 - **Client address.** The TCP peer, or — when the peer is a trusted proxy — the last address in
   `X-Forwarded-For` (§7.10), so one client behind the proxy cannot lock an account out for
-  everyone. Clients that reach gowui through one NAT or one untrusted proxy share one client
-  address, and so share the per-client budget.
+  everyone. The throttle keys a client by its network: an IPv4 address (or an IPv4-mapped IPv6
+  address) by its /32, any other IPv6 address by its /64, since one host commonly holds a whole
+  /64. Clients that reach gowui through one NAT, one untrusted proxy or one /64 share one client
+  key, and so share the per-client budget.
 
 ### 7.2 Sessions (server)
 
@@ -1524,7 +1536,9 @@ One SQLite file, `GOWUI_DB`, holds four tables:
 - **Keys.** Snapshots and logins are keyed by the identity key (§6.2): `local:<account id>` or
   `sso:<name>`. The storage policy's `load`, `save` and `set_aside` take that key.
 - **Opening.** The parent directory is created with mode `0700` when missing, and a missing file
-  is created with mode `0600` before SQLite opens it. The connection uses WAL journaling and a
+  is created with mode `0600` before SQLite opens it. The connection uses WAL journaling, and the
+  `-wal` and `-shm` files next to the database are set to mode `0600` once WAL is on. The dummy
+  hash for a missing name (§7.1) is made when the database is opened. The connection uses a
   `busy_timeout` of 5 seconds, so the server and a `gowui user` command can write the same file.
   Expired logins are purged on open and on lookup.
 - **Restore on start.** Nothing is loaded when the server starts: an account's space is created
@@ -1535,7 +1549,10 @@ One SQLite file, `GOWUI_DB`, holds four tables:
   starts fresh. Rows are never deleted by this; they are kept apart from `states`, so no key can
   collide with a real account's.
 - **Saving** a `local:` key writes only while the account with that id exists, in one statement.
-  A save for a removed account writes nothing and is not an error.
+  A save for a removed account writes nothing and is not an error. The snapshot JSON is written
+  with `ensure_ascii=True`, as for the local state file (§8.3): SQLite stores text as UTF-8, which
+  cannot hold a lone surrogate, so a board name such as `"x\ud800y"` is saved as an escape and
+  restored unchanged after a restart.
 - **Accounts.** `add` relies on the unique name constraint (no check-then-insert), so the server
   and the CLI cannot create the same name twice. `remove` deletes, by account id, the account, its
   logins, its `states` row and its `set_aside` rows: a name that is reused later starts clean.
