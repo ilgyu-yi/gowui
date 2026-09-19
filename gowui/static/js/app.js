@@ -136,7 +136,8 @@
       state.analysis = null;
       board.clearAnalysis();
     }
-    if (message.status) setStatus(message.status);
+    if (message.status && message.status !== state.lastStatus) setStatus(message.status);
+    state.lastStatus = message.status;
 
     state.boards = message.boards || [];
     state.activeBoard = message.activeBoard;
@@ -830,6 +831,7 @@
 
   document.addEventListener('keydown', function (event) {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;  // the browser's own (§3.7)
     if (!state.game) return;
     var handlers = {
       ArrowLeft: function () { navigate(state.game.cursor - 1); },
