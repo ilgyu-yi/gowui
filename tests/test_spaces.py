@@ -355,6 +355,82 @@ async def test_a_tab_whose_queue_overflows_is_closed_with_1013(registries):
     assert stuck.closed == [1013]
 
 
+def note(text: str) -> dict:
+    return {"type": "log", "line": {"direction": "note", "text": text, "at": 0}}
+
+
+async def stalled(registry) -> tuple[FakeTab, object]:
+    """A tab whose sender is stuck sending its first attach frame, and its space."""
+    tab = FakeTab(stuck=True)
+    await registry.attach(owner(), tab.send, tab.close)
+    await settle(0.05)
+    return tab, registry.live["owner"]
+
+
+def unstick(tab: FakeTab) -> None:
+    tab.stuck = False
+    tab._never.set()
+
+
+def marked(tab: FakeTab) -> list[dict]:
+    """The frames the test broadcast (each carries ``n``), in the order the tab got them."""
+    return [f for f in tab.frames if "n" in f or f.get("type") == "log"
+            and f["line"]["text"].startswith("t")]
+
+
+async def test_a_stalled_tab_is_not_closed_by_state_and_analysis_frames(registries):
+    """§4.3 Coalescing: a newer ``state`` or ``analysis`` supersedes the queued one, so a tab
+    that does not read never overflows on them; it gets the newest of each and every log line."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    for n in range(500):
+        space.hub.broadcast({"type": "state", "n": n})
+        space.hub.broadcast({"type": "analysis", "cursor": n, "n": n})
+        if n % 100 == 0:
+            space.hub.broadcast(note(f"t{n}"))
+    await settle(0.1)
+    assert tab.closed == []
+    unstick(tab)
+    await wait_for(lambda: any(f.get("type") == "analysis" and f.get("n") == 499
+                               for f in tab.frames))
+    got = marked(tab)
+    assert [f for f in got if f["type"] == "state"] == [{"type": "state", "n": 499}]
+    assert [f["n"] for f in got if f["type"] == "analysis"] == [499]
+    assert [f["line"]["text"] for f in got if f["type"] == "log"] == [
+        "t0", "t100", "t200", "t300", "t400"]
+    assert (tab.closed, tab.types().count("log_history")) == ([], 1)
+
+
+async def test_a_coalesced_analysis_never_arrives_before_its_state(registries):
+    """The newest ``state`` and ``analysis`` keep their broadcast order (§4.3): the page ignores
+    an ``analysis`` whose cursor its ``state`` has not reached (§3.8)."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    space.hub.broadcast({"type": "analysis", "cursor": 0, "n": 0})
+    for n in range(1, 50):
+        space.hub.broadcast({"type": "state", "n": n})
+        space.hub.broadcast({"type": "analysis", "cursor": n, "n": n})
+    unstick(tab)
+    await wait_for(lambda: any(f.get("type") == "analysis" and f.get("n") == 49
+                               for f in tab.frames))
+    assert [(f["type"], f["n"]) for f in marked(tab)] == [("state", 49), ("analysis", 49)]
+
+
+async def test_log_frames_still_overflow_a_stalled_tab_with_coalesced_frames_queued(registries):
+    """Frames that cannot be coalesced keep the queue bounded: logs alone still close with 1013."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    for n in range(20):
+        space.hub.broadcast({"type": "state", "n": n})
+        space.hub.broadcast({"type": "analysis", "cursor": n, "n": n})
+    await settle(0.05)
+    assert tab.closed == []
+    for n in range(8):
+        space.hub.broadcast(note(f"t{n}"))
+    await wait_for(lambda: tab.closed)
+    assert tab.closed == [1013]
+
+
 async def test_the_other_tabs_keep_receiving_after_one_overflows(registries):
     registry = registries(queue_size=4)
     stuck, reading = FakeTab(stuck=True), FakeTab()

@@ -6,6 +6,7 @@ outcome briefly. No test sleeps: waits are Playwright expectations, the frame re
 fence of browser_kit.py.
 
 - ``test_play_tour``: B1, B2, B10, B12, B13, B14, B32, B33.
+- ``test_fast_engines_stop_when_both_players_are_unticked``: B1 against an instant engine (§4.3).
 - ``test_analysis_tour``: B6, B7, B8, B18, B26, B31.
 - ``test_handol_tour``: B3, B19, B21, B22, B23, B24.
 - ``test_log_tour``: B30.
@@ -80,8 +81,9 @@ def counter(g: Gowui, text: str, timeout: int = QUICK) -> None:
 
 # -- play ----------------------------------------------------------------------------------------------
 def test_play_tour(start_engine, start_app, open_page):
-    # Each engine move takes 50 ms, so engine-vs-engine play is a stream the tab keeps up with
-    # rather than a flood that overflows its queue (§4.3) before the boxes are unticked.
+    # Each engine move takes 50 ms. State frames are coalesced (§4.3), but an instant engine
+    # playing a long game still sends log lines faster than the tab reads them, and log frames
+    # are never dropped. The next test covers an instant engine unticked early.
     g = connected(start_engine, start_app, open_page, "gtp", "--delay", "genmove=0.05")
     page = g.page
 
@@ -187,6 +189,23 @@ def test_play_tour(start_engine, start_app, open_page):
         page.locator("#resign").click()
         game = wait_state(g, lambda s: s["game"]["gameOver"])["game"]
         assert game["result"].endswith("+R")
+
+
+def test_fast_engines_stop_when_both_players_are_unticked(start_engine, start_app, open_page):
+    """B1 against an instant engine (§4.3 "Coalescing"): the flood of ``state`` frames is
+    coalesced, so the tab keeps its socket and its Untick clicks stop the engines."""
+    g = connected(start_engine, start_app, open_page)
+    page = g.page
+    page.locator("#white-engine").check()
+    page.locator("#black-engine").check()
+    wait_state(g, lambda s: s["game"]["moveCount"] >= 30 or s["game"]["gameOver"],
+               timeout=ENGINE)
+    untick_engines(g)
+    g.fence()
+    stopped = g.state()["game"]["moveCount"]
+    g.fence()
+    assert (g.state()["game"]["moveCount"], g.closes(0)) == (stopped, [])
+    assert stopped < 2000, "the engines stopped well before the move cap"
 
 
 # -- analysis ------------------------------------------------------------------------------------------
