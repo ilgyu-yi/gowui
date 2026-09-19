@@ -479,7 +479,10 @@ all of them — the way a desktop GUI shows one window.
 - **Latest lifecycle wins.** `connect`, `disconnect` and a restore's reconnect (§8.1) each carry a
   generation; only the latest takes effect, and an engine connected by a superseded one is closed.
   A `connect` releases the current engine before it connects, so a failed connect leaves the space
-  disconnected. A connect superseded by a later lifecycle is no longer pending (§4.1).
+  disconnected. A connect superseded by a later lifecycle is no longer pending (§4.1), but its
+  attempt runs on until its handshake returns (an engine call is never cancelled mid-command), and
+  the engine it connected is then closed. At most two connect attempts run per space — the live
+  one and one superseded — so a `connect` that would start a third is refused (§4.1).
 - **Broadcast.** Every frame leaves the session through one `broadcast` callable the transport
   supplies. It is synchronous and non-blocking, and it may raise; a failure is contained where it
   happens and never reaches the session's tasks. An awaitable it returns is closed (or ignored) and
@@ -570,7 +573,10 @@ One WebSocket per tab at `/ws`, JSON text frames.
 gets "komi must be a finite number". Numbers out of range are clamped (§7.6). At most one
 on-demand command of each kind — `genmove`, `raw`, `final_score`, `connect` — is pending per space;
 a further one of the same kind while it runs is refused with an `error`. A connect superseded by a
-later lifecycle (a `disconnect`, §3.2) is no longer pending, so a new `connect` is accepted at once.
+later lifecycle (a `disconnect`, §3.2) is no longer pending, so a new `connect` is accepted while
+that superseded attempt is still running — but at most two connect attempts run per space (the
+live one and one superseded, §3.2): a `connect` that arrives while two superseded attempts are
+still running is refused with an `error` ("the previous connect is still closing").
 A `play` vertex longer than 8 characters and a `new_game` rules name longer than 40 characters are
 refused before they are read, and a refusal quotes at most 40 characters of the value it refuses.
 
