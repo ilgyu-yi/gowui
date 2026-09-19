@@ -343,16 +343,188 @@ async def test_a_tab_is_sent_frames_in_broadcast_order(registries):
     assert texts == [str(i) for i in range(20)]
 
 
+def note(text: str) -> dict:
+    return {"type": "log", "line": {"direction": "note", "text": text, "at": 0}}
+
+
+def error(text: str) -> dict:
+    """A frame that is neither coalesced nor folded (§4.3), so it is what still overflows a
+    queue: ``state``/``analysis`` are coalesced and ``log`` frames fold into a ``log_history``."""
+    return {"type": "error", "message": text}
+
+
 async def test_a_tab_whose_queue_overflows_is_closed_with_1013(registries):
     registry = registries(queue_size=4)
     stuck = FakeTab(stuck=True)
     await registry.attach(owner(), stuck.send, stuck.close)
     space = registry.live["owner"]
     for index in range(20):
-        space.hub.broadcast({"type": "log", "line": {"direction": "note", "text": str(index),
-                                                     "at": 0}})
+        space.hub.broadcast(error(str(index)))
     await wait_for(lambda: stuck.closed)
     assert stuck.closed == [1013]
+
+
+async def stalled(registry) -> tuple[FakeTab, object]:
+    """A tab whose sender is stuck sending its first attach frame, and its space."""
+    tab = FakeTab(stuck=True)
+    await registry.attach(owner(), tab.send, tab.close)
+    await settle(0.05)
+    return tab, registry.live["owner"]
+
+
+def unstick(tab: FakeTab) -> None:
+    tab.stuck = False
+    tab._never.set()
+
+
+def marked(tab: FakeTab) -> list[dict]:
+    """The frames the test broadcast (each carries ``n``), in the order the tab got them."""
+    return [f for f in tab.frames if "n" in f or f.get("type") == "log"
+            and f["line"]["text"].startswith("t")]
+
+
+async def test_a_stalled_tab_is_not_closed_by_state_and_analysis_frames(registries):
+    """§4.3 Coalescing: a newer ``state`` or ``analysis`` supersedes the queued one, so a tab
+    that does not read never overflows on them; it gets the newest of each and every log line."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    for n in range(500):
+        space.hub.broadcast({"type": "state", "n": n})
+        space.hub.broadcast({"type": "analysis", "cursor": n, "n": n})
+        if n % 100 == 0:
+            space.hub.broadcast(note(f"t{n}"))
+    await settle(0.1)
+    assert tab.closed == []
+    unstick(tab)
+    await wait_for(lambda: any(f.get("type") == "analysis" and f.get("n") == 499
+                               for f in tab.frames))
+    got = marked(tab)
+    assert [f for f in got if f["type"] == "state"] == [{"type": "state", "n": 499}]
+    assert [f["n"] for f in got if f["type"] == "analysis"] == [499]
+    assert [f["line"]["text"] for f in got if f["type"] == "log"] == [
+        "t0", "t100", "t200", "t300", "t400"]
+    assert (tab.closed, tab.types().count("log_history")) == ([], 1)
+
+
+async def test_a_coalesced_analysis_never_arrives_before_its_state(registries):
+    """The newest ``state`` and ``analysis`` keep their broadcast order (§4.3): the page ignores
+    an ``analysis`` whose cursor its ``state`` has not reached (§3.8)."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    space.hub.broadcast({"type": "analysis", "cursor": 0, "n": 0})
+    for n in range(1, 50):
+        space.hub.broadcast({"type": "state", "n": n})
+        space.hub.broadcast({"type": "analysis", "cursor": n, "n": n})
+    unstick(tab)
+    await wait_for(lambda: any(f.get("type") == "analysis" and f.get("n") == 49
+                               for f in tab.frames))
+    assert [(f["type"], f["n"]) for f in marked(tab)] == [("state", 49), ("analysis", 49)]
+
+
+async def test_other_frames_still_overflow_a_stalled_tab_with_coalesced_frames_queued(registries):
+    """Frames that are neither coalesced nor folded keep the queue bounded: ``error`` frames
+    still close with 1013 (§4.3 Overflow). ``log`` frames no longer can: they fold."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    for n in range(20):
+        space.hub.broadcast({"type": "state", "n": n})
+        space.hub.broadcast({"type": "analysis", "cursor": n, "n": n})
+    await settle(0.05)
+    assert tab.closed == []
+    for n in range(8):
+        space.hub.broadcast(error(f"t{n}"))
+    await wait_for(lambda: tab.closed)
+    assert tab.closed == [1013]
+
+
+async def test_a_stalled_tab_is_not_closed_by_log_frames_they_fold_into_one_history(registries):
+    """§4.3 Log folding: a ``log`` that would overflow the queue replaces every queued ``log``
+    (and ``log_history``) with one ``log_history`` of the current history at the end, so a tab
+    that does not read keeps its socket, and what it gets still ends in the newest lines."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    queue = space.hub.tabs[0].queue
+    histories = []
+    for n in range(500):
+        space.session._record_log("note", f"t{n}")
+        histories.append(sum(1 for kind, _ in queue._items if kind == "log_history"))
+    await settle(0.1)
+    assert (tab.closed, max(histories)) == ([], 1)
+    kinds = [kind for kind, _ in queue._items]
+    assert kinds.count("log_history") == 1 and len(kinds) <= 8
+    unstick(tab)
+    await wait_for(lambda: any(f.get("type") == "log" and f["line"]["text"] == "t499"
+                               or f.get("type") == "log_history"
+                               and f["lines"] and f["lines"][-1]["text"] == "t499"
+                               for f in tab.frames))
+    frames = tab.frames
+    assert [f.get("type") for f in frames].count("log_history") == 1
+    start = [f.get("type") for f in frames].index("log_history")
+    seen = [line["text"] for line in frames[start]["lines"]]
+    seen += [f["line"]["text"] for f in frames[start + 1:] if f.get("type") == "log"]
+    seen = [text for text in seen if text.startswith("t")]
+    assert len(seen) >= 100
+    assert seen == [f"t{i}" for i in range(500 - len(seen), 500)]
+    assert tab.closed == []
+
+
+@pytest.mark.parametrize("kind", ["state", "analysis", "log", "log_history"])
+async def test_a_queue_full_of_log_frames_folds_for_any_foldable_frame(kind):
+    """§4.3 Log folding: a ``state``, ``analysis`` or ``log_history`` with nothing of its type to
+    supersede folds the queued logs first, like a ``log`` does; it is not refused."""
+    from gowui.spaces import TabQueue
+
+    queue = TabQueue(256)
+    history = lambda: json.dumps({"type": "log_history", "lines": []})  # noqa: E731
+    assert all(queue.put("log", json.dumps(note(str(n))), history) for n in range(256))
+    assert queue.put(kind, json.dumps({"type": kind}), history) is True
+    kinds = [queued for queued, _ in queue._items]
+    assert kinds.count("log_history") == 1 and "log" not in kinds
+
+
+def test_a_queue_mostly_of_errors_is_refused_rather_than_folded_on_every_log_line():
+    """§4.3 Overflow: once a fold would leave more than half the queue unfoldable, the tab is
+    closed; folding for it on every log line would tie up the event loop."""
+    from gowui.spaces import TabQueue
+
+    calls = []
+
+    def history() -> str:
+        calls.append(1)
+        return json.dumps({"type": "log_history", "lines": []})
+
+    queue = TabQueue(8)
+    for n in range(7):
+        assert queue.put("error", json.dumps(error(str(n))), history)
+    accepted = [queue.put("log", json.dumps(note(str(n))), history) for n in range(200)]
+    assert False in accepted or len(calls) <= 10, (accepted.count(False), len(calls))
+
+
+async def test_folding_in_many_tabs_encodes_the_history_once_per_log_line(registries,
+                                                                          monkeypatch):
+    """§4.3 Log folding: the history text is encoded once and shared by every tab until the log
+    changes, so many stalled tabs cost one encoding per log line, not one per tab."""
+    registry = registries(queue_size=8)
+    tabs = []
+    for _ in range(20):
+        tab = FakeTab(stuck=True)
+        await registry.attach(owner(), tab.send, tab.close)
+        tabs.append(tab)
+    await settle(0.05)
+    space = registry.live["owner"]
+    session = space.session
+    built = []
+    original = session._log_history
+
+    def counting():
+        built.append(1)
+        return original()
+
+    monkeypatch.setattr(session, "_log_history", counting)
+    for n in range(200):
+        session._record_log("note", f"t{n}")
+    assert [tab.closed for tab in tabs] == [[]] * 20
+    assert 0 < len(built) <= 200, len(built)
 
 
 async def test_the_other_tabs_keep_receiving_after_one_overflows(registries):
@@ -362,8 +534,7 @@ async def test_the_other_tabs_keep_receiving_after_one_overflows(registries):
     await registry.attach(owner(), reading.send, reading.close)
     space = registry.live["owner"]
     for index in range(20):
-        space.hub.broadcast({"type": "log", "line": {"direction": "note", "text": str(index),
-                                                     "at": 0}})
+        space.hub.broadcast(error(str(index)))  # errors: logs would fold, not overflow (§4.3)
         await asyncio.sleep(0.01)  # the reading tab's sender drains as it goes
     await wait_for(lambda: stuck.closed)
     space.hub.broadcast({"type": "log", "line": {"direction": "note", "text": "after", "at": 0}})
@@ -378,8 +549,7 @@ async def test_an_overflowed_tab_is_detached_and_gets_nothing_more(registries):
     await registry.attach(owner(), stuck.send, stuck.close)
     space = registry.live["owner"]
     for index in range(20):
-        space.hub.broadcast({"type": "log", "line": {"direction": "note", "text": str(index),
-                                                     "at": 0}})
+        space.hub.broadcast(error(str(index)))  # errors: logs would fold, not overflow (§4.3)
     await wait_for(lambda: stuck.closed)
     stuck.stuck = False
     stuck._never.set()

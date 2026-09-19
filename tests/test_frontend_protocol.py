@@ -111,6 +111,16 @@ def test_the_page_sends_every_control_type_of_the_spec():
     assert sorted(spec_table_types("### 4.1") - NOT_SENT_BY_THE_PAGE - page_sends()) == []
 
 
+def test_the_page_sends_genmove_with_the_side_to_move():
+    """§3.8: "Engine move now" and the ``g`` key both name the colour, so a request that waits
+    behind an automatic engine move is refused rather than played for the human (§3.2)."""
+    calls = [c for c in send_calls(read_js("app.js"))
+             if re.match(r"send\s*\(\s*\{\s*type\s*:\s*'genmove'", c)]
+    assert len(calls) == 2 and all(
+        re.match(r"send\s*\(\s*\{\s*type\s*:\s*'genmove'\s*,\s*color\s*:\s*state\.game\.toPlay\s*\}",
+                 c) for c in calls), calls
+
+
 def test_the_page_never_sends_load_sgf():
     assert "load_sgf" not in page_sends()
 

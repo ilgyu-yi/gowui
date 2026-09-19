@@ -124,10 +124,11 @@ def processes():
 
 @pytest.fixture
 def start_engine(processes, tmp_path):
-    """``start_engine(protocol)`` runs a fake engine (§2.6) for this test only."""
-    def start(protocol: str = "gtp") -> Engine:
+    """``start_engine(protocol, *extra)`` runs a fake engine (§2.6) for this test only;
+    ``extra`` holds more command-line options, such as ``--delay genmove=0.05``."""
+    def start(protocol: str = "gtp", *extra: str) -> Engine:
         process = Process([sys.executable, str(REPO / "tools" / "fake_engine.py"),
-                           "--protocol", protocol, "--port", "0"],
+                           "--protocol", protocol, "--port", "0", *extra],
                           r"^listening on 127\.0\.0\.1:(\d+)$",
                           tmp_path / f"engine-{protocol}-{len(processes)}.log")
         processes.append(process)
@@ -138,10 +139,14 @@ def start_engine(processes, tmp_path):
 
 @pytest.fixture
 def start_app(processes, tmp_path):
-    """``start_app(engine=None, connect=False, *extra)`` runs ``python -m gowui --port 0 --fresh``
-    with the engine as the connect form's default, connected at startup when ``connect``."""
-    def start(engine: Engine | None = None, connect: bool = False, *extra: str) -> App:
-        argv = [sys.executable, "-m", "gowui", "--port", "0", "--fresh", "--log-level", "warning"]
+    """``start_app(engine=None, connect=False, *extra, fresh=True)`` runs ``python -m gowui
+    --port 0 --fresh`` with the engine as the connect form's default, connected at startup when
+    ``connect``; ``fresh=False`` leaves out ``--fresh`` (pass ``--state FILE`` in ``extra``)."""
+    def start(engine: Engine | None = None, connect: bool = False, *extra: str,
+              fresh: bool = True) -> App:
+        argv = [sys.executable, "-m", "gowui", "--port", "0", "--log-level", "warning"]
+        if fresh:
+            argv.append("--fresh")
         if engine is not None:
             argv += ["--engine-protocol", engine.protocol, "--engine-port", str(engine.port)]
             if connect:

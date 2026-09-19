@@ -98,6 +98,15 @@ class Game:
         self._setup(size, rule_set, komi, count, [(BLACK, x, y) for x, y in points],
                     WHITE if count else BLACK)
 
+    @classmethod
+    def from_setup(cls, size: int, komi: float | None, rules: str,
+                   stones: list[tuple[int, int, int]], first_player: int,
+                   handicap: int = 0) -> "Game":
+        """A game that starts from explicit setup stones ``(color, x, y)`` with ``first_player`` to move."""
+        game = cls(size, komi=komi, rules=rules)
+        game._setup(size, game.rules, game.komi, handicap, list(stones), first_player)
+        return game
+
     def _setup(self, size: int, rule_set: RuleSet, komi: float | None, handicap: int,
                setup_stones: list[tuple[int, int, int]], first_player: int) -> None:
         self.size = size

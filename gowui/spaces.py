@@ -4,8 +4,12 @@ The registry holds at most one live space per identity key. Getting a space, att
 releasing a space take one lock per key. A space is loaded and restored in worker threads, then
 published, then resumed in a task the registry owns. Each space has a hub whose synchronous
 ``broadcast`` is the session's: it serialises a frame once and puts the text into every tab's
-bounded queue, drained by one sender task per tab. Saves are change-detected and serialised per
-space; the write runs in a worker thread.
+bounded queue, drained by one sender task per tab. A newer ``state`` or ``analysis`` frame
+supersedes a queued unsent one of its type, and a ``state``, ``analysis``, ``log`` or
+``log_history`` that would overflow a queue first folds the queued logs into one ``log_history``,
+so only other frames can overflow a queue; a fold that would leave the queue mostly unfoldable
+closes the tab instead. Saves are change-detected and serialised per space; the write runs in a
+worker thread.
 """
 
 from __future__ import annotations
@@ -15,13 +19,14 @@ import contextlib
 import json
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from .policies import Identity, Policies
 from .session import GameSession
 
-__all__ = ["DEFAULT_QUEUE_SIZE", "SAVE_INTERVAL", "Hub", "Space", "SpaceRegistry", "Tab"]
+__all__ = ["DEFAULT_QUEUE_SIZE", "SAVE_INTERVAL", "Hub", "Space", "SpaceRegistry", "Tab", "TabQueue"]
 
 log = logging.getLogger("gowui")
 
@@ -34,8 +39,64 @@ CLOSE_OVERFLOW = 1013
 #: How long shutdown waits for a space's resume task after ``aclose()``.
 RESUME_WAIT = 5.0
 
+#: Frame types a newer frame of the same type supersedes in a tab's queue (§4.3 Coalescing).
+COALESCED = frozenset({"state", "analysis"})
+#: Frame types a ``log_history`` of the current history replaces on overflow (§4.3 Log folding).
+FOLDED = frozenset({"log", "log_history"})
+#: Frame types that fold the queued logs instead of being refused on overflow (§4.3).
+FOLDING = COALESCED | FOLDED
+
 Send = Callable[[str], Awaitable[None]]
 Close = Callable[[int], Awaitable[None]]
+
+
+class TabQueue:
+    """A tab's bounded frame queue (§4.3). A ``state`` or ``analysis`` put while an unsent frame
+    of its type waits removes that frame and goes to the end; a ``state``, ``analysis``, ``log``
+    or ``log_history`` that would overflow replaces every queued ``log`` and ``log_history`` with
+    ``history()`` at the end (a ``log`` or ``log_history`` is folded into it, the others follow
+    it), unless more than half the queue would still be unfoldable; other frames are only
+    appended."""
+
+    def __init__(self, maxsize: int) -> None:
+        self.maxsize = maxsize
+        self._items: deque[tuple[str | None, str]] = deque()
+        self._ready = asyncio.Event()
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def put(self, kind: str | None, text: str,
+            history: Callable[[], str | None] | None = None) -> bool:
+        """Enqueue one frame's text; ``False`` when the queue is full."""
+        if kind in COALESCED:
+            for index, (queued, _) in enumerate(self._items):
+                if queued == kind:
+                    del self._items[index]
+                    break
+        if len(self._items) >= self.maxsize:
+            if kind not in FOLDING or history is None:
+                return False
+            # A queue mostly of unfoldable frames (its own errors) would fold on every line.
+            if sum(1 for item in self._items if item[0] not in FOLDED) > self.maxsize // 2:
+                return False
+            folded = history()
+            if folded is None:
+                return False
+            self._items = deque(item for item in self._items if item[0] not in FOLDED)
+            self._items.append(("log_history", folded))
+            if kind in FOLDED:
+                self._ready.set()
+                return True
+        self._items.append((kind, text))
+        self._ready.set()
+        return True
+
+    async def get(self) -> str:
+        while not self._items:
+            self._ready.clear()
+            await self._ready.wait()
+        return self._items.popleft()[1]
 
 
 class Tab:
@@ -45,14 +106,14 @@ class Tab:
         self.space = space
         self._send = send
         self._close = close
-        self.queue: asyncio.Queue[str] = asyncio.Queue(queue_size)
+        self.queue = TabQueue(queue_size)
         self.sender: asyncio.Task | None = None
         #: Set once the registry has detached the tab.
         self.detached = False
 
     def push(self, frame: dict) -> None:
         """Send one frame to this tab only, in order with its broadcasts."""
-        self.space.hub.deliver(self, json.dumps(frame))
+        self.space.hub.deliver(self, json.dumps(frame), frame.get("type"))
 
 
 class Hub:
@@ -60,6 +121,10 @@ class Hub:
 
     def __init__(self, clock: Callable[[], float]) -> None:
         self.tabs: list[Tab] = []
+        #: The session's current ``log_history`` frame as JSON text (encoded once and shared by
+        #: every tab until the log changes), or ``None``; set by the registry and read
+        #: synchronously when a frame would overflow a queue (§4.3 Log folding).
+        self.history: Callable[[], str | None] | None = None
         self._clock = clock
         #: When the last tab left (or the hub was made); idle release measures from here.
         self.idle_since = clock()
@@ -69,27 +134,28 @@ class Hub:
         # With no tab attached nothing is touched: restore() broadcasts from a worker thread.
         if not self.tabs:
             return None
-        text = json.dumps(frame)
+        text, kind = json.dumps(frame), frame.get("type")
         for tab in list(self.tabs):
-            self.deliver(tab, text)
+            self.deliver(tab, text, kind)
         return None
 
-    def deliver(self, tab: Tab, text: str) -> None:
+    def deliver(self, tab: Tab, text: str, kind: str | None = None) -> None:
         if tab not in self.tabs:
             return
-        try:
-            tab.queue.put_nowait(text)
-        except asyncio.QueueFull:
+        if not tab.queue.put(kind, text, self._history_text):
             self.remove(tab)
             task = asyncio.ensure_future(_close_quietly(tab, CLOSE_OVERFLOW))
             self._closing.add(task)
             task.add_done_callback(self._closing.discard)
 
+    def _history_text(self) -> str | None:
+        return self.history() if self.history is not None else None
+
     def add(self, tab: Tab, frames: list[dict]) -> None:
         """Register ``tab`` and enqueue its attach frames in one step, with no ``await``."""
         self.tabs.append(tab)
         for frame in frames:
-            self.deliver(tab, json.dumps(frame))
+            self.deliver(tab, json.dumps(frame), frame.get("type"))
         if tab in self.tabs:
             tab.sender = asyncio.ensure_future(_drain(self, tab))
 
@@ -217,6 +283,7 @@ class SpaceRegistry:
             # Shut down while this space was being created: never publish it (§3.1 step 3).
             await session.aclose()
             raise RuntimeError("the space registry is closed")
+        hub.history = session.log_history_text
         space = Space(key, session, hub, saved_text=baseline)
         self.live[key] = space
         space.resume_task = asyncio.ensure_future(session.resume())

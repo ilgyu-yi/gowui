@@ -58,7 +58,7 @@ main {
 #board-wrap { width: 100%; max-width: min(78vh, 900px); }
 #board { width: 100%; height: auto; display: block; border-radius: 6px; cursor: pointer; }
 
-.board-controls { display: flex; gap: 6px; align-items: center; width: 100%; max-width: min(78vh, 900px); }
+.board-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; max-width: min(78vh, 900px); }
 .board-controls .spacer { flex: 1; }
 .counter { color: var(--muted); min-width: 70px; text-align: center; font-variant-numeric: tabular-nums; }
 

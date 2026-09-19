@@ -658,7 +658,7 @@
   $('pass').onclick = function () { send({ type: 'pass' }); };
   $('resign').onclick = function () { send({ type: 'resign' }); };
   $('undo').onclick = function () { send({ type: 'undo' }); };
-  $('genmove').onclick = function () { send({ type: 'genmove' }); };
+  $('genmove').onclick = function () { send({ type: 'genmove', color: state.game.toPlay }); };
   $('final-score').onclick = function () { send({ type: 'final_score' }); };
 
   function navigate(index) { send({ type: 'navigate', index: index }); }
@@ -888,6 +888,7 @@
       link.download = withSgfExtension(name);
       link.click();
       setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+      setStatus(t('sgf.saved', { name: link.download }));
     }).catch(function (err) {
       if (err && err.name === 'AbortError') return;  // the user closed the dialog
       setStatus(t('sgf.failed', { error: err && err.message ? err.message : String(err) }), true);
@@ -935,7 +936,7 @@
       '[': function () { stepBoard(-1); },
       ']': function () { stepBoard(1); },
       u: function () { send({ type: 'undo' }); },
-      g: function () { send({ type: 'genmove' }); },
+      g: function () { send({ type: 'genmove', color: state.game.toPlay }); },
       a: function () { $('analysis-on').checked = !$('analysis-on').checked;
                        send({ type: 'analysis', enabled: $('analysis-on').checked }); }
     };

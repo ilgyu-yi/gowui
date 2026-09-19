@@ -28,50 +28,50 @@
 | &nbsp;&nbsp;§2.4 | KataGo analysis engine | 312 |
 | &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 328 |
 | &nbsp;&nbsp;§2.6 | Fake engine | 411 |
-| §3 | Session and boards | 435 |
-| &nbsp;&nbsp;§3.1 | Spaces | 437 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 464 |
-| &nbsp;&nbsp;§3.3 | Boards | 528 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 544 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 556 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 571 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 575 |
-| &nbsp;&nbsp;§3.8 | The page | 584 |
-| §4 | WebSocket protocol | 832 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 836 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 877 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 914 |
-| §5 | HTTP routes | 945 |
-| §6 | Launch modes and policies | 1020 |
-| &nbsp;&nbsp;§6.1 | The rule | 1022 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1058 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1097 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1130 |
-| §7 | Authentication and security | 1149 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1151 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1198 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1216 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1230 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1278 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1295 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1335 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1351 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1365 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1374 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1403 |
-| §8 | Persistence | 1422 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1424 |
-| &nbsp;&nbsp;§8.2 | Saving | 1458 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1487 |
-| &nbsp;&nbsp;§8.4 | Server database | 1529 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1565 |
-| §9 | Command line | 1577 |
-| §10 | Configuration (server) | 1636 |
-| &nbsp;&nbsp;§10.1 | Container | 1674 |
-| §11 | Feature inventory | 1728 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1735 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1773 |
-| §12 | Non-goals | 1791 |
+| §3 | Session and boards | 438 |
+| &nbsp;&nbsp;§3.1 | Spaces | 440 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 467 |
+| &nbsp;&nbsp;§3.3 | Boards | 533 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 549 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 561 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 576 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 580 |
+| &nbsp;&nbsp;§3.8 | The page | 589 |
+| §4 | WebSocket protocol | 840 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 844 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 885 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 922 |
+| §5 | HTTP routes | 981 |
+| §6 | Launch modes and policies | 1056 |
+| &nbsp;&nbsp;§6.1 | The rule | 1058 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1094 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1133 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1166 |
+| §7 | Authentication and security | 1185 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1187 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1234 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1252 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1266 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1314 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1331 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1371 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1387 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1401 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1410 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1439 |
+| §8 | Persistence | 1458 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1460 |
+| &nbsp;&nbsp;§8.2 | Saving | 1494 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1523 |
+| &nbsp;&nbsp;§8.4 | Server database | 1565 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1601 |
+| §9 | Command line | 1613 |
+| §10 | Configuration (server) | 1672 |
+| &nbsp;&nbsp;§10.1 | Container | 1710 |
+| §11 | Feature inventory | 1764 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1771 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1809 |
+| §12 | Non-goals | 1827 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -418,6 +418,9 @@ entirely against it: no KataGo, GPU or model file is needed.
   switch off engine features or inject faults such as hang-ups, delays and malformed output) and a
   command-line program.
 - `--protocol` accepts exactly the registered fake protocols: `gtp`, `analysis` and `handol`.
+- `--delay COMMAND=SECONDS` (repeatable; GTP mode) holds each reply to that GTP command for that
+  many seconds, as the module's `delay` option does. A value that is not `NAME=number` with a
+  finite, non-negative number is a usage error.
 - **Handol mode** (`--protocol handol`) plays the handol-mux surface of §2.5: exactly one answer
   line per request, strictly serial per connection (the next request is read only after the
   answer). It refuses, with an error reply, unknown top-level keys, `initialPlayer`,
@@ -486,6 +489,8 @@ same key. A space is created in four steps:
   token are dropped. An automatic move is also discarded when the players changed while it searched
   (a players epoch that only automatic moves check), and is played only if its side is still set to
   engine when it arrives; a move asked for with `genmove` is unaffected by the players setting.
+  A `genmove` with a `color` that is no longer the side to move when its turn at the engine comes
+  (an automatic move was played first) is refused with an `error` and asks the engine nothing.
 - Continuous analysis, when on, runs for the position under the cursor and restarts on every
   position change. It stops when switched off, when the game is over at the cursor, and while the
   engine is generating a move (except through `kata-genmove_analyze`). Restart requests are
@@ -616,7 +621,10 @@ too follows the data, never a mode name.
   mode, heatmap and move numbers belong to the page and are not sent.
 - **Players section:** "KataGo plays Black" / "KataGo plays White" checkboxes (`players`), the
   per-colour move style selects `human` / `katago` (handol-mux only), "Engine move now"
-  (`genmove`), "Final score" (`final_score`), and the capture count of each colour.
+  (`genmove`), "Final score" (`final_score`), and the capture count of each colour. "Engine move
+  now" and the `g` key send `genmove` with `color` set to the page's side to move
+  (`state.game.toPlay`), so a request that waits behind an automatic engine move is refused
+  (§3.2) instead of making the engine play the human's side as well.
 - **New game section:** size (9, 13, 19; default 19), handicap (0–9), komi, rules (the rule sets
   of §1.1, default `japanese`), Start, Save SGF and Load SGF. The komi field shows the rule set's
   default from `ruleDefaults`, or `handicapKomi` when the handicap is 2 or more, and is filled
@@ -922,8 +930,36 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   the attach frames and the tab's registration, so none is lost or duplicated.
 - **Broadcast** never awaits. It serialises a frame to JSON text once, then puts that text into
   each tab's bounded queue with `put_nowait`. One sender task per tab drains its queue in order.
-- **Overflow.** A tab whose queue is full is closed with code `1013` and detached; broadcasting to
-  the other tabs goes on. A reopened tab is brought up to date by its attach frames.
+- **Coalescing.** A `state` or an `analysis` frame supersedes an earlier frame of its type: the
+  page needs only the newest `state` and the newest `analysis`. When one is put into a tab's
+  queue while an unsent frame of the same type is still waiting there, the waiting frame is
+  removed and the new one is added at the end. A queue therefore holds at most one `state` and
+  one `analysis`, and they stay in the order they were broadcast, so the page never gets an
+  `analysis` for a position its `state` has not reached yet (the page ignores an `analysis`
+  whose `cursor` is not the current one, §3.8).
+- **Log folding.** A frame that would overflow a tab's queue — a `state`, `analysis`, `log` or
+  `log_history` with no same-type frame to supersede — is not refused at once: every `log` frame
+  queued for that tab, and a queued `log_history` if there is one, is removed, and one
+  `log_history` frame carrying the space's current log history is put at the end of the queue;
+  the arriving frame then goes in after it (an arriving `log` or `log_history` is itself folded
+  into that `log_history`). The history is the frame the attach frames carry (the last 100 lines,
+  §3.6), taken from the session synchronously, so broadcast still never awaits. Its JSON text is
+  encoded once and shared by every tab until the session's log changes, so folding in many tabs
+  costs one encoding per log line, not one per tab. The page replaces its log with a
+  `log_history` (§3.8), and the history already holds the folded lines, so the page's log stays
+  correct. A queue therefore holds at most one `log_history`.
+- Every other frame (`error`, and any other type of §4.2) is never coalesced, folded or dropped,
+  and all frames keep their order. A tab that reads slowly, such as one watching two fast
+  engines play each other, therefore keeps its socket and its messages are still handled.
+- **Overflow.** The queue stays bounded (`256` frames). Code `1013` closes a tab, which is then
+  detached while broadcasting to the other tabs goes on, in two cases: its queue is full when an
+  `error` (or any other frame that cannot be folded) arrives, or a fold would leave more than half
+  the queue (over `128` frames) holding frames that cannot be folded. A queue that is mostly
+  unsent `error` frames belongs to a tab that is misbehaving — typically one provoking its own
+  errors — not one that is merely slow, and folding for it on every log line would tie up the
+  event loop. Short of those cases, coalescing and log folding mean `state`, `analysis`, `log`
+  and `log_history` frames never close a slow tab. A reopened tab is brought up to date by its
+  attach frames.
 - **Receiving.** Each received frame is parsed (§7.6) and passed to `session.handle`, which is
   awaited inline, so a tab's messages are handled in the order they were sent. A frame that is
   not valid JSON, or is nested too deeply to parse, gets an `error` and the socket stays open.
@@ -1736,39 +1772,39 @@ addition to the section in its Behaviour column.
 
 | # | Feature | Behaviour | Modes | Tests |
 |---|---|---|---|---|
-| B1 | Play human vs human, human vs engine, engine vs engine | §3.2 | both | session: `tests/test_session_play.py`; UI: pending |
-| B2 | Engine move on demand (`genmove`) | §3.2 | both | session: `tests/test_session_play.py`; UI: pending |
-| B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
+| B1 | Play human vs human, human vs engine, engine vs engine | §3.2 | both | session: `tests/test_session_play.py`; UI: `tests/browser/test_tours.py` |
+| B2 | Engine move on demand (`genmove`) | §3.2 | both | session: `tests/test_session_play.py`; UI: `tests/browser/test_tours.py` |
+| B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | engine: `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
 | B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: `tests/browser/test_smoke.py` |
 | B5 | PV preview on hover with numbered stones | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: `tests/browser/test_smoke.py` |
-| B6 | Raw policy heatmap | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
-| B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
-| B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
+| B6 | Raw policy heatmap | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: `tests/browser/test_tours.py` |
+| B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
+| B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
 | B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
-| B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: pending |
+| B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
 | B11 | SGF load | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py` |
-| B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: pending |
-| B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: pending |
-| B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: pending |
+| B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: `tests/browser/test_tours.py` |
+| B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
+| B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: `tests/browser/test_tours.py` |
 | B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/test_frontend_static.py`; server catalog: `tests/test_server_catalog.py` |
 | B16 | Final score | §3.5 | both | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py` |
 | B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/browser/test_smoke.py`; server catalog: `tests/test_server_catalog.py`, `tests/browser/test_server_ui.py` |
-| B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; session: `tests/test_session_engine.py`, `tests/test_session_messages.py`; UI: pending |
-| B19 | handol-mux profile picker with explanations | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
+| B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; session: `tests/test_session_engine.py`, `tests/test_session_messages.py`; UI: `tests/browser/test_tours.py` |
+| B19 | handol-mux profile picker with explanations | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
 | B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | validation: `tests/test_handol_tuple.py`, `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_validator.py` |
-| B21 | Tuple presets: built-in, save, delete, export, import | §8.5 | both | pending |
-| B22 | Two-tuple compare with A / B / Δ heatmaps and table | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
-| B23 | handol-mux winrate through eval visits | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
-| B24 | handol-mux side-to-move refusal with an explanation | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
+| B21 | Tuple presets: built-in, save, delete, export, import | §8.5 | both | UI: `tests/browser/test_tours.py` |
+| B22 | Two-tuple compare with A / B / Δ heatmaps and table | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
+| B23 | handol-mux winrate through eval visits | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
+| B24 | handol-mux side-to-move refusal with an explanation | §2.5 | both | engine: `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
 | B25 | Multiple boards: duplicate, select, `[` `]`, rename in place, delete, thumbnails | §3.3 | both | session: `tests/test_session_boards.py`; UI: `tests/browser/test_smoke.py` |
-| B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: pending |
+| B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: `tests/browser/test_tours.py` |
 | B27 | Korean / English UI, remembered | §8.5 | both | UI: `tests/test_frontend_i18n.py`, `tests/test_frontend_static.py` |
 | B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | UI: `tests/browser/test_smoke.py` |
 | B29 | Several tabs share one view | §3.1 | both | session: `tests/test_session_messages.py`; transport: `tests/test_spaces.py`, `tests/test_app_local.py` |
-| B30 | Engine traffic log | §3.6 | both | session: `tests/test_session_engine.py`; UI: pending |
-| B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | pending |
-| B32 | Move numbers on stones, toggleable | §1.4 | both | model: `tests/test_game.py`; UI: pending |
-| B33 | Capture counts per colour | §1.4 | both | model: `tests/test_board.py`, `tests/test_game.py`; UI: pending |
+| B30 | Engine traffic log | §3.6 | both | session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
+| B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | UI: `tests/browser/test_tours.py` |
+| B32 | Move numbers on stones, toggleable | §1.4 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
+| B33 | Capture counts per colour | §1.4 | both | model: `tests/test_board.py`, `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
 
 ### 11.2 New in this rebuild
 

@@ -19,6 +19,7 @@ import asyncio
 import copy
 import inspect
 import itertools
+import json
 import math
 import re
 import time
@@ -309,6 +310,9 @@ class GameSession:
         self.status = ""
         self.thinking = False
         self.log: deque[LogLine] = deque(maxlen=MAX_LOG_LINES)
+        #: Bumped on every log line; keys the cached ``log_history`` text (§4.3 Log folding).
+        self._log_version = 0
+        self._history_cache: tuple[tuple[int, int], str | None] | None = None
         #: Every engine address this space resolved: hidden from browsers unless exposed (§7.7).
         self._hidden: set[tuple[str, int]] = set()
         self._lock = asyncio.Lock()
@@ -491,13 +495,25 @@ class GameSession:
     def attach_frames(self) -> list[dict]:
         """What a newly attached tab receives: ``state``, the last log lines, and the last
         analysis if it still describes the position (§4.2)."""
-        lines = [line.to_dict() for line in self.log][-ATTACH_LOG_LINES:]
-        frames = [self.state_message(), {"type": "log_history", "lines": lines}]
+        frames = [self.state_message(), self._log_history()]
         slot = self._active
         analysis = slot.current_analysis()
         if analysis is not None and self.play_settings["analysisEnabled"]:
             frames.append(self._analysis_frame(slot, analysis))
         return [f for f in (self._redact(frame) for frame in frames) if f is not None]
+
+    def _log_history(self) -> dict:
+        lines = [line.to_dict() for line in self.log][-ATTACH_LOG_LINES:]
+        return {"type": "log_history", "lines": lines}
+
+    def log_history_text(self) -> str | None:
+        """The attach ``log_history`` frame, redacted, as JSON text; synchronous and cached until
+        the log or the hidden addresses change, so every tab shares one encoding (§4.3)."""
+        key = (self._log_version, len(self._hidden))
+        if self._history_cache is None or self._history_cache[0] != key:
+            frame = self._redact(self._log_history())
+            self._history_cache = (key, None if frame is None else json.dumps(frame))
+        return self._history_cache[1]
 
     # -- the traffic log (§3.6) ----------------------------------------------------------------
     def _record_log(self, direction: str, text: str) -> None:
@@ -506,6 +522,7 @@ class GameSession:
             return
         line = LogLine(direction, text)
         self.log.append(line)
+        self._log_version += 1
         self._emit({"type": "log", "line": line.to_dict()})
 
     # -- tasks the session owns (§3.2) -------------------------------------------------------------

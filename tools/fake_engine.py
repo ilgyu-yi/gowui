@@ -1026,8 +1026,19 @@ async def start_fake_engine(protocol: str, host: str = "127.0.0.1", port: int = 
     return server
 
 
-async def _serve(protocol: str, host: str, port: int) -> None:
-    server = await start_fake_engine(protocol, host, port)
+def _delay_arg(text: str) -> tuple[str, float]:
+    name, sep, value = text.partition("=")
+    try:
+        seconds = float(value)
+    except ValueError:
+        seconds = math.nan
+    if not sep or not name or not math.isfinite(seconds) or seconds < 0:
+        raise argparse.ArgumentTypeError(f"expected COMMAND=SECONDS, got {text!r}")
+    return name, seconds
+
+
+async def _serve(protocol: str, host: str, port: int, **options: Any) -> None:
+    server = await start_fake_engine(protocol, host, port, **options)
     print(f"listening on {server.host}:{server.port}", flush=True)
     try:
         await asyncio.Event().wait()
@@ -1040,9 +1051,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--protocol", choices=sorted(PROTOCOLS), default="gtp")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=6363)
+    parser.add_argument("--delay", action="append", default=[], type=_delay_arg,
+                        metavar="COMMAND=SECONDS",
+                        help="hold each reply to this GTP command (repeatable)")
     args = parser.parse_args(argv)
     try:
-        asyncio.run(_serve(args.protocol, args.host, args.port))
+        asyncio.run(_serve(args.protocol, args.host, args.port, delay=dict(args.delay)))
     except KeyboardInterrupt:
         pass
     return 0
