@@ -1,4 +1,4 @@
-"""Fixtures for the engine tests: in-process fake engines (SPEC §2.6) and connected clients."""
+"""Fixtures: fake engines (SPEC §2.6), connected clients, sessions and the running web app."""
 
 from __future__ import annotations
 
@@ -87,3 +87,52 @@ async def h(make_session):
     harness = make_session()
     await harness.new_game(9)
     return harness
+
+
+# -- the web app (tests/app_helpers.py) -----------------------------------------------------------
+@pytest.fixture
+async def serve():
+    """``await serve(app)`` serves ``app`` on 127.0.0.1 and a free port through the CLI's config
+    builder and returns an ``app_helpers.Running``; every server is stopped at teardown."""
+    from app_helpers import start_server
+
+    running = []
+
+    async def start(app):
+        server = await start_server(app)
+        running.append(server)
+        return server
+
+    yield start
+    for server in reversed(running):
+        with contextlib.suppress(Exception):
+            await server.stop()
+
+
+@pytest.fixture
+async def tabs(serve):
+    """``await tabs(running, host=None, origin=None, headers=None)`` opens a WebSocket tab
+    (``app_helpers.open_tab``); every tab is closed at teardown, before the servers stop."""
+    from app_helpers import open_tab
+
+    opened = []
+
+    async def open_(running, **kwargs):
+        tab = await open_tab(running, **kwargs)
+        if not isinstance(tab, int):
+            opened.append(tab)
+        return tab
+
+    yield open_
+    for tab in opened:
+        await tab.close()
+
+
+@pytest.fixture
+async def local_app(serve):
+    """The local app (local policies, memory storage), running."""
+    from app_helpers import local_bundle
+
+    from gowui.app import create_app
+
+    return await serve(create_app(local_bundle()))
