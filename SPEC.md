@@ -61,14 +61,14 @@
 | &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 990 |
 | &nbsp;&nbsp;§8.2 | Saving | 1024 |
 | &nbsp;&nbsp;§8.3 | Local state file | 1047 |
-| &nbsp;&nbsp;§8.4 | Server database | 1076 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1081 |
-| §9 | Command line | 1085 |
-| §10 | Configuration (server) | 1117 |
-| §11 | Feature inventory | 1137 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1143 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1181 |
-| §12 | Non-goals | 1199 |
+| &nbsp;&nbsp;§8.4 | Server database | 1077 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1082 |
+| §9 | Command line | 1086 |
+| §10 | Configuration (server) | 1118 |
+| §11 | Feature inventory | 1138 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1144 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1182 |
+| §12 | Non-goals | 1200 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -748,7 +748,7 @@ registry read only the bundle's fields, and none of them receives or compares a 
 | `allowed_hosts: frozenset[str] \| None` | normalised host names the Host rule accepts; `None` accepts any (§7.4) | `localhost`, `127.0.0.1`, `::1` and the normalised `--host` value | `None` |
 | `allow_ip_literals: bool` | whether any IP literal also passes the Host rule (§7.4) | `True` | irrelevant (any host passes) |
 | `trusted_proxies: tuple[ip_network, ...]` | peers whose forwarded headers are believed (§7.3, §7.10); default `()` | `()` | `GOWUI_TRUSTED_PROXIES` |
-| `sign_in_url: str \| None` | where a page request without an identity is sent; `None` gives a `401` page (§5) | `None` | `/login` when password sign-in is enabled, else `None` |
+| `sign_in_url: str \| None` | where a page request without an identity is sent (`303` with `Location`); `None` gives a `401` page (§5) | `None` | `/login` when password sign-in is enabled, else `None` |
 
 | Policy | `local` | `server` |
 |---|---|---|
@@ -1065,7 +1065,8 @@ or renames any file, and a file at the default path stays untouched however the 
 - **Setting aside.** The file is set aside when it cannot be read or decoded, is over the cap, is
   not valid JSON (including JSON nested too deeply to parse), is not a JSON object, or is refused
   by restore (§8.1). It is renamed to `<file>.bad-<UTC timestamp>` (for example
-  `state.json.bad-20260919T120000Z`) and a warning naming the new path is logged. The app then
+  `state.json.bad-20260919T120000Z`); if that name is taken, `-2`, `-3`, … is appended
+  (`state.json.bad-20260919T120000Z-2`). A warning naming the new path is logged. The app then
   starts fresh, and the next save writes a new file. Nothing is deleted.
 - **Writing** is atomic. A temporary file is created in the same directory with mode `0600`,
   written, flushed with `fsync`, and renamed over the old file with `os.replace`. A missing parent
