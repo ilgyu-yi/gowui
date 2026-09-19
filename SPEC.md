@@ -1188,8 +1188,8 @@ printable characters without surrounding spaces; passwords have 8–256 characte
   client key has a budget of 30, filling it takes at least 334 distinct client keys, that is 334
   IPv4 addresses or 334 IPv6 /64 networks, each spending well-formed attempts.
 - **Client address.** The TCP peer, or — when the peer is a trusted proxy — the last address in
-  `X-Forwarded-For` (§7.10), so one client behind the proxy cannot lock an account out for
-  everyone. The throttle keys a client by its network: an IPv4 address (or an IPv4-mapped IPv6
+  `X-Forwarded-For` (§7.10), so clients behind the proxy get separate per-client budgets (the
+  per-name cap above still applies to every client together). The throttle keys a client by its network: an IPv4 address (or an IPv4-mapped IPv6
   address) by its /32, any other IPv6 address by its /64, since one host commonly holds a whole
   /64. Clients that reach gowui through one NAT, one untrusted proxy or one /64 share one client
   key, and so share the per-client budget.
