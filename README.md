@@ -6,6 +6,18 @@ A browser-based Go GUI for KataGo and handol-mux, with a local mode and a multi-
 
 Bootstrapped via `GHJig-Claude` stage-0 (`/bootstrap-repo`); the application is being built up issue by issue.
 
+## Run (local mode)
+
+```bash
+gowui                      # same as `gowui local`; serves on 127.0.0.1:8080
+gowui --fresh              # keep boards in memory only; no state file is read or written
+gowui --state ./my.json    # use this state file instead of the per-user default
+```
+
+Once it is listening, gowui prints `gowui: http://<host>:<port>`. Open that URL in a browser.
+Boards are saved to a per-user state file and come back after a restart. The flags, the default
+state-file paths and the security rules are in `SPEC.md` §9, §8.3 and §7.4.
+
 ## Development
 
 ```bash
