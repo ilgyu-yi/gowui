@@ -1436,7 +1436,7 @@ addition to the section in its Behaviour column.
 | B2 | Engine move on demand (`genmove`) | §3.2 | both | session: `tests/test_session_play.py`; UI: pending |
 | B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
 | B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: `tests/browser/test_smoke.py` |
-| B5 | PV preview on hover with numbered stones | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B5 | PV preview on hover with numbered stones | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: `tests/browser/test_smoke.py` |
 | B6 | Raw policy heatmap | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
 | B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
@@ -1459,7 +1459,7 @@ addition to the section in its Behaviour column.
 | B25 | Multiple boards: duplicate, select, `[` `]`, rename in place, delete, thumbnails | §3.3 | both | session: `tests/test_session_boards.py`; UI: `tests/browser/test_smoke.py` |
 | B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: pending |
 | B27 | Korean / English UI, remembered | §8.5 | both | UI: `tests/test_frontend_i18n.py`, `tests/test_frontend_static.py` |
-| B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | pending |
+| B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | UI: `tests/browser/test_smoke.py` |
 | B29 | Several tabs share one view | §3.1 | both | session: `tests/test_session_messages.py`; transport: `tests/test_spaces.py`, `tests/test_app_local.py` |
 | B30 | Engine traffic log | §3.6 | both | session: `tests/test_session_engine.py`; UI: pending |
 | B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | pending |

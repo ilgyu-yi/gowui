@@ -76,3 +76,39 @@ def test_the_smoke_flow_end_to_end(start_engine, start_app, open_page):
     expect(g.page.locator("#board-list .thumb").nth(1)).to_have_class(re.compile(r"\bactive\b"))
     g.screenshot("smoke-duplicate")
     assert g.problems() == []
+
+
+def test_hovering_a_candidate_row_previews_its_pv(start_engine, start_app, open_page):
+    """B5 (§3.8 "PV preview"): hovering a candidate-table row draws its PV; leaving clears it."""
+    g = connected(start_engine, start_app, open_page)
+    g.page.locator("#analysis-on").check()
+    g.expect_dataset("candidates", re.compile(r"^[1-9]\d*$"), timeout=ENGINE)
+    row = g.page.locator("#candidates tr").first
+    expect(row).to_be_visible(timeout=ENGINE)
+    row.hover()
+    g.expect_dataset("preview", re.compile(r"^[A-HJ-T]\d{1,2}$"))
+    g.expect_dataset("previewStones", re.compile(r"^[1-9]\d*$"))
+    g.page.mouse.move(0, 0)
+    g.expect_dataset("preview", "")
+    g.expect_dataset("previewStones", "0")
+
+
+def test_arrow_left_steps_back_unless_an_input_has_focus(start_app, open_page):
+    """B28 (§3.7): ``ArrowLeft`` sends ``navigate`` one move back; typing in a field does not."""
+    g = open_page(start_app()).open()
+    for v in ("D4", "Q16"):
+        g.act({"type": "play", "color": g.state()["game"]["toPlay"], "vertex": v})
+    expect(g.page.locator("#move-counter")).to_have_text("2 / 2")
+
+    g.page.locator("#host").focus()
+    since = g.mark()
+    g.page.keyboard.press("ArrowLeft")
+    g.fence()
+    assert g.sent(since, "navigate") == []
+    expect(g.page.locator("#move-counter")).to_have_text("2 / 2")
+
+    g.page.locator("#host").blur()
+    since = g.mark()
+    g.page.keyboard.press("ArrowLeft")
+    assert g.wait_sent("navigate", since)["index"] == 1
+    expect(g.page.locator("#move-counter")).to_have_text("1 / 2")
