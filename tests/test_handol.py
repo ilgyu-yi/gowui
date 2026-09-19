@@ -707,6 +707,23 @@ async def after_mismatch(fake_engine, connect):
     return server, move
 
 
+async def test_reopen_notes_name_a_failed_request_then_an_idle_close(fake_engine, connect):
+    server = await fake_engine("handol", wrong_id_on="human", fault_times=1, idle_close=0.3)
+    log = Log()
+    engine = await handol(connect, server, log=log)
+    with pytest.raises(EngineError):
+        await genmove(engine, EMPTY, "B")
+    await genmove(engine, EMPTY, "B")
+    reopened = [n for n in log.notes if "reopened" in n]
+    assert len(reopened) == 1 and "failed request" in reopened[0], reopened
+    closed = len(server.idle_closed)
+    await wait_for(lambda: len(server.idle_closed) > closed)
+    await genmove(engine, EMPTY, "B")
+    reopened = [n for n in log.notes if "reopened" in n]
+    assert len(reopened) == 2, reopened
+    assert "idle connections" in reopened[1] and "failed request" not in reopened[1], reopened
+
+
 async def test_after_a_mismatched_id_the_next_request_succeeds(fake_engine, connect):
     _, move = await after_mismatch(fake_engine, connect)
     assert legal(game_with(9), "B", move)
