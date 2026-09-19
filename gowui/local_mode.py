@@ -29,22 +29,15 @@ from .guard import normalise_host
 from .policies import Identity, Policies
 from .session import EngineRequestError, EngineTarget
 
-__all__ = ["JsonFileStorage", "LocalIdentity", "MemoryStorage", "STATE_MAX_CONTAINERS",
-           "STATE_MAX_SEPARATORS", "STATE_READ_CAP", "StateFileError", "TypedAddresses",
-           "check_state_path", "default_state_path", "local_policies"]
+__all__ = ["JsonFileStorage", "LocalIdentity", "MemoryStorage", "STATE_READ_CAP", "StateFileError",
+           "TypedAddresses", "check_state_path", "default_state_path", "local_policies"]
 
 log = logging.getLogger("gowui")
 
 MIB = 1024 * 1024
 #: 64 boards × 1 MiB of SGF × 6 (worst-case ASCII-escaped JSON growth) + 1 MiB (§8.3).
 STATE_READ_CAP = 64 * MIB * 6 + MIB
-#: Arrays and objects outside strings a state file may hold (§8.3); a snapshot has at most 197.
-STATE_MAX_CONTAINERS = 1024
-#: Commas and colons outside strings a state file may hold (§8.3); a snapshot has at most 3,136.
-STATE_MAX_SEPARATORS = 16384
-#: A JSON string, removed before counting so an SGF's ``[`` does not count. The closing quote is
-#: optional: a string cut off by the end of the file runs to the end, so the scan stays linear.
-_JSON_STRING = re.compile(rb'"[^"\\]*(?:\\.[^"\\]*)*"?', re.DOTALL)
+#: The first byte that is not JSON whitespace must be ``{`` (§8.3); ``match`` copies nothing.
 _JSON_OBJECT_START = re.compile(rb"[ \t\r\n]*\{")
 #: Errors of ``os.link`` that mean the file system has no hard links.
 _NO_LINKS = frozenset(getattr(errno, name) for name in
@@ -165,18 +158,9 @@ class JsonFileStorage:
         if len(data) > self.max_bytes:
             self._set_aside(f"is larger than {self.max_bytes} bytes")
             return None
-        # Before parsing, so a file of many tiny values cannot blow up in memory (§8.3).
-        if not _JSON_OBJECT_START.match(data):
+        if not _JSON_OBJECT_START.match(data):  # before parsing (§8.3)
             self._set_aside("is not a JSON object")
             return None
-        structural = _JSON_STRING.sub(b"", data)
-        if structural.count(b"[") + structural.count(b"{") > STATE_MAX_CONTAINERS:
-            self._set_aside(f"holds more than {STATE_MAX_CONTAINERS} arrays and objects")
-            return None
-        if structural.count(b",") + structural.count(b":") > STATE_MAX_SEPARATORS:
-            self._set_aside(f"holds more than {STATE_MAX_SEPARATORS} commas and colons")
-            return None
-        del structural
         try:
             value = json.loads(data.decode("utf-8"))
         except UnicodeDecodeError:
