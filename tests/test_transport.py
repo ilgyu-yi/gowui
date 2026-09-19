@@ -335,6 +335,16 @@ async def test_an_invalid_address_error_names_no_address(host, port):
         pytest.fail("an invalid address connected")
 
 
+@pytest.mark.parametrize("case", ["port-str", "host-none"])
+async def test_an_invalid_address_is_refused_even_when_something_listens_there(case):
+    # The OS would accept a string port or a missing host against a live listener, so only the
+    # address check can refuse these.
+    async with Peer() as peer:
+        host, port = (HOST, str(peer.port)) if case == "port-str" else (None, peer.port)
+        with pytest.raises(EngineError):
+            await asyncio.wait_for(LineConnection(host, port).connect(timeout=HANG), HANG)
+
+
 # -- bounded sends ----------------------------------------------------------------------------
 async def never_reads(reader, writer):
     await asyncio.sleep(30)
