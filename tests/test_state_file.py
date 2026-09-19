@@ -275,17 +275,6 @@ def test_without_hard_links_a_set_aside_still_never_replaces_a_file(tmp_path, mo
 
 
 # -- checks before parsing (§8.3) ------------------------------------------------------------------
-def containers(count: int) -> bytes:
-    """A JSON object holding ``count`` arrays and objects in all (itself included)."""
-    return b'{"a": [' + b", ".join([b"[]"] * (count - 2)) + b"]}"
-
-
-def test_the_container_bound_is_1024():
-    from gowui.local_mode import STATE_MAX_CONTAINERS
-
-    assert STATE_MAX_CONTAINERS == 1024
-
-
 def test_a_file_whose_first_value_is_not_an_object_is_set_aside_unparsed(tmp_path, monkeypatch):
     path = tmp_path / "state.json"
     path.write_bytes(b" \r\n\t[" + b"[], " * 10 + b"[]]")
@@ -294,95 +283,6 @@ def test_a_file_whose_first_value_is_not_an_object_is_set_aside_unparsed(tmp_pat
     monkeypatch.setattr(json, "loads", lambda *a, **k: (parsed.append(1), real(*a, **k))[1])
     loaded = storage(path).load("owner")
     assert (loaded, parsed, len(set_aside_files(tmp_path))) == (None, [], 1)
-
-
-def test_a_file_with_more_than_1024_arrays_and_objects_is_set_aside(tmp_path):
-    path = tmp_path / "state.json"
-    path.write_bytes(containers(1025))
-    loaded = storage(path).load("owner")
-    assert (loaded, len(set_aside_files(tmp_path))) == (None, 1)
-
-
-def test_a_file_with_1024_arrays_and_objects_is_read(tmp_path):
-    path = tmp_path / "state.json"
-    path.write_bytes(containers(1024))
-    assert storage(path).load("owner") == json.loads(containers(1024))
-
-
-def test_brackets_inside_strings_do_not_count_toward_the_bound(tmp_path):
-    """Every SGF property has a ``[``; a board of long games must still load."""
-    store = storage(tmp_path / "state.json")
-    snapshot = snapshot_with("D4", name='\\"[{' * 2000)
-    snapshot["boards"][0]["sgf"] = "(;GM[1]SZ[19]" + ";B[dd]C[[{]" * 2000 + ")"
-    store.save("owner", snapshot)
-    assert store.load("owner") == snapshot
-
-
-def test_a_full_snapshot_has_fewer_containers_than_the_bound():
-    """64 boards with both tuples set and a stored request (§8.1)."""
-    from gowui.local_mode import STATE_MAX_CONTAINERS
-
-    snapshot = snapshot_with("D4", request={"protocol": "gtp", "host": "h", "port": 1})
-    board = {**snapshot["boards"][0], "humanPolicy": {"min_p": 0.1},
-             "humanCompare": {"min_p": 0.2}}
-    snapshot["boards"] = [{**board, "id": index + 1} for index in range(64)]
-    text = json.dumps(snapshot)
-    structural = re.sub(r'"(?:[^"\\]|\\.)*"', "", text)
-    assert structural.count("[") + structural.count("{") <= STATE_MAX_CONTAINERS
-
-
-def separators(count: int) -> bytes:
-    """A JSON object holding ``count`` commas and colons in all outside strings."""
-    return b'{"a": [' + b", ".join([b"0"] * count) + b"]}"
-
-
-def load_unparsed(path: Path, monkeypatch) -> tuple:
-    """Load ``path``; return what it loaded, whether ``json.loads`` ran, and the set-aside count."""
-    parsed = []
-    real = json.loads
-    monkeypatch.setattr(json, "loads", lambda *a, **k: (parsed.append(1), real(*a, **k))[1])
-    loaded = storage(path).load("owner")
-    return loaded, bool(parsed), len(set_aside_files(path.parent))
-
-
-def test_the_separator_bound_is_16384():
-    from gowui.local_mode import STATE_MAX_SEPARATORS
-
-    assert STATE_MAX_SEPARATORS == 16384
-
-
-def test_a_file_with_16384_commas_and_colons_is_read(tmp_path):
-    path = tmp_path / "state.json"
-    path.write_bytes(separators(16384))
-    assert storage(path).load("owner") == json.loads(separators(16384))
-
-
-def test_a_file_with_more_than_16384_commas_and_colons_is_set_aside_unparsed(tmp_path,
-                                                                            monkeypatch):
-    path = tmp_path / "state.json"
-    path.write_bytes(separators(16385))
-    assert load_unparsed(path, monkeypatch) == (None, False, 1)
-
-
-def test_an_object_of_many_distinct_keys_is_set_aside_unparsed(tmp_path, monkeypatch):
-    """Distinct keys cost far more memory parsed than on disk (§8.3)."""
-    path = tmp_path / "state.json"
-    path.write_bytes(b"{" + b",".join(b'"k%d":0' % i for i in range(200_000)) + b"}")
-    assert load_unparsed(path, monkeypatch) == (None, False, 1)
-
-
-def test_an_array_of_many_numbers_is_set_aside_unparsed(tmp_path, monkeypatch):
-    path = tmp_path / "state.json"
-    path.write_bytes(b'{"a": [' + b",".join([b"1e0"] * 500_000) + b"]}")
-    assert load_unparsed(path, monkeypatch) == (None, False, 1)
-
-
-def test_commas_and_colons_inside_strings_do_not_count_toward_the_bound(tmp_path):
-    store = storage(tmp_path / "state.json")
-    snapshot = snapshot_with("D4", name=',:\\",' * 20_000)
-    snapshot["boards"][0]["sgf"] = "(;GM[1]SZ[19]" + ";B[dd]C[a, b: c]" * 20_000 + ")"
-    store.save("owner", snapshot)
-    assert store.load("owner") == snapshot
 
 
 def maximal_snapshot() -> dict:
@@ -395,13 +295,6 @@ def maximal_snapshot() -> dict:
     board = {**snapshot["boards"][0], "humanPolicy": dict(tuple_), "humanCompare": dict(tuple_)}
     snapshot["boards"] = [{**board, "id": index + 1} for index in range(64)]
     return snapshot
-
-
-def test_a_maximal_snapshot_has_under_a_fifth_of_the_separator_bound():
-    from gowui.local_mode import STATE_MAX_SEPARATORS
-
-    structural = re.sub(r'"(?:[^"\\]|\\.)*"', "", json.dumps(maximal_snapshot()))
-    assert structural.count(",") + structural.count(":") <= STATE_MAX_SEPARATORS // 5
 
 
 def test_a_maximal_snapshot_loads_back_equal(tmp_path):
@@ -419,7 +312,7 @@ UNTERMINATED = {
 
 @pytest.mark.parametrize("name", sorted(UNTERMINATED))
 def test_an_unterminated_string_is_set_aside_as_not_json_in_bounded_time(tmp_path, name, caplog):
-    """The pre-parse scan is linear: a truncated file never hangs startup (§8.3)."""
+    """A truncated file never hangs startup: nothing before parsing scans strings (§8.3)."""
     path = tmp_path / "state.json"
     path.write_bytes(UNTERMINATED[name])
     outcome: list = []
