@@ -38,37 +38,37 @@
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 564 |
 | §4 | WebSocket protocol | 569 |
 | &nbsp;&nbsp;§4.1 | Browser → server | 573 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 611 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 643 |
-| §5 | HTTP routes | 665 |
-| §6 | Launch modes and policies | 729 |
-| &nbsp;&nbsp;§6.1 | The rule | 731 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 767 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 789 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 816 |
-| §7 | Authentication and security | 833 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 835 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 845 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 853 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 861 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 909 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 917 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 950 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 966 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 974 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 980 |
-| §8 | Persistence | 990 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 992 |
-| &nbsp;&nbsp;§8.2 | Saving | 1026 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1049 |
-| &nbsp;&nbsp;§8.4 | Server database | 1079 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1084 |
-| §9 | Command line | 1088 |
-| §10 | Configuration (server) | 1120 |
-| §11 | Feature inventory | 1140 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1146 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1184 |
-| §12 | Non-goals | 1202 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 614 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 646 |
+| §5 | HTTP routes | 668 |
+| §6 | Launch modes and policies | 732 |
+| &nbsp;&nbsp;§6.1 | The rule | 734 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 770 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 792 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 819 |
+| §7 | Authentication and security | 837 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 839 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 849 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 857 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 865 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 913 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 921 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 961 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 977 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 985 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 991 |
+| §8 | Persistence | 1001 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1003 |
+| &nbsp;&nbsp;§8.2 | Saving | 1037 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1060 |
+| &nbsp;&nbsp;§8.4 | Server database | 1101 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1106 |
+| §9 | Command line | 1110 |
+| §10 | Configuration (server) | 1145 |
+| §11 | Feature inventory | 1165 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1171 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1209 |
+| §12 | Non-goals | 1227 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -607,6 +607,9 @@ closing and the `connect` would release the connected engine too (an ordinary sw
 behind a slow close of A) — is refused with an `error` ("a previous engine is still closing").
 A `play` vertex longer than 8 characters and a `new_game` rules name longer than 40 characters are
 refused before they are read, and a refusal quotes at most 40 characters of the value it refuses.
+`load_sgf` text is measured against its 1 MiB in UTF-8 bytes, a lone surrogate counting as its
+three bytes; text holding one (for example in a move comment) is accepted, saved, and restored
+with the same moves (§7.6, §8.1).
 
 ### 4.2 Server → browser
 
@@ -823,7 +826,8 @@ The interface is synchronous, and the registry always calls it in a worker threa
 
 - `load(key)` returns the stored snapshot object, or `None` when nothing is stored. A stored
   value that cannot be read, is over the size cap, or is not a JSON object is set aside by `load`
-  itself, which then returns `None` (§8.3).
+  itself, which then returns `None` (§8.3). A state path that is not a regular file is not set
+  aside: `load` raises, and startup is refused (§8.3).
 - `save(key, snapshot)` stores the snapshot.
 - `set_aside(key, reason)` moves a stored snapshot out of the way with a warning. The registry
   calls it when restore refuses a snapshot (§3.1, §8.1).
@@ -909,8 +913,8 @@ choice; `gowui serve` is the mode for sharing.
 ### 7.5 Response headers and rendering
 
 Every response carries `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'` and
-`X-Content-Type-Options: nosniff` — refusals, errors, `404`, `413`, static files and `/healthz`
-included — and the page therefore uses no inline scripts or styles. Text
+`X-Content-Type-Options: nosniff` — refusals, errors (a `500` included), `404`, `413`, static files
+and `/healthz` included — and the page therefore uses no inline scripts or styles. Text
 that came from users, SGF files or engines (comments, board names, player names, engine output,
 error messages) is inserted as text, never as HTML.
 
@@ -944,6 +948,13 @@ How the transport enforces the size limits:
 - **`POST /api/sgf`.** The body is read as a stream and cut off as soon as it passes 1 MiB, with a
   `413` (§5). This holds whether or not the request has a `Content-Length`, and whether or not
   that header is true; a declared `Content-Length` over 1 MiB gets a `413` before the body is read.
+  The `413` is sent at once; the server then discards what the client is still sending, at most
+  4 MiB, for at most 0.3 s without data and at most 2 s in all, and closes the connection. Closing
+  with unread data would reset the socket, and the reset can destroy the answer before the client
+  reads it.
+- **Lone surrogates.** The 1 MiB of a `load_sgf` text, and of a stored board's SGF on restore
+  (§8.1), is counted in UTF-8 bytes with a lone surrogate as its three bytes. Such text is accepted
+  and restored, not refused; a download writes it as `?` (§5).
 - **Parsing off the loop.** SGF text from `POST /api/sgf` or `load_sgf`, and the state file
   (§8.3), are parsed in a worker thread, never on the event loop.
 
@@ -1064,12 +1075,23 @@ or renames any file, and a file at the default path stays untouched however the 
   ASCII-escaped JSON (a control character becomes `\u00XX`). The extra 1 MiB is room for names,
   settings and the request. So the cap is never below what gowui itself can write within §7.6. A
   missing file means start fresh. The content is restored through the limits of §8.1 and §7.6.
+- **Not a file.** A state path that exists but is not a regular file — a directory, a FIFO, a
+  device — is never read, set aside or replaced: `gowui` refuses to start with a usage error that
+  names the path. The path is checked before it is opened, so a FIFO cannot hang startup.
+- **Before parsing.** The first byte that is not JSON whitespace must be `{`, and the file may
+  hold at most **1,024** `[` and `{` outside JSON strings. A snapshot gowui writes has at most
+  197: per board the board, `humanPolicy` and `humanCompare` (64 × 3), plus the top level,
+  `boards`, `engine`, `request` and `play`. Brackets inside strings (every SGF property has one)
+  do not count. A file that fails either check is set aside without being parsed, so a file of
+  tiny nested arrays cannot make parsing use many times its size in memory.
 - **Setting aside.** The file is set aside when it cannot be read or decoded, is over the cap, is
-  not valid JSON (including JSON nested too deeply to parse), is not a JSON object, or is refused
-  by restore (§8.1). It is renamed to `<file>.bad-<UTC timestamp>` (for example
-  `state.json.bad-20260919T120000Z`); if that name is taken, `-2`, `-3`, … is appended
-  (`state.json.bad-20260919T120000Z-2`). A warning naming the new path is logged. The app then
-  starts fresh, and the next save writes a new file. Nothing is deleted.
+  fails a check made before parsing, is not valid JSON (including JSON nested too deeply to
+  parse), is not a JSON object, or is refused by restore (§8.1). It is renamed to
+  `<file>.bad-<UTC timestamp>` (for example `state.json.bad-20260919T120000Z`); if that name is
+  taken, `-2`, `-3`, … is appended (`state.json.bad-20260919T120000Z-2`). The rename never
+  replaces an existing file, even one that appears while it runs: it fails when the name is taken
+  and the next suffix is tried. A warning naming the new path is logged. The app then starts
+  fresh, and the next save writes a new file. Nothing is deleted.
 - **Writing** is atomic. A temporary file is created in the same directory with mode `0600`,
   written, flushed with `fsync`, and renamed over the old file with `os.replace`. A missing parent
   directory is created with mode `0700`; existing directories are not changed. The JSON is written
@@ -1109,7 +1131,10 @@ One command, `gowui`:
   - **Non-loopback bind.** Binding any address other than `localhost`, `127.0.0.0/8` or `::1`
     (such as `0.0.0.0`, a LAN address or a host name) logs the warning of §7.4.
   - **Server settings.** Generic forwarded-header rewriting is off, the WebSocket message limit is
-    1 MiB (§7.6), and lifespan handlers are on (not the deprecated `on_event`).
+    1 MiB (§7.6), lifespan handlers are on (not the deprecated `on_event`), and no `Server`
+    header is sent.
+  - **State path.** A `--state` path, or the default path, that exists but is not a regular file
+    is a usage error (§8.3).
 - `gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` — server mode, configured by §10.
   Runs without generic forwarded-header rewriting: only the headers of §7.10 are read, and only from trusted proxies.
 - `gowui user add NAME`, `gowui user passwd NAME` — prompt twice for the password, or read one line
@@ -1157,8 +1182,8 @@ issue that builds it lands.
 | B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
 | B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
 | B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: pending |
-| B11 | SGF load | §1.5 | both | `tests/test_sgf.py` |
-| B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; UI: pending |
+| B11 | SGF load | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py` |
+| B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: pending |
 | B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: pending |
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: pending |
 | B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: pending |
