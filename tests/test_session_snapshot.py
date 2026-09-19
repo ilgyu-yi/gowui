@@ -237,3 +237,82 @@ async def test_resume_with_a_request_the_policy_no_longer_accepts_stays_disconne
     await other.session.resume()
     state = await other.fresh_state()
     assert (state["engine"]["connected"], state["status"] != "") == (False, True)
+
+
+# -- the restored request (§4.2, §8.1, §7.7) -------------------------------------------------------
+def nested(depth: int) -> dict:
+    value: dict = {"engineId": "kata"}
+    for _ in range(depth):
+        value = {"engineId": "kata", "next": value}
+    return value
+
+
+BAD_REQUESTS = {
+    "deeply-nested": nested(5000),
+    "nested-once": {"engineId": "kata", "extra": {"a": 1}},
+    "list-value": {"engineId": ["kata"]},
+    "17-entries": {f"k{i}": i for i in range(17)},
+    "long-string": {"engineId": "k" * 257},
+    "not-an-object": ["kata"],
+}
+
+
+@pytest.mark.parametrize("name", sorted(BAD_REQUESTS))
+async def test_a_restored_request_that_is_not_flat_and_small_becomes_null(h, make_session, name):
+    data = h.session.snapshot()
+    data["engine"]["request"] = BAD_REQUESTS[name]
+    data["engine"]["connected"] = True
+    other = make_session()
+    other.session.restore(data)
+    assert other.session.snapshot()["engine"]["request"] is None
+
+
+async def test_a_flat_restored_request_is_kept(h, make_session):
+    data = h.session.snapshot()
+    request = {f"k{i}": v for i, v in enumerate(["s" * 256, 1, 2.5, True, None] * 3)}
+    data["engine"]["request"] = request
+    assert restored(make_session, data).session.snapshot()["engine"]["request"] == request
+
+
+def hidden_snapshot(h, request: dict) -> dict:
+    data = h.session.snapshot()
+    data["engine"]["request"] = request
+    data["engine"]["connected"] = True
+    return data
+
+
+async def test_a_hidden_space_shows_no_request_before_the_replay_resolves(h, make_session,
+                                                                         gtp_server):
+    catalog = CatalogResolver()
+    catalog.add("kata", "gtp", gtp_server.port)
+    data = hidden_snapshot(h, {"engineId": "kata", "note": "gowui-secret.invalid"})
+    other = restored(make_session, data, catalog, expose_address=False)
+    assert (await other.fresh_state())["engine"]["request"] is None
+
+
+async def test_a_hidden_space_shows_only_the_policys_echo_after_the_replay(h, make_session,
+                                                                          gtp_server):
+    catalog = CatalogResolver()
+    catalog.add("kata", "gtp", gtp_server.port)
+    data = hidden_snapshot(h, {"engineId": "kata", "note": "gowui-secret.invalid"})
+    other = restored(make_session, data, catalog, expose_address=False)
+    await other.session.resume()
+    state = await other.rec.wait_state(lambda f: f["engine"]["connected"])
+    assert state is not None and state["engine"]["request"] == {"engineId": "kata"}
+
+
+async def test_a_refused_replay_clears_the_request_and_drops_it_from_the_snapshot(
+        h, make_session):
+    data = hidden_snapshot(h, {"engineId": "kata", "host": "gowui-secret.invalid"})
+    other = restored(make_session, data, CatalogResolver(), expose_address=False)
+    await other.session.resume()
+    state = await other.fresh_state()
+    assert (state["engine"]["request"], other.session.snapshot()["engine"]["request"]) == \
+        (None, None)
+
+
+async def test_a_local_space_shows_the_restored_request(h, make_session, gtp_server):
+    request = {"protocol": "gtp", "host": LOOPBACK, "port": gtp_server.port}
+    data = hidden_snapshot(h, request)
+    data["engine"]["connected"] = False
+    assert (await restored(make_session, data).fresh_state())["engine"]["request"] == request

@@ -286,3 +286,19 @@ async def test_every_frame_is_valid_json_even_with_non_finite_engine_numbers(h, 
     await h.play("D4")
     await settle(0.5)
     assert h.rec.bad == []
+
+
+# -- refusals stay short (§4.1, §7.6) ------------------------------------------------------------
+HUGE = "D" * 900_000
+
+
+@pytest.mark.parametrize("message", [
+    {"type": "play", "color": "black", "vertex": HUGE},
+    {"type": "new_game", "size": 9, "komi": None, "rules": HUGE, "handicap": 0},
+    {"type": "board_select", "id": 10 ** 4000},
+], ids=["vertex", "rules", "board-id"])
+async def test_a_refusal_quotes_little_of_an_oversize_value(h, message):
+    start = h.rec.mark()
+    await h.send(message)
+    error = await h.rec.wait_error(start)
+    assert error is not None and len(error) <= 200

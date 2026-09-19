@@ -3,15 +3,17 @@ through the engine-address policy, the lost engine, engine work that never block
 by a caller, lifecycle generations, one pending on-demand command per kind, the console, final
 score, the traffic log, explicit max visits, handol-mux settings, and hidden addresses.
 
-Observed through broadcast frames and the fake engine's request log. Two tests patch an engine
+Observed through broadcast frames and the fake engine's request log. Some tests patch an engine
 *client* method (never the session) because there is no other way to inject the fault: an
-unexpected exception in auto-play (``GTPEngine.genmove``) and a reply timeout short enough for a
-test (``GTPEngine.genmove_timeout``); each says so.
+unexpected exception in auto-play (``GTPEngine.genmove``) or in ``final_score``
+(``GTPEngine.final_score``), and a reply timeout short enough for a test
+(``GTPEngine.genmove_timeout``); each says so.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 
 import pytest
 
@@ -824,3 +826,119 @@ async def test_a_hidden_space_still_reports_the_engine_name(make_session, fake_e
     await scenario_identity(h, catalog, fake_engine, monkeypatch)
     assert "FakeKataGo" in (await h.fresh_state())["engine"]["name"]
 
+
+
+# -- review round 1: containment, lifecycle, result grammar (§3.2, §3.5, §4.1, §6.3, §7.7) ---------
+class AwaitableBroadcast:
+    """A broadcast that records each frame and then returns an awaitable that would raise.
+
+    §3.2: broadcast is sync; an awaitable it returns is never run, so its failure cannot reach
+    the session's tasks."""
+
+    def __init__(self) -> None:
+        self.frames: list[dict] = []
+
+    def __call__(self, frame: dict):
+        self.frames.append(frame)
+        return self._fail()
+
+    async def _fail(self) -> None:
+        raise RuntimeError("the async broadcast failed")
+
+
+async def test_an_awaitable_broadcast_causes_no_task_storm():
+    from gowui.session import GameSession
+    from session_helpers import typed_resolver
+
+    broadcast = AwaitableBroadcast()
+    session = GameSession(typed_resolver, broadcast=broadcast)
+    try:
+        await session.handle({"type": "state"})
+        await settle(0.3)
+        storm = (len(broadcast.frames), len(asyncio.all_tasks()))
+        await session.handle({"type": "play", "color": "black", "vertex": "D4"})
+        await settle(0.1)
+        last = [f for f in broadcast.frames if f.get("type") == "state"][-1]
+        assert (storm[0] <= 5, storm[1] <= 5, move_list(last)) == (True, True, ["D4"])
+    finally:
+        await asyncio.wait_for(session.aclose(), 5.0)
+
+
+async def test_a_superseded_connect_does_not_block_a_new_one(h, fake_engine):
+    slow = await fake_engine("gtp", delay={"name": 3.0})
+    live = await fake_engine("gtp")
+    await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": slow.port})
+    assert await wait_for(lambda: slow.open_connections == 1)
+    await h.send({"type": "disconnect"})
+    start = h.rec.mark()
+    await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": live.port})
+    assert h.rec.errors(start) == []
+    state = await h.rec.wait_state(lambda f: f["engine"]["connected"], start)
+    assert state is not None and state["engine"]["request"]["port"] == live.port
+
+
+def empty_host_resolver(request):
+    from gowui.session import EngineTarget
+    return EngineTarget(protocol="gtp", host="", port=1, request_echo={"engineId": "x"})
+
+
+async def test_a_target_with_an_empty_host_is_refused(make_session):
+    h = make_session(empty_host_resolver, expose_address=False)
+    await h.new_game(9)
+    start = h.rec.mark()
+    await h.send({"type": "connect", "engineId": "x"})
+    error = await h.rec.wait_error(start)
+    state = await h.fresh_state()
+    assert (error is not None, "[engine]" in (error or ""), "[engine]" in state["status"],
+            state["engine"]["connected"]) == (True, False, False, False)
+
+
+async def test_an_unexpected_failure_outside_an_engine_move_stops_auto_play(
+        h, fake_engine, monkeypatch):
+    # Patches the engine client (not the session): final_score raises a non-engine error.
+    async def broken(self, *args, **kwargs):
+        raise RuntimeError("injected by the test")
+
+    monkeypatch.setattr(GTPEngine, "final_score", broken)
+    server = await fake_engine("gtp", delay={"genmove": 0.05})
+    await h.connect_to(server)
+    await h.send({"type": "players", "blackIsEngine": True, "whiteIsEngine": True})
+    await h.wait_moves(3)
+    start = h.rec.mark()
+    await h.send({"type": "final_score"})
+    assert await h.rec.wait_error(start) is not None
+    at_error = h.rec.state()["game"]["moveCount"]
+    await settle(1.0)
+    after = (await h.fresh_state())["game"]["moveCount"]
+    assert after <= at_error + 1
+
+
+async def test_a_final_score_that_is_not_a_result_is_not_recorded(make_session, fake_engine,
+                                                                  monkeypatch):
+    route_sentinel_host(monkeypatch)
+    h, catalog = await catalog_session(make_session, host=SENTINEL_HOST)
+    server = await fake_engine("gtp")
+    server.options.replies["final_score"] = f"B+3.5 scored by {SENTINEL_HOST.upper()}:7777"
+    catalog.add("kata", "gtp", server.port)
+    await h.connect({"engineId": "kata"})
+    await h.play("D4")
+    start = h.rec.mark()
+    await h.send({"type": "final_score"})
+    state = await h.rec.wait_state(lambda f: f["status"].startswith("The engine"), start)
+    snapshot = json.dumps(h.session.snapshot()).lower()
+    assert (state is not None, (await h.fresh_state())["game"]["result"],
+            SENTINEL_HOST in snapshot, leaks(h.rec.frames, SENTINEL_HOST, server.port)) == \
+        (True, "", False, [])
+
+
+@pytest.mark.parametrize("reply", ["W+12.5", "B+R", "W+Resign", "B+T", "W+Forfeit", "B+", "0",
+                                   "Draw", "Void", "?"])
+async def test_a_final_score_in_the_result_grammar_is_recorded(h, fake_engine, reply):
+    server = await fake_engine("gtp")
+    server.options.replies["final_score"] = reply
+    await h.connect_to(server)
+    await h.play("D4")
+    start = h.rec.mark()
+    await h.send({"type": "final_score"})
+    state = await h.rec.wait_state(lambda f: f["game"]["result"] != "", start)
+    assert state is not None and state["game"]["result"] == reply

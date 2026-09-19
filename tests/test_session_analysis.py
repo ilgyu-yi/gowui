@@ -217,3 +217,19 @@ async def test_a_thumbnail_drops_its_heatmap_when_the_position_changes(h, fake_e
     state = await h.play("D4")
     thumb = next(b for b in state["boards"] if b["id"] == board_a)
     assert (thumb["heat"], thumb["winrate"]) == ([], None)
+
+
+# -- analysis refreshes are coalesced (§3.2) -------------------------------------------------------
+async def test_a_flood_of_analysis_messages_keeps_the_task_count_bounded(h, fake_engine):
+    from session_helpers import gowui_tasks, gtp_count
+
+    server = await fake_engine("gtp", delay={"genmove": 1.0})
+    await h.connect_to(server)
+    await h.send({"type": "genmove"})
+    assert await wait_for(lambda: gtp_count(server, "genmove") == 1)
+    for index in range(300):
+        await h.send({"type": "analysis", "enabled": index % 2 == 1})
+    during = len(gowui_tasks())
+    start = h.rec.mark()
+    frame = await first_analysis(h, lambda f: f["cursor"] == 1, start)
+    assert (during <= 5, frame["cursor"]) == (True, 1)
