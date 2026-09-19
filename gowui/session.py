@@ -46,6 +46,8 @@ MAX_VISITS = 1_000_000
 MIN_INTERVAL, MAX_INTERVAL = 0.1, 10.0
 #: A console command (§3.5, §7.6).
 MAX_RAW = 1000
+#: Connect attempts that run at once per space: the live one and one superseded (§3.2, §4.1).
+MAX_CONNECT_ATTEMPTS = 2
 #: A result text the engine gives through ``final_score`` is kept to this many characters.
 MAX_RESULT = 100
 #: The SGF result grammar a ``final_score`` reply must match to be recorded (§3.5).
@@ -314,6 +316,8 @@ class GameSession:
         self._pending: set[str] = set()
         #: The lifecycle generation of the pending connect; one superseded is no longer pending.
         self._connecting: int | None = None
+        #: The generations of every connect attempt still running, live or superseded (§3.2).
+        self._attempts: set[int] = set()
         self._tasks: set[asyncio.Task] = set()
         self._auto_task: asyncio.Task | None = None
         #: Set by an unexpected failure: automatic play asks for no further move until re-armed.
@@ -831,8 +835,12 @@ class GameSession:
         return self._auto_task is not None and not self._auto_task.done()
 
     def _maybe_engine_move(self) -> None:
-        if self._engine_should_move() and not self._auto_running():
-            self._auto_halted = False
+        """Re-arm automatic play: every caller is a user action or a connect, never the engine's
+        own automatic move, so a halt is cleared even while the halted task is finishing."""
+        if not self._engine_should_move():
+            return
+        self._auto_halted = False
+        if not self._auto_running():
             self._auto_task = self._spawn(self._auto_play())
 
     async def _auto_play(self) -> None:
@@ -1096,20 +1104,28 @@ class GameSession:
         """A connect of the live lifecycle is pending; a superseded one no longer is (§4.1)."""
         return self._connecting is not None and self._connecting == self._lifecycle
 
+    def _attempts_full(self) -> bool:
+        """At most two connect attempts run: the live one and one superseded (§3.2, §4.1)."""
+        return len(self._attempts) >= MAX_CONNECT_ATTEMPTS
+
     def _msg_connect(self, message: dict) -> None:
         if self._connect_pending():
             raise _Refused("a connect is already in progress")
+        if self._attempts_full():
+            raise _Refused("the previous connect is still closing")
         target = self._resolve_target(message)
         self._start_connect(target)
 
     def _start_connect(self, target: EngineTarget) -> asyncio.Task:
         generation = self._begin_lifecycle()
         self._connecting = generation
+        self._attempts.add(generation)
 
         async def run() -> None:
             try:
                 await self._connect(target, generation)
             finally:
+                self._attempts.discard(generation)
                 if self._connecting == generation:
                     self._connecting = None
 
@@ -1313,7 +1329,7 @@ class GameSession:
         was connected (§6.3, §8.1); a request the policy refuses leaves it disconnected."""
         if self._closed or not self._want_connected or self.engine is not None:
             return
-        if self._connect_pending():
+        if self._connect_pending() or self._attempts_full():
             return
         try:
             target = self._resolve_target(copy.deepcopy(self._request))
