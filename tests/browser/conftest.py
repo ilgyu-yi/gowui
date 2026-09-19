@@ -124,10 +124,11 @@ def processes():
 
 @pytest.fixture
 def start_engine(processes, tmp_path):
-    """``start_engine(protocol)`` runs a fake engine (§2.6) for this test only."""
-    def start(protocol: str = "gtp") -> Engine:
+    """``start_engine(protocol, *extra)`` runs a fake engine (§2.6) for this test only;
+    ``extra`` holds more command-line options, such as ``--delay genmove=0.05``."""
+    def start(protocol: str = "gtp", *extra: str) -> Engine:
         process = Process([sys.executable, str(REPO / "tools" / "fake_engine.py"),
-                           "--protocol", protocol, "--port", "0"],
+                           "--protocol", protocol, "--port", "0", *extra],
                           r"^listening on 127\.0\.0\.1:(\d+)$",
                           tmp_path / f"engine-{protocol}-{len(processes)}.log")
         processes.append(process)

@@ -28,8 +28,9 @@ WINBAR = re.compile(r"^black (\d+\.\d)%\s+/\s+white (\d+\.\d)%$")
 
 
 # -- helpers ------------------------------------------------------------------------------------------
-def connected(start_engine, start_app, open_page, protocol: str = "gtp", **page) -> Gowui:
-    app = start_app(start_engine(protocol), True)
+def connected(start_engine, start_app, open_page, protocol: str = "gtp", *engine: str,
+              **page) -> Gowui:
+    app = start_app(start_engine(protocol, *engine), True)
     g = open_page(app, **page).open()
     expect(g.page.locator("#engine-state")).to_have_class(re.compile(r"\bon\b"), timeout=ENGINE)
     return g
@@ -64,21 +65,13 @@ def open_section(g: Gowui, inner: str) -> None:
 
 
 def untick_engines(g: Gowui) -> None:
-    """Untick both "KataGo plays" boxes until the server's settings agree. Against the instant
-    fake engine, engine-vs-engine play can overflow the tab's queue (§4.3, close ``1013``) and
-    the page reconnects; a click sent on the closing socket is lost, so it is clicked again."""
-    g.allow_console(r"WebSocket")
-    deadline = time.monotonic() + ENGINE / 1000
-    while True:
-        settings = g.state()["settings"]
-        if not settings["blackIsEngine"] and not settings["whiteIsEngine"]:
-            return
-        if time.monotonic() > deadline:
-            raise AssertionError(f"the engines still play: {settings}")
-        for box in ("#black-engine", "#white-engine"):
-            if g.page.locator(box).is_checked():
-                g.page.locator(box).click()
-        g.page.wait_for_timeout(50)
+    """Untick both "KataGo plays" boxes and wait for the server's settings to agree."""
+    for box, key in (("#black-engine", "blackIsEngine"), ("#white-engine", "whiteIsEngine")):
+        since = g.mark()
+        g.page.locator(box).click()
+        g.wait_sent("players", since, {key: False})
+    wait_state(g, lambda s: not s["settings"]["blackIsEngine"]
+               and not s["settings"]["whiteIsEngine"], timeout=ENGINE)
 
 
 def counter(g: Gowui, text: str, timeout: int = QUICK) -> None:
@@ -87,7 +80,9 @@ def counter(g: Gowui, text: str, timeout: int = QUICK) -> None:
 
 # -- play ----------------------------------------------------------------------------------------------
 def test_play_tour(start_engine, start_app, open_page):
-    g = connected(start_engine, start_app, open_page, "gtp")
+    # Each engine move takes 50 ms, so engine-vs-engine play is a stream the tab keeps up with
+    # rather than a flood that overflows its queue (§4.3) before the boxes are unticked.
+    g = connected(start_engine, start_app, open_page, "gtp", "--delay", "genmove=0.05")
     page = g.page
 
     # B10: new game with size, handicap, komi and rules; the server applies them.
@@ -175,6 +170,7 @@ def test_play_tour(start_engine, start_app, open_page):
     wait_state(g, lambda s: s["game"]["moveCount"] >= 10 or s["game"]["gameOver"],
                timeout=ENGINE)
     untick_engines(g)
+    assert g.closes(0) == [], "the tab kept up: no overflow close (§4.3)"
 
     # B12: save with a user-chosen name (the name-prompt path of §3.8 "SGF").
     page.evaluate("() => { window.showSaveFilePicker = undefined; }")

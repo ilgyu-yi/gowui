@@ -127,6 +127,34 @@ async def test_cli_prints_exactly_the_listening_line():
         await reap(process)
 
 
+async def test_cli_delay_holds_the_named_command_only():
+    process = await run_cli("--protocol", "gtp", "--port", "0", "--delay", "name=0.3")
+    try:
+        client = await RawClient.open(await cli_port(process))
+        try:
+            loop = asyncio.get_running_loop()
+            start = loop.time()
+            await client.gtp("version")
+            quick = loop.time() - start
+            start = loop.time()
+            ok, _ = await client.gtp("name")
+            held = loop.time() - start
+        finally:
+            await client.close()
+        assert ok and held >= 0.3 > quick
+    finally:
+        await reap(process)
+
+
+@pytest.mark.parametrize("value", ["name", "=1", "name=x", "name=-1", "name=nan", "name=inf"])
+async def test_cli_refuses_a_malformed_delay(value):
+    process = await run_cli("--protocol", "gtp", "--port", "0", "--delay", value)
+    try:
+        assert await asyncio.wait_for(process.wait(), HANG) == 2
+    finally:
+        await reap(process)
+
+
 @pytest.mark.parametrize("protocol", ["telepathy", "kgs"])
 async def test_cli_refuses_an_unregistered_protocol(protocol):
     process = await run_cli("--protocol", protocol, "--port", "0")

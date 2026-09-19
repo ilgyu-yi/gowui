@@ -28,50 +28,50 @@
 | &nbsp;&nbsp;§2.4 | KataGo analysis engine | 312 |
 | &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 328 |
 | &nbsp;&nbsp;§2.6 | Fake engine | 411 |
-| §3 | Session and boards | 435 |
-| &nbsp;&nbsp;§3.1 | Spaces | 437 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 464 |
-| &nbsp;&nbsp;§3.3 | Boards | 528 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 544 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 556 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 571 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 575 |
-| &nbsp;&nbsp;§3.8 | The page | 584 |
-| §4 | WebSocket protocol | 832 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 836 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 877 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 914 |
-| §5 | HTTP routes | 945 |
-| §6 | Launch modes and policies | 1020 |
-| &nbsp;&nbsp;§6.1 | The rule | 1022 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1058 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1097 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1130 |
-| §7 | Authentication and security | 1149 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1151 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1198 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1216 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1230 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1278 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1295 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1335 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1351 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1365 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1374 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1403 |
-| §8 | Persistence | 1422 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1424 |
-| &nbsp;&nbsp;§8.2 | Saving | 1458 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1487 |
-| &nbsp;&nbsp;§8.4 | Server database | 1529 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1565 |
-| §9 | Command line | 1577 |
-| §10 | Configuration (server) | 1636 |
-| &nbsp;&nbsp;§10.1 | Container | 1674 |
-| §11 | Feature inventory | 1728 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1735 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1773 |
-| §12 | Non-goals | 1791 |
+| §3 | Session and boards | 438 |
+| &nbsp;&nbsp;§3.1 | Spaces | 440 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 467 |
+| &nbsp;&nbsp;§3.3 | Boards | 531 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 547 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 559 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 574 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 578 |
+| &nbsp;&nbsp;§3.8 | The page | 587 |
+| §4 | WebSocket protocol | 835 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 839 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 880 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 917 |
+| §5 | HTTP routes | 948 |
+| §6 | Launch modes and policies | 1023 |
+| &nbsp;&nbsp;§6.1 | The rule | 1025 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1061 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1100 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1133 |
+| §7 | Authentication and security | 1152 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1154 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1201 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1219 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1233 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1281 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1298 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1338 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1354 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1368 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1377 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1406 |
+| §8 | Persistence | 1425 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1427 |
+| &nbsp;&nbsp;§8.2 | Saving | 1461 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1490 |
+| &nbsp;&nbsp;§8.4 | Server database | 1532 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1568 |
+| §9 | Command line | 1580 |
+| §10 | Configuration (server) | 1639 |
+| &nbsp;&nbsp;§10.1 | Container | 1677 |
+| §11 | Feature inventory | 1731 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1738 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1776 |
+| §12 | Non-goals | 1794 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -418,6 +418,9 @@ entirely against it: no KataGo, GPU or model file is needed.
   switch off engine features or inject faults such as hang-ups, delays and malformed output) and a
   command-line program.
 - `--protocol` accepts exactly the registered fake protocols: `gtp`, `analysis` and `handol`.
+- `--delay COMMAND=SECONDS` (repeatable; GTP mode) holds each reply to that GTP command for that
+  many seconds, as the module's `delay` option does. A value that is not `NAME=number` with a
+  finite, non-negative number is a usage error.
 - **Handol mode** (`--protocol handol`) plays the handol-mux surface of §2.5: exactly one answer
   line per request, strictly serial per connection (the next request is read only after the
   answer). It refuses, with an error reply, unknown top-level keys, `initialPlayer`,
