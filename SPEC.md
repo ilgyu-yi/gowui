@@ -31,43 +31,43 @@
 | §3 | Session and boards | 426 |
 | &nbsp;&nbsp;§3.1 | Spaces | 428 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 434 |
-| &nbsp;&nbsp;§3.3 | Boards | 495 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 511 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 523 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 538 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 542 |
-| §4 | WebSocket protocol | 547 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 551 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 588 |
-| §5 | HTTP routes | 620 |
-| §6 | Launch modes and policies | 639 |
-| &nbsp;&nbsp;§6.1 | The rule | 641 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 662 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 668 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 684 |
-| §7 | Authentication and security | 690 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 692 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 702 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 710 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 718 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 732 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 739 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 759 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 775 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 781 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 787 |
-| §8 | Persistence | 797 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 799 |
-| &nbsp;&nbsp;§8.2 | Saving | 825 |
-| &nbsp;&nbsp;§8.3 | Local state file | 830 |
-| &nbsp;&nbsp;§8.4 | Server database | 839 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 844 |
-| §9 | Command line | 848 |
-| §10 | Configuration (server) | 863 |
-| §11 | Feature inventory | 883 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 889 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 927 |
-| §12 | Non-goals | 945 |
+| &nbsp;&nbsp;§3.3 | Boards | 498 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 514 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 526 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 541 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 545 |
+| §4 | WebSocket protocol | 550 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 554 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 592 |
+| §5 | HTTP routes | 624 |
+| §6 | Launch modes and policies | 643 |
+| &nbsp;&nbsp;§6.1 | The rule | 645 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 666 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 672 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 688 |
+| §7 | Authentication and security | 694 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 696 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 706 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 714 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 722 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 736 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 743 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 763 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 779 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 785 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 791 |
+| §8 | Persistence | 801 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 803 |
+| &nbsp;&nbsp;§8.2 | Saving | 829 |
+| &nbsp;&nbsp;§8.3 | Local state file | 834 |
+| &nbsp;&nbsp;§8.4 | Server database | 843 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 848 |
+| §9 | Command line | 852 |
+| §10 | Configuration (server) | 867 |
+| §11 | Feature inventory | 887 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 893 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 931 |
+| §12 | Non-goals | 949 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -485,8 +485,11 @@ all of them — the way a desktop GUI shows one window.
   lost connection is closed in the background, and that close can take seconds. Connect attempts
   and engines still being closed share one bound of two per space — a `connect` counts the
   current engine it releases as one being closed — so a `connect` that would exceed it is refused
-  (§4.1), and no more than two engine connections are open or closing at once. A close cut short
-  (at shutdown) drops the engine's connection at once rather than leaving it open.
+  (§4.1), and no more than two engines are connecting, connected or closing at once. The bound
+  counts engines, not sockets: a gtp or analysis engine holds one connection, a handol engine up
+  to two (§2.5). A close cut short (at shutdown) drops the engine's connection at once rather than
+  leaving it open, and a shutdown that is itself cancelled first cancels every session task still
+  running and drops every engine still closing.
 - **Broadcast.** Every frame leaves the session through one `broadcast` callable the transport
   supplies. It is synchronous and non-blocking, and it may raise; a failure is contained where it
   happens and never reaches the session's tasks. An awaitable it returns is closed (or ignored) and
@@ -579,9 +582,10 @@ on-demand command of each kind — `genmove`, `raw`, `final_score`, `connect` �
 a further one of the same kind while it runs is refused with an `error`. A connect superseded by a
 later lifecycle (a `disconnect`, §3.2) is no longer pending, so a new `connect` is accepted while
 that superseded attempt is still running — but connect attempts and engines still being closed
-share a bound of two per space (§3.2): a `connect` that would exceed it (for instance while two
-superseded attempts, or two released engines, are still closing) is refused with an `error` ("the
-previous connect is still closing").
+share a bound of two per space (§3.2): a `connect` that would exceed it — while two superseded
+attempts, or two released engines, are still closing, or while one released engine is still
+closing and the `connect` would release the connected engine too (an ordinary switch A → B → C
+behind a slow close of A) — is refused with an `error` ("a previous engine is still closing").
 A `play` vertex longer than 8 characters and a `new_game` rules name longer than 40 characters are
 refused before they are read, and a refusal quotes at most 40 characters of the value it refuses.
 
