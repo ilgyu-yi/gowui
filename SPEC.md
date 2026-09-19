@@ -27,47 +27,47 @@
 | &nbsp;&nbsp;§2.3 | GTP | 258 |
 | &nbsp;&nbsp;§2.4 | KataGo analysis engine | 303 |
 | &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 319 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 392 |
-| §3 | Session and boards | 416 |
-| &nbsp;&nbsp;§3.1 | Spaces | 418 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 424 |
-| &nbsp;&nbsp;§3.3 | Boards | 441 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 453 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 460 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 465 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 469 |
-| §4 | WebSocket protocol | 474 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 478 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 502 |
-| §5 | HTTP routes | 516 |
-| §6 | Launch modes and policies | 535 |
-| &nbsp;&nbsp;§6.1 | The rule | 537 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 554 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 560 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 574 |
-| §7 | Authentication and security | 580 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 582 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 592 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 600 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 608 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 622 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 629 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 646 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 656 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 662 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 668 |
-| §8 | Persistence | 678 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 680 |
-| &nbsp;&nbsp;§8.2 | Saving | 699 |
-| &nbsp;&nbsp;§8.3 | Local state file | 704 |
-| &nbsp;&nbsp;§8.4 | Server database | 713 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 718 |
-| §9 | Command line | 722 |
-| §10 | Configuration (server) | 737 |
-| §11 | Feature inventory | 757 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 763 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 801 |
-| §12 | Non-goals | 819 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 398 |
+| §3 | Session and boards | 422 |
+| &nbsp;&nbsp;§3.1 | Spaces | 424 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 430 |
+| &nbsp;&nbsp;§3.3 | Boards | 447 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 459 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 466 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 471 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 475 |
+| §4 | WebSocket protocol | 480 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 484 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 508 |
+| §5 | HTTP routes | 522 |
+| §6 | Launch modes and policies | 541 |
+| &nbsp;&nbsp;§6.1 | The rule | 543 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 560 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 566 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 580 |
+| §7 | Authentication and security | 586 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 588 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 598 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 606 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 614 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 628 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 635 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 652 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 662 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 668 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 674 |
+| §8 | Persistence | 684 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 686 |
+| &nbsp;&nbsp;§8.2 | Saving | 705 |
+| &nbsp;&nbsp;§8.3 | Local state file | 710 |
+| &nbsp;&nbsp;§8.4 | Server database | 719 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 724 |
+| §9 | Command line | 728 |
+| §10 | Configuration (server) | 743 |
+| §11 | Feature inventory | 763 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 769 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 807 |
+| §12 | Non-goals | 825 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -342,7 +342,11 @@ out, valid address, clipped engine text, lost connection reported once).
   closed, or closing before it answers, is reopened and the request resent once (queries are
   reads, so resending is safe), with a `#` note at the reopen and no error surfaced. A second loss,
   or a reopen that fails, is an engine error and the lost connection is reported once (§2.1). A
-  read timeout closes the connection and is an engine error; the request is not resent.
+  read timeout closes the connection and is an engine error; the request is not resent. A read
+  timeout or a mismatched id is an error of that request only: the connection is closed, the next
+  request reopens it, and it is not reported as a lost connection. Only the human connection's
+  loss is reported through §2.1's disconnect callback; a failure of the winrate connection only
+  leaves the distribution without winrates, with a `#` note.
 - **Latest position wins.** While a query is in flight, further analysis requests replace each
   other; only the newest is sent when the answer arrives, and an answer for a position the user has
   left — its winrate half included — is dropped. The winrate request goes with the human request
@@ -386,7 +390,9 @@ out, valid address, clipped engine text, lost connection reported once).
   and samples the distribution, weighted by p, among moves legal in the game only. Style `katago`
   sends a plain query with the configured max visits and plays the move of `order` 0. An empty or
   all-zero distribution (no legal move with p > 0), or a KataGo answer without moves, is an engine
-  error — never an implicit pass.
+  error — never an implicit pass. An engine move carries only the primary tuple (never the
+  comparison tuple), and asking for one stops a running analysis first: that analysis's answer is
+  dropped when it arrives.
 - **No final score, no console.** The surface has no final score and no raw commands (§3.5).
 
 ### 2.6 Fake engine
