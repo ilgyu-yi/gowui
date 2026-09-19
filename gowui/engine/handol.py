@@ -492,14 +492,13 @@ def _replay(position: Position) -> Game:
     """The position as a game, for legality checks."""
     rules = position.rules if position.rules in RULE_SETS else DEFAULT_RULES
     try:
-        game = Game(position.size, komi=position.komi, rules=rules)
         stones = []
         for colour, vertex in position.initial_stones:
             point = coords.from_gtp(vertex, position.size)
             if point is not None:
                 stones.append((color_from_name(colour), point[0], point[1]))
         first = color_from_name(position.first_player)
-        game._setup(position.size, game.rules, game.komi, 0, stones, first)  # noqa: SLF001
+        game = Game.from_setup(position.size, position.komi, rules, stones, first)
         for colour, vertex in position.moves:
             game.play(color_from_name(colour), coords.from_gtp(vertex, position.size))
     except Exception:  # noqa: BLE001 - a position the rules core cannot replay
