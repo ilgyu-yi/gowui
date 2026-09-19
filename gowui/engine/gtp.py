@@ -127,6 +127,13 @@ class GTPEngine(Engine):
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
 
+    def _drop_now(self) -> None:
+        for task in (self._stream_task, self._reader_task):
+            if task is not None:
+                task.cancel()
+        self._stream_task = self._reader_task = None
+        self._conn.abort()
+
     def supports(self, command: str) -> bool:
         return command in self._commands
 
@@ -251,7 +258,7 @@ class GTPEngine(Engine):
         except Exception as exc:  # noqa: BLE001 - untrusted input must not escape as a bug
             raise self._unusable(f"the engine's reply could not be read "
                                  f"({type(exc).__name__})") from None
-        self.log("recv", f"{'=' if ok else '?'} {payload}".rstrip())
+        self.log("recv", clip(f"{'=' if ok else '?'} {payload}".rstrip()))
         if not ok:
             raise _Rejected(clip(payload, TEXT_LIMIT)
                             or f"the engine rejected {command.split()[0]!r}",

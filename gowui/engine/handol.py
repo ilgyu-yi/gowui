@@ -136,8 +136,7 @@ class _Channel:
         """Drop the connection at once (a request was cancelled mid-flight)."""
         conn, self.conn = self.conn, None
         if conn is not None:
-            conn._abort()  # noqa: SLF001 - no public way to drop without awaiting
-            conn._writer = conn._reader = None  # noqa: SLF001
+            conn.abort()
 
     def _lost(self, error: EngineError) -> EngineError:
         """A second loss or a failed reopen: an engine error, reported once when primary."""
@@ -318,6 +317,14 @@ class HandolEngine(Engine):
         await self._eval.retire()
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
+
+    def _drop_now(self) -> None:
+        task, self._drain_task = self._drain_task, None
+        if task is not None:
+            task.cancel()
+        for channel in (self._human, self._eval):
+            channel.retired = True
+            channel.abort()
 
     def _on_failure(self, error: EngineError) -> None:
         self._pending = None

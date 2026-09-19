@@ -85,6 +85,12 @@ class AnalysisEngine(Engine):
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
 
+    def _drop_now(self) -> None:
+        task, self._reader_task = self._reader_task, None
+        if task is not None:
+            task.cancel()
+        self._conn.abort()
+
     def _on_failure(self, error: EngineError) -> None:
         """Tell every waiting query why nothing is coming back; drop the streams."""
         waiters, self._waiters = list(self._waiters.values()), {}
@@ -269,14 +275,16 @@ class AnalysisEngine(Engine):
         except EngineError:
             pass
 
-    async def genmove(self, position: Position, color: str) -> str:
-        """Search the position and return the engine's top-ranked move (side to move only)."""
+    async def genmove(self, position: Position, color: str, *,
+                      max_visits: int | None = None) -> str:
+        """Search the position with ``max_visits`` (500 when not given) and return the engine's
+        top-ranked move (side to move only)."""
         letter = color_letter(color)
         if letter != position.to_play:
             raise self.error(f"the analysis engine can only move for the side to move "
                              f"({'black' if position.black_to_play() else 'white'})")
         await self.stop_analysis()
-        query = self._query(position, max_visits=None, include_ownership=False,
+        query = self._query(position, max_visits=max_visits, include_ownership=False,
                             report_every=None)
         result = await self._request(query, self.query_timeout)
         analysis = parse_result(result, position.black_to_play(), position.size,

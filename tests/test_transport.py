@@ -391,3 +391,23 @@ async def test_close_does_not_wait_on_a_peer_that_never_reads():
         elapsed = loop.time() - start
         await asyncio.wait_for(asyncio.gather(sending, return_exceptions=True), HANG)
     assert elapsed < 1.5
+
+
+# -- abort (§3.2: a close cut short) --------------------------------------------------------
+async def test_abort_drops_the_connection_at_once():
+    ended = asyncio.Event()
+
+    async def until_dropped(reader, writer):
+        with contextlib.suppress(ConnectionError, OSError):
+            await reader.read()
+        ended.set()
+
+    async with Peer(until_dropped) as peer:
+        conn = await connected(peer.port)
+        conn.abort()
+        conn.abort()  # twice is harmless
+        await asyncio.wait_for(ended.wait(), 1.0)
+        with pytest.raises(ConnectionClosed):
+            await asyncio.wait_for(conn.read_line(), HANG)
+        await asyncio.wait_for(conn.close(), HANG)
+    assert not conn.connected
