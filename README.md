@@ -27,6 +27,24 @@ pytest
 
 The tests need no KataGo, GPU or model file.
 
+### Frontend checks
+
+The page (`gowui/static/`, `SPEC.md` §3.8) has two kinds of tests. The static ones — the syntax
+check of every script and the tuple-validator agreement test — run in the default `pytest` and
+need `node` on the `PATH`; without it they are skipped locally (in CI they fail instead). The
+browser tests drive Chromium through Playwright, carry the `browser` marker, and are left out of
+the default run:
+
+```bash
+pip install -e '.[dev,browser]'
+export PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright"   # repo-local, gitignored
+python -m playwright install --with-deps chromium    # --with-deps installs system libraries (Linux)
+pytest -m browser
+```
+
+The browser smoke test saves a screenshot of the page under the gitignored `test-artifacts/`. The
+one shown in a pull request is committed under `docs/screenshots/` and linked by its commit's URL.
+
 ### Engine configuration
 
 gowui expects KataGo to report winrates from the side to move: set `reportAnalysisWinratesAs = SIDETOMOVE` (or leave it unset) in the engine's config. The stock `analysis_example.cfg` sets `BLACK` and must be changed (SPEC §2.3).

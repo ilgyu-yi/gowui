@@ -478,6 +478,8 @@ class GameSession:
             "moveCount": game.move_count,
             "toPlay": _colour_name(game.to_play),
             "profile": slot.profile,
+            "policy": copy.deepcopy(slot.policy),
+            "compare": slot.compare is not None,
             "heat": heat,
             "winrate": winrate,
         }

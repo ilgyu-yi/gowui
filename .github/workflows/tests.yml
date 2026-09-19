@@ -25,5 +25,41 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      # The frontend checks (node --check, the tuple-validator agreement) need node; with CI set
+      # they fail instead of skipping when it is missing (README "Frontend checks").
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - run: pip install -e ".[dev]"
       - run: pytest
+
+  # The page in Chromium through Playwright (SPEC §3.8, §7.5): `pytest -m browser`.
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+      GOWUI_BROWSER_REQUIRED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev,browser]"
+      - id: playwright
+        run: echo "version=$(python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # --with-deps installs the system libraries Chromium needs; the download itself is skipped
+      # when the cache already holds this version's browser.
+      - run: python -m playwright install --with-deps chromium
+      - run: pytest -m browser
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-artifacts
+          path: test-artifacts/
+          retention-days: 7
