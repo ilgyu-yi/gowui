@@ -36,40 +36,40 @@
 | &nbsp;&nbsp;§3.5 | Final score and console | 551 |
 | &nbsp;&nbsp;§3.6 | Traffic log | 566 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 570 |
-| &nbsp;&nbsp;§3.8 | The page | 578 |
-| §4 | WebSocket protocol | 801 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 805 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 846 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 883 |
-| §5 | HTTP routes | 905 |
-| §6 | Launch modes and policies | 969 |
-| &nbsp;&nbsp;§6.1 | The rule | 971 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1007 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1029 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1056 |
-| §7 | Authentication and security | 1074 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1076 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1086 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1094 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1102 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1150 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1165 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1205 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1221 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1229 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1235 |
-| §8 | Persistence | 1245 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1247 |
-| &nbsp;&nbsp;§8.2 | Saving | 1281 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1304 |
-| &nbsp;&nbsp;§8.4 | Server database | 1346 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1351 |
-| §9 | Command line | 1363 |
-| §10 | Configuration (server) | 1404 |
-| §11 | Feature inventory | 1424 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1431 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1469 |
-| §12 | Non-goals | 1487 |
+| &nbsp;&nbsp;§3.8 | The page | 579 |
+| §4 | WebSocket protocol | 803 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 807 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 848 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 885 |
+| §5 | HTTP routes | 907 |
+| §6 | Launch modes and policies | 971 |
+| &nbsp;&nbsp;§6.1 | The rule | 973 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1009 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1031 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1058 |
+| §7 | Authentication and security | 1076 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1078 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1088 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1096 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1104 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1152 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1167 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1207 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1223 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1231 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1237 |
+| §8 | Persistence | 1247 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1249 |
+| &nbsp;&nbsp;§8.2 | Saving | 1283 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1306 |
+| &nbsp;&nbsp;§8.4 | Server database | 1348 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1353 |
+| §9 | Command line | 1365 |
+| §10 | Configuration (server) | 1406 |
+| §11 | Feature inventory | 1426 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1433 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1471 |
+| §12 | Non-goals | 1489 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -572,7 +572,8 @@ The session keeps the last 400 log lines; a newly attached tab receives the last
 Outside text fields: `←` / `→` one move back / forward, `Home` / `End` first / last position,
 `p` pass, `u` undo, `g` engine move, `a` toggle analysis, `[` / `]` previous / next board.
 A key is ignored while an `input`, `select` or `textarea` has focus (the board rename field
-included, §3.8), and before the first `state` has arrived. A handled key does not also perform
+included, §3.8), before the first `state` has arrived, and while Ctrl, Cmd or Alt is held (those
+combinations stay the browser's, such as Ctrl/Cmd+P to print). A handled key does not also perform
 the browser's default action (no page scroll on `Home` / `End`).
 
 ### 3.8 The page
@@ -736,7 +737,8 @@ while a compare tuple is set), and a × button, hidden when only one board is le
   default-named board opens an empty field whose placeholder is the localised name, so pressing
   Enter at once saves nothing.
 
-**Status line.** A non-empty `state.status` is shown in the muted colour and an `error` frame's
+**Status line.** A non-empty `state.status` is shown in the muted colour when it differs from the
+last `state.status` shown (a repeat in later `state` frames is not shown again), and an `error` frame's
 `message` in red; either clears after 8 s, and a new message restarts the timer. The colour is
 set by a CSS class.
 
