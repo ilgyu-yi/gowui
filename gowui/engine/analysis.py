@@ -85,6 +85,12 @@ class AnalysisEngine(Engine):
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
 
+    def _drop_now(self) -> None:
+        task, self._reader_task = self._reader_task, None
+        if task is not None:
+            task.cancel()
+        self._conn.abort()
+
     def _on_failure(self, error: EngineError) -> None:
         """Tell every waiting query why nothing is coming back; drop the streams."""
         waiters, self._waiters = list(self._waiters.values()), {}

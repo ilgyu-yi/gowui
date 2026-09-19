@@ -319,6 +319,14 @@ class HandolEngine(Engine):
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
 
+    def _drop_now(self) -> None:
+        task, self._drain_task = self._drain_task, None
+        if task is not None:
+            task.cancel()
+        for channel in (self._human, self._eval):
+            channel.retired = True
+            channel.abort()
+
     def _on_failure(self, error: EngineError) -> None:
         self._pending = None
         self._live = None

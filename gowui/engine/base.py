@@ -184,6 +184,17 @@ class Engine(abc.ABC):
     async def stop_analysis(self) -> None:
         ...
 
+    def abort(self) -> None:
+        """Drop every connection at once, without awaiting anything: the last resort when a
+        close is cut short (§3.2). The engine is closed afterwards."""
+        self._closing = True
+        self._drop_now()
+        self._set_failure(ConnectionClosed("the engine connection is closed",
+                                           address=self.address))
+
+    def _drop_now(self) -> None:
+        """Hook: cancel the client's tasks and abort its sockets, synchronously."""
+
     @property
     def description(self) -> str:
         parts = [p for p in (self.name, self.version) if p]

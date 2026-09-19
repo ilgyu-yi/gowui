@@ -127,6 +127,13 @@ class GTPEngine(Engine):
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
 
+    def _drop_now(self) -> None:
+        for task in (self._stream_task, self._reader_task):
+            if task is not None:
+                task.cancel()
+        self._stream_task = self._reader_task = None
+        self._conn.abort()
+
     def supports(self, command: str) -> bool:
         return command in self._commands
 

@@ -139,6 +139,12 @@ class LineConnection:
         if writer is not None:
             writer.transport.abort()
 
+    def abort(self) -> None:
+        """Drop the connection at once, without awaiting anything; it is then closed."""
+        writer, self._writer, self._reader = self._writer, None, None
+        if writer is not None:
+            writer.transport.abort()
+
     async def read_line(self, timeout: float | None = None) -> str:
         """One line without its terminator. EOF (even mid-line) is :class:`ConnectionClosed`."""
         if self._broken:

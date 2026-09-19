@@ -276,6 +276,14 @@ def position_of(game: Game) -> Position:
     )
 
 
+def _abort_engine(engine: Engine) -> None:
+    """Drop ``engine``'s connections at once; a broken client must not break the session."""
+    try:
+        engine.abort()
+    except Exception:  # noqa: BLE001 - the last resort; nothing more to do
+        pass
+
+
 class GameSession:
     """The state a space's browser tabs talk to (SPEC §3)."""
 
@@ -318,6 +326,9 @@ class GameSession:
         self._connecting: int | None = None
         #: The generations of every connect attempt still running, live or superseded (§3.2).
         self._attempts: set[int] = set()
+        #: Engines released and still being closed in the background; they share the bound
+        #: with the connect attempts (§3.2).
+        self._closing: set[Engine] = set()
         self._tasks: set[asyncio.Task] = set()
         self._auto_task: asyncio.Task | None = None
         #: Set by an unexpected failure: automatic play asks for no further move until re-armed.
@@ -1105,8 +1116,10 @@ class GameSession:
         return self._connecting is not None and self._connecting == self._lifecycle
 
     def _attempts_full(self) -> bool:
-        """At most two connect attempts run: the live one and one superseded (§3.2, §4.1)."""
-        return len(self._attempts) >= MAX_CONNECT_ATTEMPTS
+        """Connect attempts and engines still being closed share a bound of two; a new connect
+        also releases the current engine, which then counts as one being closed (§3.2, §4.1)."""
+        releasing = 1 if self.engine is not None else 0
+        return len(self._attempts) + len(self._closing) + releasing >= MAX_CONNECT_ATTEMPTS
 
     def _msg_connect(self, message: dict) -> None:
         if self._connect_pending():
@@ -1153,14 +1166,34 @@ class GameSession:
         engine, self.engine = self.engine, None
         if engine is not None:
             self.thinking = False
-            self._spawn(self._close_engine(engine))
+            self._spawn_close(engine)
+
+    def _spawn_close(self, engine: Engine) -> None:
+        """Close a released engine in the background; it counts against the bound until its
+        close is over (§3.2)."""
+        self._closing.add(engine)
+        task = self._spawn(self._close_engine(engine))
+
+        def done(task: asyncio.Task, engine: Engine = engine) -> None:
+            self._closing.discard(engine)
+            if task.cancelled():  # possibly before it ever ran: drop the connection
+                _abort_engine(engine)
+
+        task.add_done_callback(done)
 
     async def _close_engine(self, engine: Engine) -> None:
+        """Close ``engine``; a close that fails, times out or is cancelled drops its connection
+        at once rather than leaving it open (§3.2)."""
         engine.on_disconnect = None
         try:
             await asyncio.wait_for(engine.close(), CLOSE_TIMEOUT)
         except Exception:  # noqa: BLE001 - shutting it down anyway
-            pass
+            _abort_engine(engine)
+        except BaseException:
+            _abort_engine(engine)
+            raise
+        finally:
+            self._closing.discard(engine)
 
     async def _connect(self, target: EngineTarget, generation: int) -> None:
         self.status = "Connecting to the engine"
@@ -1171,6 +1204,10 @@ class GameSession:
             engine.on_disconnect = lambda error, e=engine: self._engine_lost(e, error)
             self._configure_engine(engine)
             await engine.connect()
+        except asyncio.CancelledError:
+            if engine is not None:
+                _abort_engine(engine)  # cut short (at shutdown): drop whatever it opened
+            raise
         except Exception as exc:  # noqa: BLE001 - EngineError, or a bug in the client
             if engine is not None:
                 await self._close_engine(engine)
@@ -1216,7 +1253,7 @@ class GameSession:
         self._want_connected = False
         self.status = f"Engine disconnected: {error.message or 'the connection was lost'}"
         self._emit_state()
-        self._spawn(self._close_engine(engine))
+        self._spawn_close(engine)
 
     # -- persistence (§8.1) --------------------------------------------------------------------------
     def snapshot(self) -> dict[str, Any]:
