@@ -2,7 +2,8 @@
 
 The factory takes no mode name. It builds the space registry, installs the routes, puts the guard
 in front of everything — outside the server-error handler too, so a ``500`` carries the §7.5
-headers — and runs the startup hooks in the lifespan startup, before the server listens. The lifespan shutdown saves and closes every space (§8.2).
+headers — and runs the startup hooks in the lifespan startup, before the server listens. The
+lifespan shutdown saves and closes every space (§8.2).
 """
 
 from __future__ import annotations
