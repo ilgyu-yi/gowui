@@ -37,40 +37,40 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 570 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 574 |
 | &nbsp;&nbsp;§3.8 | The page | 583 |
-| §4 | WebSocket protocol | 830 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 834 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 875 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 912 |
-| §5 | HTTP routes | 943 |
-| §6 | Launch modes and policies | 1018 |
-| &nbsp;&nbsp;§6.1 | The rule | 1020 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1056 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1095 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1128 |
-| §7 | Authentication and security | 1147 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1149 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1196 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1214 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1228 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1276 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1291 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1331 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1347 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1361 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1370 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1399 |
-| §8 | Persistence | 1418 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1420 |
-| &nbsp;&nbsp;§8.2 | Saving | 1454 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1483 |
-| &nbsp;&nbsp;§8.4 | Server database | 1525 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1561 |
-| §9 | Command line | 1573 |
-| §10 | Configuration (server) | 1632 |
-| §11 | Feature inventory | 1670 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1677 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1715 |
-| §12 | Non-goals | 1733 |
+| §4 | WebSocket protocol | 831 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 835 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 876 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 913 |
+| §5 | HTTP routes | 944 |
+| §6 | Launch modes and policies | 1019 |
+| &nbsp;&nbsp;§6.1 | The rule | 1021 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1057 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1096 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1129 |
+| §7 | Authentication and security | 1148 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1150 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1197 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1215 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1229 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1277 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1294 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1334 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1350 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1364 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1373 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1402 |
+| §8 | Persistence | 1421 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1423 |
+| &nbsp;&nbsp;§8.2 | Saving | 1457 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1486 |
+| &nbsp;&nbsp;§8.4 | Server database | 1528 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1564 |
+| §9 | Command line | 1576 |
+| §10 | Configuration (server) | 1635 |
+| §11 | Feature inventory | 1673 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1680 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1718 |
+| §12 | Non-goals | 1736 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -791,7 +791,8 @@ reconnect delay and clears the status. When it closes:
 
 - with `4401` (§4.3), the page does not reconnect: the status says it is not signed in and the
   page goes to `/` with `location.assign('/')`, where the request guard (§5, §6.1) sends it to the
-  sign-in page or answers the `401` page. The page itself never learns which mode it runs in;
+  sign-in page or answers the `401` page — except right after the page's own log-out form was
+  sent, whose `303` navigation is left to finish. The page itself never learns which mode it runs in;
 - with `4403` (§4.3), the page does not reconnect and the status says why — refused by the Host
   and Origin rules (§7.4) — and keeps saying it until the page is reloaded;
 - with any other code (`1009`, `1013`, a lost network, a server restart), the status shows the
@@ -1277,7 +1278,9 @@ choice; `gowui serve` is the mode for sharing.
 
 Every response carries `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'` and
 `X-Content-Type-Options: nosniff` — refusals, errors (a `500` included), `404`, `413`, static files
-and `/healthz` included — and the page therefore uses no inline scripts or styles. Text
+and `/healthz` included — and the page therefore uses no inline scripts or styles. Every response
+also carries `Cache-Control: no-cache`, so a browser revalidates the page and its scripts instead of
+reusing a cached copy (a page sent to `/` after a `4401` always reaches the guard). Text
 that came from users, SGF files or engines (comments, board names, player names, engine output,
 error messages) is inserted as text, never as HTML. The page's rules are in §3.8 ("Rendering
 safety"); the icon is the file `/favicon.svg`, never a `data:` URL.
