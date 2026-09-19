@@ -5,9 +5,11 @@ releasing a space take one lock per key. A space is loaded and restored in worke
 published, then resumed in a task the registry owns. Each space has a hub whose synchronous
 ``broadcast`` is the session's: it serialises a frame once and puts the text into every tab's
 bounded queue, drained by one sender task per tab. A newer ``state`` or ``analysis`` frame
-supersedes a queued unsent one of its type, and a ``log`` that would overflow a queue folds the
-queued logs into one ``log_history``, so only other frames can overflow a queue. Saves are
-change-detected and serialised per space; the write runs in a worker thread.
+supersedes a queued unsent one of its type, and a ``state``, ``analysis``, ``log`` or
+``log_history`` that would overflow a queue first folds the queued logs into one ``log_history``,
+so only other frames can overflow a queue; a fold that would leave the queue mostly unfoldable
+closes the tab instead. Saves are change-detected and serialised per space; the write runs in a
+worker thread.
 """
 
 from __future__ import annotations
@@ -41,6 +43,8 @@ RESUME_WAIT = 5.0
 COALESCED = frozenset({"state", "analysis"})
 #: Frame types a ``log_history`` of the current history replaces on overflow (§4.3 Log folding).
 FOLDED = frozenset({"log", "log_history"})
+#: Frame types that fold the queued logs instead of being refused on overflow (§4.3).
+FOLDING = COALESCED | FOLDED
 
 Send = Callable[[str], Awaitable[None]]
 Close = Callable[[int], Awaitable[None]]
@@ -48,9 +52,11 @@ Close = Callable[[int], Awaitable[None]]
 
 class TabQueue:
     """A tab's bounded frame queue (§4.3). A ``state`` or ``analysis`` put while an unsent frame
-    of its type waits removes that frame and goes to the end; a ``log`` that would overflow
-    replaces every queued ``log`` and ``log_history`` with ``history()`` at the end; other frames
-    are only appended."""
+    of its type waits removes that frame and goes to the end; a ``state``, ``analysis``, ``log``
+    or ``log_history`` that would overflow replaces every queued ``log`` and ``log_history`` with
+    ``history()`` at the end (a ``log`` or ``log_history`` is folded into it, the others follow
+    it), unless more than half the queue would still be unfoldable; other frames are only
+    appended."""
 
     def __init__(self, maxsize: int) -> None:
         self.maxsize = maxsize
@@ -69,15 +75,19 @@ class TabQueue:
                     del self._items[index]
                     break
         if len(self._items) >= self.maxsize:
-            if kind != "log" or history is None:
+            if kind not in FOLDING or history is None:
+                return False
+            # A queue mostly of unfoldable frames (its own errors) would fold on every line.
+            if sum(1 for item in self._items if item[0] not in FOLDED) > self.maxsize // 2:
                 return False
             folded = history()
             if folded is None:
                 return False
             self._items = deque(item for item in self._items if item[0] not in FOLDED)
-            if len(self._items) >= self.maxsize:
-                return False
-            kind, text = "log_history", folded
+            self._items.append(("log_history", folded))
+            if kind in FOLDED:
+                self._ready.set()
+                return True
         self._items.append((kind, text))
         self._ready.set()
         return True
@@ -111,9 +121,10 @@ class Hub:
 
     def __init__(self, clock: Callable[[], float]) -> None:
         self.tabs: list[Tab] = []
-        #: The session's current ``log_history`` frame, or ``None``; set by the registry and
-        #: read synchronously when a ``log`` would overflow a queue (§4.3 Log folding).
-        self.history: Callable[[], dict | None] | None = None
+        #: The session's current ``log_history`` frame as JSON text (encoded once and shared by
+        #: every tab until the log changes), or ``None``; set by the registry and read
+        #: synchronously when a frame would overflow a queue (§4.3 Log folding).
+        self.history: Callable[[], str | None] | None = None
         self._clock = clock
         #: When the last tab left (or the hub was made); idle release measures from here.
         self.idle_since = clock()
@@ -138,8 +149,7 @@ class Hub:
             task.add_done_callback(self._closing.discard)
 
     def _history_text(self) -> str | None:
-        frame = self.history() if self.history is not None else None
-        return None if frame is None else json.dumps(frame)
+        return self.history() if self.history is not None else None
 
     def add(self, tab: Tab, frames: list[dict]) -> None:
         """Register ``tab`` and enqueue its attach frames in one step, with no ``await``."""
@@ -273,7 +283,7 @@ class SpaceRegistry:
             # Shut down while this space was being created: never publish it (§3.1 step 3).
             await session.aclose()
             raise RuntimeError("the space registry is closed")
-        hub.history = session.log_history_frame
+        hub.history = session.log_history_text
         space = Space(key, session, hub, saved_text=baseline)
         self.live[key] = space
         space.resume_task = asyncio.ensure_future(session.resume())
