@@ -151,6 +151,14 @@ def test_no_script_uses_session_storage_or_cookies_or_indexeddb(name):
     assert re.findall(r"\bsessionStorage\b|\bdocument\.cookie\b|\bindexedDB\b", code) == []
 
 
+def test_a_4401_close_sends_the_page_to_the_root():
+    """§3.8 "Connection": on ``4401`` the page goes to ``/`` and lets the guard choose between
+    the sign-in page and the 401 page; it never names ``/login`` itself."""
+    code = strip_js_comments(read_js("app.js"))
+    assert re.search(r"location\.assign\(\s*'/'\s*\)", code)
+    assert "/login" not in code
+
+
 # -- structure the protocol and i18n checks rely on (tests/frontend_helpers.py) ------------------------
 def test_app_js_defines_one_send():
     code = strip_js_comments(read_js("app.js"))

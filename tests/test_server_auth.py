@@ -147,6 +147,51 @@ async def test_a_throttled_client_does_not_lock_out_another_behind_the_proxy(ser
         ("throttled", "/", True)
 
 
+async def test_addresses_in_one_ipv6_64_share_one_budget(serve, tmp_path):
+    """§7.1: an IPv6 client is keyed by its /64, so rotating addresses in it buys nothing."""
+    server = await start(serve, tmp_path, trusted_proxies="127.0.0.1/32")
+    for i in range(1, 6):
+        await login(server.running, "alice", "wrong password",
+                    headers={"X-Forwarded-For": f"2001:db8:1:2::{i:x}"})
+    before = server.hasher.verifications
+    same_64, token = await login(server.running, "alice",
+                                 headers={"X-Forwarded-For": "2001:db8:1:2:ffff::99"})
+    assert (location_error(same_64), token) == ("throttled", None)
+    assert server.hasher.verifications == before
+    other_64, token = await login(server.running, "alice",
+                                  headers={"X-Forwarded-For": "2001:db8:1:3::1"})
+    assert (other_64.headers["location"], bool(token)) == ("/", True)
+
+
+async def test_the_per_name_cap_holds_across_many_clients(serve, tmp_path):
+    """§7.1: 20 failures per name per 10 minutes, whatever the client address."""
+    server = await start(serve, tmp_path, trusted_proxies="127.0.0.1/32")
+    for client in range(4):
+        for _ in range(5):
+            response, _ = await login(server.running, "alice", "wrong password",
+                                      headers={"X-Forwarded-For": f"203.0.113.{client + 1}"})
+            assert location_error(response) == "wrong"
+    before = server.hasher.verifications
+    fresh, token = await login(server.running, "alice",
+                               headers={"X-Forwarded-For": "198.51.100.200"})
+    assert (location_error(fresh), token) == ("throttled", None)
+    assert server.hasher.verifications == before
+    bob, token = await login(server.running, "bob", headers={"X-Forwarded-For": "198.51.100.200"})
+    assert (bob.headers["location"], bool(token)) == ("/", True)
+
+
+async def test_an_empty_password_takes_no_slot_and_runs_no_scrypt(serve, tmp_path):
+    """§7.1: a malformed attempt is refused before the throttle."""
+    server = await start(serve, tmp_path)
+    before = server.hasher.verifications
+    for _ in range(10):
+        response, _ = await login(server.running, "alice", "")
+        assert location_error(response) == "wrong"
+    assert server.hasher.verifications == before
+    response, token = await login(server.running, "alice")
+    assert (response.headers["location"], bool(token)) == ("/", True)
+
+
 # -- AC4: cross-site refusal ---------------------------------------------------------------------
 async def test_a_cross_site_sign_in_is_refused(serve, tmp_path):
     server = await start(serve, tmp_path)

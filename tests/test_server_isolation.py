@@ -9,8 +9,13 @@ that is removed and added again starts with fresh boards.
 
 from __future__ import annotations
 
+import os
+import stat
+
+import pytest
+
 from helpers import HANG, wait_for
-from server_helpers import PASSWORD, get, login, start, ws_headers
+from server_helpers import PASSWORD, get, login, open_store, start, ws_headers
 from test_app_local import play
 
 
@@ -104,6 +109,37 @@ async def test_a_restarted_server_gives_alice_her_boards_back(serve, tabs, tmp_p
     second = await start(serve, tmp_path, users=(), db=first.db)
     again, _ = await signed_in_tab(tabs, second.running, "alice")
     assert again.state()["game"]["moveCount"] == 2
+
+
+async def test_a_lone_surrogate_board_name_survives_a_restart(serve, tabs, tmp_path):
+    """§8.4: the snapshot JSON is ASCII, so SQLite's UTF-8 text can hold a lone surrogate."""
+    name = "x\ud800y"
+    first = await start(serve, tmp_path)
+    alice, _ = await signed_in_tab(tabs, first.running, "alice")
+    mark = alice.mark()
+    await alice.send({"type": "board_rename", "id": alice.state()["activeBoard"], "name": name})
+    await alice.wait_state(lambda f: name in board_names(f), mark)
+    await alice.close()
+    await first.running.stop()
+    first.store.close()
+
+    second = await start(serve, tmp_path, users=(), db=first.db)
+    again, _ = await signed_in_tab(tabs, second.running, "alice")
+    assert name in board_names(again.state())
+
+
+@pytest.mark.skipif(os.name == "nt", reason="file modes are not applied on Windows")
+def test_the_wal_and_shm_files_are_private(tmp_path):
+    """§8.4: the database, its ``-wal`` and its ``-shm`` are mode 0600."""
+    db = tmp_path / "data" / "gowui.db"
+    store = open_store(db)
+    try:
+        store.add_user("alice", PASSWORD)
+        modes = {path.name: stat.S_IMODE(path.stat().st_mode)
+                 for path in db.parent.iterdir()}
+    finally:
+        store.close()
+    assert modes == {"gowui.db": 0o600, "gowui.db-wal": 0o600, "gowui.db-shm": 0o600}
 
 
 async def test_an_idle_account_is_released_and_reloaded_intact(serve, tabs, tmp_path):
