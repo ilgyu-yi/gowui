@@ -39,35 +39,35 @@
 | §4 | WebSocket protocol | 521 |
 | &nbsp;&nbsp;§4.1 | Browser → server | 525 |
 | &nbsp;&nbsp;§4.2 | Server → browser | 555 |
-| §5 | HTTP routes | 572 |
-| §6 | Launch modes and policies | 591 |
-| &nbsp;&nbsp;§6.1 | The rule | 593 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 614 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 620 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 635 |
-| §7 | Authentication and security | 641 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 643 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 653 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 661 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 669 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 683 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 690 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 708 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 722 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 728 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 734 |
-| §8 | Persistence | 744 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 746 |
-| &nbsp;&nbsp;§8.2 | Saving | 768 |
-| &nbsp;&nbsp;§8.3 | Local state file | 773 |
-| &nbsp;&nbsp;§8.4 | Server database | 782 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 787 |
-| §9 | Command line | 791 |
-| §10 | Configuration (server) | 806 |
-| §11 | Feature inventory | 826 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 832 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 870 |
-| §12 | Non-goals | 888 |
+| §5 | HTTP routes | 583 |
+| §6 | Launch modes and policies | 602 |
+| &nbsp;&nbsp;§6.1 | The rule | 604 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 625 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 631 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 646 |
+| §7 | Authentication and security | 652 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 654 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 664 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 672 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 680 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 694 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 701 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 719 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 733 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 739 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 745 |
+| §8 | Persistence | 755 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 757 |
+| &nbsp;&nbsp;§8.2 | Saving | 779 |
+| &nbsp;&nbsp;§8.3 | Local state file | 784 |
+| &nbsp;&nbsp;§8.4 | Server database | 793 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 798 |
+| §9 | Command line | 802 |
+| §10 | Configuration (server) | 817 |
+| §11 | Feature inventory | 837 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 843 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 881 |
+| §12 | Non-goals | 899 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -561,6 +561,17 @@ a further one of the same kind while it runs is refused with an `error`.
 | `log` | `line: {direction, text, at}` |
 | `log_history` | `lines` |
 | `error` | `message` |
+
+Field names inside `state`:
+
+- `engine`: `connected`, `protocol`, `name`, `version`, `request` (the accepted engine request echo,
+  §6.3), `supportsGenmove`, `supportsFinalScore`, `console`.
+- `settings`: `blackIsEngine`, `whiteIsEngine`, `blackStyle`, `whiteStyle`, `analysisEnabled`,
+  `maxVisits`, `reportInterval`, `includeOwnership`, `evalVisits`, and the active board's
+  `humanProfile`, `humanPolicy`, `humanCompare`.
+- each `boards` entry: `id`, `name`, `size`, `stones`, `lastMove`, `cursor`, `moveCount`, `toPlay`,
+  `profile`, `heat` (the last policy heatmap while it still describes the board's position, else
+  empty), `winrate` (Black's, or null).
 
 On attach the server sends `state`, then `log_history` (the last 100 lines, §3.6), then the last
 `analysis` if one still describes the position. A frame that is not a JSON object gets an `error`
