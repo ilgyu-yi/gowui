@@ -61,14 +61,14 @@
 | &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1003 |
 | &nbsp;&nbsp;§8.2 | Saving | 1037 |
 | &nbsp;&nbsp;§8.3 | Local state file | 1060 |
-| &nbsp;&nbsp;§8.4 | Server database | 1109 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1114 |
-| §9 | Command line | 1118 |
-| §10 | Configuration (server) | 1153 |
-| §11 | Feature inventory | 1173 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1179 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1217 |
-| §12 | Non-goals | 1235 |
+| &nbsp;&nbsp;§8.4 | Server database | 1099 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1104 |
+| §9 | Command line | 1108 |
+| §10 | Configuration (server) | 1143 |
+| §11 | Feature inventory | 1163 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1169 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1207 |
+| §12 | Non-goals | 1225 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1078,20 +1078,10 @@ or renames any file, and a file at the default path stays untouched however the 
 - **Not a file.** A state path that exists but is not a regular file — a directory, a FIFO, a
   device — is never read, set aside or replaced: `gowui` refuses to start with a usage error that
   names the path. The path is checked before it is opened, so a FIFO cannot hang startup.
-- **Before parsing.** The first byte that is not JSON whitespace must be `{`. Outside JSON
-  strings, the file may hold at most **1,024** `[` and `{`, and at most **16,384** `,` and `:`.
-  A snapshot gowui writes has at most 197 arrays and objects: per board the board, `humanPolicy`
-  and `humanCompare` (64 × 3), plus the top level, `boards`, `engine`, `request` and `play`. It
-  has at most 1,568 keys and array elements: 5 top-level keys, 64 boards, per board 7 keys plus
-  8 in each of `humanPolicy` and `humanCompare` (64 × 23), 6 keys in `engine`, 16 in `request`
-  and 5 in `play`. Each key brings one `:` and at most one `,`, and each array element at most
-  one `,`, so it has at most 3,136 `,` and `:`; 16,384 leaves more than five times that. Strings
-  are skipped when counting, so the brackets, commas and colons inside them (every SGF property
-  has a `[`) do not count; a string cut off by the end of the file runs to the end. A file that
-  fails any of these checks is set aside without being parsed. So parsing a file that passes
-  builds at most 16,384 keys and 17,409 values (each value follows a `:` or a `,`, is the first
-  element of an array, or is the one top-level value), however large the file is; past that fixed
-  amount, its memory grows only with the text of the file's strings and numbers.
+- **Before parsing.** The first byte that is not JSON whitespace must be `{`; a file that fails
+  this check is set aside without being parsed. Parse memory is not otherwise bounded against a
+  hand-crafted file: the file is the user's own, so whoever can craft it can already act as the
+  user, and the byte cap above bounds what is read.
 - **Setting aside.** The file is set aside when it cannot be read or decoded, is over the cap,
   fails a check made before parsing, is not valid JSON (including JSON nested too deeply to
   parse), is not a JSON object, or is refused by restore (§8.1). It is renamed to
