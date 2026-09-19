@@ -138,10 +138,14 @@ def start_engine(processes, tmp_path):
 
 @pytest.fixture
 def start_app(processes, tmp_path):
-    """``start_app(engine=None, connect=False, *extra)`` runs ``python -m gowui --port 0 --fresh``
-    with the engine as the connect form's default, connected at startup when ``connect``."""
-    def start(engine: Engine | None = None, connect: bool = False, *extra: str) -> App:
-        argv = [sys.executable, "-m", "gowui", "--port", "0", "--fresh", "--log-level", "warning"]
+    """``start_app(engine=None, connect=False, *extra, fresh=True)`` runs ``python -m gowui
+    --port 0 --fresh`` with the engine as the connect form's default, connected at startup when
+    ``connect``; ``fresh=False`` leaves out ``--fresh`` (pass ``--state FILE`` in ``extra``)."""
+    def start(engine: Engine | None = None, connect: bool = False, *extra: str,
+              fresh: bool = True) -> App:
+        argv = [sys.executable, "-m", "gowui", "--port", "0", "--log-level", "warning"]
+        if fresh:
+            argv.append("--fresh")
         if engine is not None:
             argv += ["--engine-protocol", engine.protocol, "--engine-port", str(engine.port)]
             if connect:
