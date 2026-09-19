@@ -1,10 +1,12 @@
 """The command line (SPEC §9): the only place that chooses a launch mode and builds its policy
-bundle. ``gowui`` and ``gowui local`` run local mode.
+bundle. ``gowui`` and ``gowui local`` run local mode; ``gowui serve`` runs server mode, and
+``gowui user`` manages its password accounts.
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import ipaddress
 import logging
 import os
@@ -20,16 +22,21 @@ from .app import create_app
 from .engine import PROTOCOLS
 from .local_mode import (JsonFileStorage, LocalIdentity, MemoryStorage, StateFileError,
                          check_state_path, default_state_path, local_policies)
+from .server_mode import ConfigError, ServerConfig, server_policies
+from .store import Store, UserExists, valid_name, valid_password
 
-__all__ = ["build_app", "build_config", "main", "parse", "url_line", "uvicorn_config"]
+__all__ = ["build_app", "build_config", "build_server_config", "main", "parse", "url_line",
+           "user_command", "uvicorn_config"]
 
 log = logging.getLogger("gowui")
 
 #: The WebSocket message limit (§7.6).
 WS_MAX_SIZE = 1024 * 1024
 LOG_LEVELS = ("critical", "error", "warning", "info", "debug", "trace")
-#: The subcommands; #9 adds ``serve`` and ``user``.
-COMMANDS = ("local",)
+#: The subcommands.
+COMMANDS = ("local", "serve", "user")
+#: The server database when ``GOWUI_DB`` is unset (§10).
+DEFAULT_DB = "./data/gowui.db"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -50,6 +57,21 @@ def _parser() -> argparse.ArgumentParser:
     storage.add_argument("--fresh", action="store_true",
                          help="keep state in memory only; no file is read or written")
     local.add_argument("--log-level", choices=LOG_LEVELS, default="info")
+
+    serve = commands.add_parser("serve", help="run for several signed-in accounts (GOWUI_*)")
+    serve.add_argument("--host", default="0.0.0.0", help="address to bind (default 0.0.0.0)")
+    serve.add_argument("--port", type=int, default=8080, help="port to bind; 0 picks a free one")
+    serve.add_argument("--log-level", choices=LOG_LEVELS, default="info")
+
+    user = commands.add_parser("user", help="manage the password accounts in GOWUI_DB")
+    actions = user.add_subparsers(dest="action", required=True)
+    for action in ("add", "passwd"):
+        sub = actions.add_parser(action)
+        sub.add_argument("name")
+        sub.add_argument("--password-stdin", action="store_true",
+                         help="read the password as one line from stdin")
+    actions.add_parser("remove").add_argument("name")
+    actions.add_parser("list")
     return parser
 
 
@@ -158,17 +180,91 @@ class _Server(uvicorn.Server):
             print(url_line(self._host, port), flush=True)
 
 
+def _fail(message: str, status: int) -> int:
+    print(f"gowui: {message}", file=sys.stderr, flush=True)
+    return status
+
+
+def _read_password(args: argparse.Namespace) -> str:
+    """One stdin line without its line ending, or two prompts that must match (§9)."""
+    if args.password_stdin:
+        line = sys.stdin.readline()
+        return line[:-2] if line.endswith("\r\n") else line[:-1] if line.endswith("\n") else line
+    first = getpass.getpass("Password: ")
+    if getpass.getpass("Password again: ") != first:
+        raise ValueError("the passwords do not match")
+    return first
+
+
+def user_command(args: argparse.Namespace) -> int:
+    """``gowui user add|passwd|remove|list``; reads only ``GOWUI_DB`` (§9)."""
+    if args.action != "list" and not valid_name(args.name):
+        return _fail("a name has 1 to 64 printable characters without surrounding spaces", 1)
+    password = ""
+    if args.action in ("add", "passwd"):
+        try:
+            password = _read_password(args)
+        except ValueError as exc:
+            return _fail(str(exc), 1)
+        if not valid_password(password):
+            return _fail("a password has 8 to 256 characters", 1)
+    store = Store(os.environ.get("GOWUI_DB") or DEFAULT_DB)
+    try:
+        if args.action == "list":
+            for name in store.list_users():
+                print(name)
+            return 0
+        if args.action == "add":
+            try:
+                store.add_user(args.name, password)
+            except UserExists:
+                return _fail(f"the account {args.name!r} already exists", 1)
+        elif args.action == "passwd":
+            if not store.set_password(args.name, password):
+                return _fail(f"there is no account {args.name!r}", 1)
+        elif not store.remove_user(args.name):
+            return _fail(f"there is no account {args.name!r}", 1)
+        print("ok")
+        return 0
+    finally:
+        store.close()
+
+
+def build_server_config(args: argparse.Namespace, env: Any = None) -> tuple[uvicorn.Config, Store]:
+    """Server mode from ``GOWUI_*`` (§10): raises :class:`ConfigError` before anything is opened
+    or bound (§7.9)."""
+    config = ServerConfig.from_env(os.environ if env is None else env)
+    if not config.engines:
+        log.warning("gowui: GOWUI_ENGINES is empty, so there is no engine to connect to")
+    store = Store(config.db)
+    app = create_app(server_policies(config, store))
+    return uvicorn_config(app, host=args.host, port=args.port, log_level=args.log_level), store
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
-    try:
-        config = build_config(args)
-    except StateFileError as exc:
-        _parser().error(str(exc))  # a usage error: exits with status 2 (§9)
+    if args.command == "user":
+        return user_command(args)
+    store = None
+    if args.command == "serve":
+        try:
+            config, store = build_server_config(args)
+        except ConfigError as exc:
+            return _fail(str(exc), 2)  # fail closed, before binding (§7.9)
+    else:
+        try:
+            config = build_config(args)
+        except StateFileError as exc:
+            _parser().error(str(exc))  # a usage error: exits with status 2 (§9)
     try:
         _Server(config, args.host).run()
     except KeyboardInterrupt:  # Ctrl-C after a clean shutdown (§9 "Stopping")
+        if store is not None:
+            store.close()
         return _die_by_sigint()
+    if store is not None:
+        store.close()
     return 0
 
 

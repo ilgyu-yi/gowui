@@ -18,14 +18,16 @@ from starlette.requests import HTTPConnection
 
 from .policies import Policies
 
-__all__ = ["Guard", "IDENTITY_KEY", "is_ip_literal", "normalise_host"]
+__all__ = ["Guard", "IDENTITY_KEY", "client_address", "forwarded_last", "is_ip_literal",
+           "normalise_host", "peer_ip", "request_is_https", "trusted_peer"]
 
 #: The scope key under which the guard hands the resolved identity (or ``None``) to the routes.
 IDENTITY_KEY = "gowui.identity"
 
 CSP = "default-src 'self'; frame-ancestors 'none'"
 SECURITY_HEADERS = [(b"content-security-policy", CSP.encode("ascii")),
-                    (b"x-content-type-options", b"nosniff")]
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"cache-control", b"no-cache")]
 _SECURITY_NAMES = {name for name, _ in SECURITY_HEADERS}
 
 #: Headers of which a request may carry at most one (§7.4 rule 1).
@@ -90,6 +92,66 @@ def is_ip_literal(host: str) -> bool:
     return True
 
 
+def _ip(text: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """An IP address, an IPv4-mapped IPv6 address converted to its IPv4 form (§7.10)."""
+    try:
+        address = ipaddress.ip_address(text.strip())
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        return address.ipv4_mapped
+    return address
+
+
+def peer_ip(scope: dict) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """The TCP peer's address, or ``None`` when it is not an IP address."""
+    client = scope.get("client")
+    if not client or not isinstance(client[0], str):
+        return None
+    return _ip(client[0])
+
+
+def trusted_peer(scope: dict, proxies: tuple) -> bool:
+    """Whether the TCP peer is inside ``trusted_proxies`` (§7.3, §7.10)."""
+    if not proxies:
+        return False
+    peer = peer_ip(scope)
+    return peer is not None and any(peer in network for network in proxies)
+
+
+def forwarded_last(scope: dict, name: bytes) -> str | None:
+    """The last element of a forwarded list header, repeated lines joined in order (§7.10)."""
+    values = [v.decode("latin-1") for k, v in scope.get("headers", []) if k.lower() == name]
+    if not values:
+        return None
+    return ",".join(values).split(",")[-1].strip()
+
+
+def request_is_https(scope: dict, proxies: tuple) -> bool:
+    """The request's own scheme, or ``X-Forwarded-Proto`` from a trusted proxy (§7.10)."""
+    if scope.get("scheme") in ("https", "wss"):
+        return True
+    if not trusted_peer(scope, proxies):
+        return False
+    last = forwarded_last(scope, b"x-forwarded-proto")
+    return last is not None and last.lower() == "https"
+
+
+def client_address(scope: dict, proxies: tuple) -> str:
+    """The peer, or the last ``X-Forwarded-For`` address when the peer is a trusted proxy
+    (§7.1, §7.10)."""
+    peer = peer_ip(scope)
+    if trusted_peer(scope, proxies):
+        last = forwarded_last(scope, b"x-forwarded-for")
+        forwarded = _ip(last) if last else None
+        if forwarded is not None:
+            return str(forwarded)
+    if peer is not None:
+        return str(peer)
+    client = scope.get("client")
+    return str(client[0]) if client else ""
+
+
 def is_public(scope: dict) -> bool:
     """Whether the path is reachable without an identity (§5)."""
     path = scope.get("path", "")
@@ -146,7 +208,7 @@ class Guard:
         seen: dict[bytes, list[str]] = {}
         for name, value in scope.get("headers", []):
             name = name.lower()
-            if name in _SINGLE or name == b"x-forwarded-proto":
+            if name in _SINGLE:
                 seen.setdefault(name, []).append(value.decode("latin-1"))
         if any(len(seen.get(name, ())) > 1 for name in _SINGLE):
             raise _FORBIDDEN
@@ -157,14 +219,13 @@ class Guard:
         if parsed is None:
             raise _FORBIDDEN
         scheme = scope.get("scheme", "http")
-        if self._trusted_peer(scope):
+        if trusted_peer(scope, policies.trusted_proxies):
             forwarded = seen.get(b"x-forwarded-host")
             if forwarded:
                 parsed = normalise_host(forwarded[0])
                 if parsed is None:
                     raise _FORBIDDEN
-            proto = seen.get(b"x-forwarded-proto")
-            if proto and proto[-1].strip().lower() == "https":
+            if request_is_https(scope, policies.trusted_proxies):
                 scheme = "https"
         host, port = parsed
         if port is None:
@@ -181,17 +242,6 @@ class Guard:
         if identity is None and not is_public(scope):
             raise _Refusal(401, WS_UNAUTHENTICATED)
         return identity
-
-    def _trusted_peer(self, scope: dict) -> bool:
-        proxies = self.policies.trusted_proxies
-        client = scope.get("client")
-        if not proxies or not client:
-            return False
-        try:
-            peer = ipaddress.ip_address(client[0])
-        except ValueError:
-            return False
-        return any(peer in network for network in proxies)
 
     # -- refusals -----------------------------------------------------------------------------
     async def _refuse(self, scope: dict, receive: Any, send: Any, refusal: _Refusal) -> None:

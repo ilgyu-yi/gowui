@@ -213,6 +213,10 @@ class SpaceRegistry:
                                         f"was refused by restore ({str(exc)[:200]})")
                 session = self._new_session(hub)
         baseline = await asyncio.to_thread(lambda: _text(session.snapshot()))
+        if self._closed:
+            # Shut down while this space was being created: never publish it (§3.1 step 3).
+            await session.aclose()
+            raise RuntimeError("the space registry is closed")
         space = Space(key, session, hub, saved_text=baseline)
         self.live[key] = space
         space.resume_task = asyncio.ensure_future(session.resume())
@@ -220,22 +224,24 @@ class SpaceRegistry:
         return space
 
     # -- saving (§8.2) ----------------------------------------------------------------------------
-    async def _save(self, space: Space) -> None:
+    async def _save(self, space: Space) -> bool:
+        """Save the space if it changed; whether its current snapshot is stored (§8.2)."""
         # Shielded: a cancelled caller never leaves a write running outside the save lock.
-        await asyncio.shield(self._save_now(space))
+        return await asyncio.shield(self._save_now(space))
 
-    async def _save_now(self, space: Space) -> None:
+    async def _save_now(self, space: Space) -> bool:
         async with space.save_lock:
             snapshot = space.session.snapshot()
             text = _text(snapshot)
             if text == space.saved_text:
-                return
+                return True
             try:
                 await asyncio.to_thread(self.policies.storage.save, space.key, snapshot)
             except Exception as exc:  # noqa: BLE001 - try again on the next pass
                 log.warning("gowui: could not save the space %r: %s", space.key, exc)
-                return
+                return False
             space.saved_text = text
+            return True
 
     async def save_changed(self) -> None:
         """One autosave pass: save every space that changed."""
@@ -257,8 +263,9 @@ class SpaceRegistry:
             async with self._lock(key):
                 if self.live.get(key) is not space or not self._idle(space, seconds):
                     continue
+                if not await self._save(space):
+                    continue  # a failed save keeps the space live; a later sweep retries
                 try:
-                    await self._save(space)
                     await self._close_space(space)
                 finally:
                     del self.live[key]

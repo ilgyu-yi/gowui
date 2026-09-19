@@ -1,0 +1,58 @@
+/* The sign-in page (SPEC §7.11): no script, no inline style. */
+:root {
+  --bg: #16181d;
+  --panel: #1e2128;
+  --line: #333845;
+  --text: #e6e8ee;
+  --muted: #9aa3b2;
+  --accent: #4f8cff;
+  --bad: #e2574c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+}
+
+.signin {
+  width: 300px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.signin h1 { margin: 0 0 16px; font-size: 18px; letter-spacing: 0.06em; }
+.signin form { display: flex; flex-direction: column; gap: 12px; }
+.signin label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+
+.signin input {
+  padding: 6px 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.signin button {
+  padding: 7px;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.signin .error { margin: 0; color: var(--bad); }
+.languages { margin-top: 16px; display: flex; gap: 12px; }
+.languages a { color: var(--muted); }

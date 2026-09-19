@@ -18,6 +18,21 @@ Once it is listening, gowui prints `gowui: http://<host>:<port>`. Open that URL 
 Boards are saved to a per-user state file and come back after a restart. The flags, the default
 state-file paths and the security rules are in `SPEC.md` §9, §8.3 and §7.4.
 
+## Run (server mode)
+
+```bash
+export GOWUI_DB=./data/gowui.db
+export GOWUI_ENGINES='[{"id": "katago", "label": "KataGo", "protocol": "analysis", "host": "10.0.0.5", "port": 6364}]'
+gowui user add alice       # prompts twice for the password (or use --password-stdin)
+gowui serve                # serves on 0.0.0.0:8080; users sign in at /login
+```
+
+Each account gets its own boards, saved in SQLite, and picks engines only from the catalog; the
+engine addresses never reach the browser. For SSO behind a reverse proxy, set `GOWUI_AUTH=header`
+(or `local,header`) and `GOWUI_TRUSTED_PROXIES`, and have the proxy strip any client-supplied
+user header. Every variable, the sign-in rules and the proxy rules are in `SPEC.md` §10, §7 and §9;
+`gowui serve` refuses to start on a malformed setting.
+
 ## Development
 
 ```bash

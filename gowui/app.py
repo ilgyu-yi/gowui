@@ -19,7 +19,7 @@ from .guard import Guard
 from .policies import Policies
 from .spaces import SpaceRegistry
 
-__all__ = ["create_app"]
+__all__ = ["REVALIDATE_INTERVAL", "create_app"]
 
 StartupHook = Callable[[FastAPI], Awaitable[None]]
 
@@ -31,7 +31,12 @@ class _GuardedApp(FastAPI):
         return Guard(super().build_middleware_stack(), self.state.policies)
 
 
-def create_app(policies: Policies, *, startup: Iterable[StartupHook] = ()) -> FastAPI:
+#: Seconds between two revalidations of an open socket's identity (§4.3).
+REVALIDATE_INTERVAL = 30.0
+
+
+def create_app(policies: Policies, *, startup: Iterable[StartupHook] = (),
+               revalidate_interval: float = REVALIDATE_INTERVAL) -> FastAPI:
     registry = SpaceRegistry(policies)
     hooks = list(startup)
 
@@ -48,5 +53,8 @@ def create_app(policies: Policies, *, startup: Iterable[StartupHook] = ()) -> Fa
     app = _GuardedApp(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.policies = policies
     app.state.registry = registry
+    app.state.revalidate_interval = revalidate_interval
+    #: One check per open socket; ``POST /logout`` runs them all at once (§4.3).
+    app.state.revalidators = set()
     routes.install(app)
     return app

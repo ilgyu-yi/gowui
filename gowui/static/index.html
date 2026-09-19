@@ -18,9 +18,15 @@
     </select>
     <input id="host" type="text" value="127.0.0.1" size="11" data-i18n-title="host.title">
     <input id="port" type="number" value="6363" min="1" max="65535" data-i18n-title="port.title">
+    <select id="engine-pick" data-i18n-title="picker.title" hidden></select>
     <button id="connect" class="primary" data-i18n="connect">Connect</button>
     <span id="engine-state" class="badge off" data-i18n="disconnected">disconnected</span>
   </div>
+  <span id="me-name" class="me" hidden></span>
+  <form id="logout-form" method="post" action="/logout" class="logout" hidden>
+    <button type="submit" data-i18n="logout">Log out</button>
+  </form>
+  <a id="logout-link" class="logout" data-i18n="logout" hidden>Log out</a>
   <select id="lang" title="Language / 언어">
     <option value="ko">한국어</option>
     <option value="en">English</option>

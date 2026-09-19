@@ -5,6 +5,7 @@ a route. The guard (§7.4) has already run: it put the request's identity in the
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from .game import Game
-from .guard import IDENTITY_KEY
+from .guard import IDENTITY_KEY, WS_UNAUTHENTICATED
 from .rules import HANDICAP_KOMI, RULE_SETS
 from .spaces import Space
 
@@ -94,7 +95,11 @@ async def login(request: Request) -> Any:
 
 @router.post("/logout")
 async def logout(request: Request) -> Any:
-    return await request.app.state.policies.identity.logout(request)
+    response = await request.app.state.policies.identity.logout(request)
+    # Then every open socket is checked at once; each keeps its own valid identity (§4.3).
+    for revalidate in list(request.app.state.revalidators):
+        revalidate()
+    return response
 
 
 @router.get("/api/health")
@@ -158,8 +163,34 @@ async def websocket(ws: WebSocket) -> None:
     async def close(code: int) -> None:
         await ws.close(code)
 
-    tab = await registry.attach(ws.scope[IDENTITY_KEY], send, close)
+    identity = ws.scope[IDENTITY_KEY]
+    tab = await registry.attach(identity, send, close)
     session = tab.space.session
+    closing: list[asyncio.Task] = []
+
+    def revalidate() -> bool:
+        """Run the identity policy on the handshake again; close with 4401 when it no longer
+        resolves to the same key (§4.3). Whether the socket stays open."""
+        if closing:
+            return False
+        try:
+            current = ws.app.state.policies.identity.identify(HTTPConnection(ws.scope))
+        except Exception:  # noqa: BLE001 - a failing check counts as no identity
+            current = None
+        if current is not None and current.key == identity.key:
+            return True
+        closing.append(asyncio.ensure_future(_close_quietly(ws, WS_UNAUTHENTICATED)))
+        return False
+
+    async def watch() -> None:
+        while True:
+            await asyncio.sleep(ws.app.state.revalidate_interval)
+            if not revalidate():
+                return
+
+    revalidators = ws.app.state.revalidators
+    revalidators.add(revalidate)
+    watcher = asyncio.ensure_future(watch())
     try:
         while True:
             message = await ws.receive()
@@ -184,7 +215,14 @@ async def websocket(ws: WebSocket) -> None:
                 continue
             await session.handle(data)
     finally:
+        revalidators.discard(revalidate)
+        watcher.cancel()
         await registry.detach(tab)
+
+
+async def _close_quietly(ws: WebSocket, code: int) -> None:
+    with contextlib.suppress(Exception):
+        await ws.close(code)
 
 
 def install(app: FastAPI) -> None:
