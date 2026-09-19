@@ -61,14 +61,14 @@
 | &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1003 |
 | &nbsp;&nbsp;§8.2 | Saving | 1037 |
 | &nbsp;&nbsp;§8.3 | Local state file | 1060 |
-| &nbsp;&nbsp;§8.4 | Server database | 1099 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1104 |
-| §9 | Command line | 1108 |
-| §10 | Configuration (server) | 1143 |
-| §11 | Feature inventory | 1163 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1169 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1207 |
-| §12 | Non-goals | 1225 |
+| &nbsp;&nbsp;§8.4 | Server database | 1102 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1107 |
+| §9 | Command line | 1111 |
+| §10 | Configuration (server) | 1148 |
+| §11 | Feature inventory | 1168 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1174 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1212 |
+| §12 | Non-goals | 1230 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1077,11 +1077,14 @@ or renames any file, and a file at the default path stays untouched however the 
   missing file means start fresh. The content is restored through the limits of §8.1 and §7.6.
 - **Not a file.** A state path that exists but is not a regular file — a directory, a FIFO, a
   device — is never read, set aside or replaced: `gowui` refuses to start with a usage error that
-  names the path. The path is checked before it is opened, so a FIFO cannot hang startup.
+  names the path. The path is checked before it is opened, and the file is then opened without
+  blocking and checked again once open, so a FIFO cannot hang startup and a non-file swapped in
+  after the path check is also refused and kept.
 - **Before parsing.** The first byte that is not JSON whitespace must be `{`; a file that fails
   this check is set aside without being parsed. Parse memory is not otherwise bounded against a
   hand-crafted file: the file is the user's own, so whoever can craft it can already act as the
-  user, and the byte cap above bounds what is read.
+  user, and the byte cap above bounds what is read. A file whose parsing runs out of memory is set
+  aside like any file that cannot be parsed.
 - **Setting aside.** The file is set aside when it cannot be read or decoded, is over the cap,
   fails a check made before parsing, is not valid JSON (including JSON nested too deeply to
   parse), is not a JSON object, or is refused by restore (§8.1). It is renamed to
@@ -1133,6 +1136,8 @@ One command, `gowui`:
     header is sent.
   - **State path.** A `--state` path, or the default path, that exists but is not a regular file
     is a usage error (§8.3).
+  - **Stopping.** Ctrl-C (SIGINT) runs the lifespan shutdown, which saves (§8.2), and then exits
+    with status 130 without printing a traceback.
 - `gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` — server mode, configured by §10.
   Runs without generic forwarded-header rewriting: only the headers of §7.10 are read, and only from trusted proxies.
 - `gowui user add NAME`, `gowui user passwd NAME` — prompt twice for the password, or read one line
