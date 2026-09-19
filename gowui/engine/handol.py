@@ -97,6 +97,9 @@ class _Channel:
         self.lock = asyncio.Lock()
         self.conn: LineConnection | None = None
         self.opened = False
+        #: Why the client itself dropped the connection, for the reopen note; ``None`` when the
+        #: surface closed it.
+        self.dropped: str | None = None
         #: Set when the engine closes or reconnects; never reset (a new connect() makes new
         #: channels), so a request still running here never reopens or resends.
         self.retired = False
@@ -110,8 +113,9 @@ class _Channel:
             await conn.close()
             raise self._retired_error()
         if self.opened:
-            engine.note(f"# reopened the {self.name} connection "
-                        "(the surface closes idle connections)")
+            cause = self.dropped or "the surface closes idle connections"
+            engine.note(f"# reopened the {self.name} connection ({cause})")
+        self.dropped = None
         self.conn = conn
         self.opened = True
 
@@ -176,9 +180,11 @@ class _Channel:
                         raise self._lost(exc) from None
                 except EngineError:
                     await self.close()  # an error of this request only; the next reopens
+                    self.dropped = "closed after a failed request"
                     raise
                 except BaseException:
                     self.abort()  # cancelled mid-flight: the stream position is unknown
+                    self.dropped = "dropped after an abandoned request"
                     raise
 
     async def _exchange(self, payload: dict, text: str) -> dict:
