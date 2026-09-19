@@ -7,6 +7,7 @@ injecting faults through :class:`FakeOptions`) and a command-line program::
 
     python tools/fake_engine.py --protocol gtp --port 6363
     python tools/fake_engine.py --protocol analysis --port 0   # prints "listening on 127.0.0.1:<port>"
+    python tools/fake_engine.py --protocol handol --port 0
 """
 
 from __future__ import annotations
@@ -90,6 +91,28 @@ class FakeOptions:
     stray: tuple[float, str] | None = None
     #: GTP: the message of a ``?`` answer for a command in ``reject``.
     reject_message: str = "rejected by the fake engine"
+    # -- handol (``hangup_on``, ``wrong_id_on`` and ``query_delay`` apply too; a handol fault
+    # names the requests it hits: ``"human"``, ``"plain"`` or ``"query"`` for both) --
+    #: Handol: close a connection that sent nothing for this many seconds, silently.
+    idle_close: float | None = None
+    #: Handol: answer these requests with an error reply.
+    error_reply: str | None = None
+    #: Handol: whether an error reply carries the request id.
+    error_reply_id: bool = True
+    #: Handol: how many times a fault fires in all (``None``: every time).
+    fault_times: int | None = None
+    #: Handol: put most of the mass of each distribution on an occupied point.
+    illegal_point: bool = False
+    #: Handol: plain answers carry no moves.
+    empty_katago: bool = False
+    #: Handol: every distribution entry has p 0.
+    empty_distribution: bool = False
+    #: Handol: answer with one policy fewer than the tuples sent.
+    short_policies: bool = False
+    #: Handol: add entries that are not on the board (and not pass) with the largest p.
+    offboard_move: bool = False
+    #: Handol: the three likeliest entries get p NaN, negative and overflowing (``1e999``).
+    bad_p: bool = False
 
 
 def _command_name(line: str) -> str:
@@ -620,9 +643,293 @@ class FakeAnalysisEngine:
         return result
 
 
-#: The registered fake protocols; ``handol`` joins with the handol-mux client (#5).
-PROTOCOLS: dict[str, type] = {"gtp": FakeGTPEngine, "analysis": FakeAnalysisEngine}
+# -- handol-mux ---------------------------------------------------------------------------------
+_HANDOL_POSITION = {"boardXSize", "boardYSize", "komi", "rules", "initialStones", "moves"}
+_HANDOL_HUMAN_KEYS = _HANDOL_POSITION | {"id", "human"}
+_HANDOL_PLAIN_KEYS = _HANDOL_POSITION | {"id", "maxVisits", "includeOwnership"}
 
+
+def _tuple_number(tuple_: dict, name: str, default: float) -> float:
+    value = tuple_.get(name)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    number = float(value)
+    return number if math.isfinite(number) else default
+
+
+def _handol_refusal(request: dict) -> str | None:
+    """Why the surface refuses ``request`` (its own small checks), or ``None``."""
+    if "action" in request:
+        return "action verbs are not supported"
+    for name in ("initialPlayer", "analyzeTurns"):
+        if name in request:
+            return f"{name} is not accepted: the side to move is inferred"
+    if "human" in request:
+        if "maxVisits" in request:
+            return "maxVisits is not accepted next to a human block: use human.search.visits"
+        allowed = _HANDOL_HUMAN_KEYS
+    else:
+        allowed = _HANDOL_PLAIN_KEYS
+    unknown = sorted(set(request) - allowed)
+    if unknown:
+        return f"unknown top-level key {unknown[0]!r}"
+    if "human" not in request:
+        visits = request.get("maxVisits")
+        if isinstance(visits, bool) or not isinstance(visits, int) or visits < 1:
+            return "maxVisits must be a positive integer"
+        return None
+    human = request["human"]
+    if not isinstance(human, dict):
+        return "human must be an object"
+    if not isinstance(human.get("profile"), str) or not human["profile"]:
+        return "human.profile must be a non-empty string"
+    policies = human.get("policies")
+    if not isinstance(policies, list) or not policies or not all(isinstance(p, dict)
+                                                                  for p in policies):
+        return "human.policies must be a non-empty list of objects"
+    search = human.get("search")
+    if search is not None:
+        visits = search.get("visits") if isinstance(search, dict) else None
+        if isinstance(visits, bool) or not isinstance(visits, int) or visits < 1:
+            return "human.search.visits must be a positive integer"
+    if search is None and any(p.get("lambda_utility") is not None for p in policies):
+        return "human.policies declares lambda_utility but human.search is absent"
+    return None
+
+
+def _handol_position(request: dict) -> tuple[Game, int]:
+    """The position of a request, and who KataGo puts on move (no ``initialPlayer``)."""
+    size = request["boardXSize"]
+    if isinstance(size, bool) or not isinstance(size, int) or size != request["boardYSize"]:
+        raise ValueError("only square boards")
+    game = _new_game(size, float(request["komi"]), str(request["rules"]))
+    stones = request["initialStones"]
+    for color, vertex in stones:
+        game.play(color_from_name(color), coords.from_gtp(vertex, size))
+    colours = [str(color).upper()[:1] for color, _ in stones]
+    to_play = WHITE if colours.count("B") >= 2 and "W" not in colours else BLACK
+    for color, vertex in request["moves"]:
+        played = color_from_name(color)
+        game.play(played, coords.from_gtp(vertex, size))
+        to_play = opponent(played)
+    return game, to_play
+
+
+def _handol_distribution(game: Game, color: int, tuple_: dict,
+                         options: FakeOptions) -> list[dict]:
+    """A deterministic, tuple-dependent distribution over the legal moves plus pass: listed in
+    board order, with a cut tail of ``p: 0`` points."""
+    size = game.size
+    ranked = _candidates(game, color, count=size * size)
+    decay = ((0.35 + 0.4 * _tuple_number(tuple_, "distance_slope", 0.0)
+              + 0.1 * _tuple_number(tuple_, "lambda_utility", 0.0))
+             / max(0.05, _tuple_number(tuple_, "temperature", 1.0)))
+    cut = min(24, max(3, len(ranked) // 2))
+    weights = {point: (math.exp(-i * decay) if i < cut else 0.0) for i, point in enumerate(ranked)}
+    pass_weight = math.exp(-3 * decay)
+    total = sum(weights.values()) + pass_weight
+    min_p = _tuple_number(tuple_, "min_p", 0.0)
+
+    def share(weight: float) -> float:
+        p = round(weight / total, 6)
+        return p if p >= min_p else 0.0
+
+    entries: list[dict[str, Any]] = [
+        {"move": coords.to_gtp(point, size), "p": share(weights[point])}
+        for point in sorted(weights, key=lambda p: (p[1], p[0]))]
+    entries.append({"move": "pass", "p": share(pass_weight)})
+    if options.empty_distribution:
+        for entry in entries:
+            entry["p"] = 0.0
+    board = game.board
+    occupied = [(x, y) for y in range(size) for x in range(size) if board.get(x, y)]
+    if options.illegal_point and occupied:
+        for entry in entries:
+            entry["p"] = round(entry["p"] * 0.2, 6)
+        entries.insert(0, {"move": coords.to_gtp(occupied[0], size), "p": 0.8})
+    if options.bad_p:
+        likely = sorted((e for e in entries if e["move"] != "pass"), key=lambda e: -e["p"])
+        for entry, bad in zip(likely, (math.nan, -0.5, _OVERFLOW)):
+            entry["p"] = bad
+    if options.offboard_move:
+        column = coords.GTP_COLUMNS[size] if size < len(coords.GTP_COLUMNS) else "Z"
+        entries[:0] = [{"move": f"{column}1", "p": 0.5}, {"move": f"A{size + 1}", "p": 0.5},
+                       {"move": "nonsense", "p": 0.5}, {"move": 7, "p": 0.5}]
+    return entries
+
+
+def _handol_plain(game: Game, color: int, request: dict, options: FakeOptions) -> dict:
+    """KataGo's own answer to a plain query, from White's view (as handol-mux reports it); the
+    moves are listed out of order and pass is spelled ``PASS``."""
+    size = game.size
+    board = game.board
+    stones = [board.get(x, y) for y in range(size) for x in range(size)]
+    black_lead = stones.count(BLACK) - stones.count(WHITE) - game.komi + 7.0
+    mover_lead = black_lead if color == BLACK else -black_lead
+    visits = request["maxVisits"]
+    ranked: list[tuple[int, int] | None] = list(_candidates(game, color))
+    ranked.append(None)
+    infos = []
+    for order, point in enumerate(ranked):
+        lead = mover_lead - (0.4 * order if point is not None else 3.0)
+        white_lead = -lead if color == BLACK else lead
+        winrate = 1.0 / (1.0 + math.exp(-white_lead / 5.0))
+        move = "PASS" if point is None else coords.to_gtp(point, size)
+        infos.append({
+            "move": move,
+            "visits": max(1, visits >> (order + 1)),
+            "winrate": round(winrate, 4),
+            "scoreLead": round(white_lead, 2),
+            "scoreMean": round(white_lead, 2),
+            "scoreStdev": 12.0,
+            "prior": round(math.exp(-order * 0.6) / 2.5, 4),
+            "lcb": round(winrate - 0.02, 4),
+            "utility": round(2 * winrate - 1, 4),
+            "utilityLcb": round(2 * winrate - 1.04, 4),
+            "order": order,
+            "pv": [move] + [coords.to_gtp(p, size) for p in ranked[order + 1:order + 3]
+                            if p is not None],
+        })
+    best = infos[0]
+    result: dict[str, Any] = {
+        "id": request.get("id"),
+        "turnNumber": len(request["moves"]),
+        "moveInfos": [] if options.empty_katago else list(reversed(infos)),
+        "rootInfo": {"visits": visits, "winrate": best["winrate"],
+                     "scoreLead": best["scoreLead"], "scoreMean": best["scoreMean"],
+                     "currentPlayer": "B" if color == BLACK else "W"},
+    }
+    if request.get("includeOwnership"):
+        result["ownership"] = _ownership(game, black_view=False)
+    return result
+
+
+class FakeHandolEngine:
+    """One handol-mux surface connection: one answer line per request, strictly serial (the next
+    request is taken only after the answer). A pump reads ahead, so pipelined lines are counted
+    as in flight."""
+
+    def __init__(self, options: FakeOptions, requests: list[str]) -> None:
+        self.options = options
+        self.requests = requests
+        self.server: "FakeEngineServer | None" = None
+        self.index = 0
+        self.in_flight = 0
+
+    def attach(self, server: "FakeEngineServer", index: int) -> None:
+        self.server = server
+        self.index = index
+
+    async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        lines: asyncio.Queue = asyncio.Queue()
+        server = self.server
+
+        async def pump() -> None:
+            while True:
+                try:
+                    raw = await reader.readline()
+                except (ValueError, ConnectionError, OSError):
+                    raw = b""
+                if not raw:
+                    await lines.put(None)
+                    return
+                text = raw.decode(errors="replace").rstrip("\r\n")
+                self.requests.append(text)
+                if not text.strip():
+                    continue
+                self.in_flight += 1
+                if server is not None:
+                    server.connection_requests.append((self.index, text))
+                    server.max_in_flight = max(server.max_in_flight, self.in_flight)
+                await lines.put(text)
+
+        pump_task = asyncio.create_task(pump())
+        try:
+            while True:
+                try:
+                    text = await asyncio.wait_for(lines.get(), self.options.idle_close)
+                except asyncio.TimeoutError:
+                    if server is not None:
+                        server.idle_closed.append(self.index)
+                    return  # the surface's silent idle close
+                if text is None or not await self._answer(text, writer):
+                    return
+                self.in_flight -= 1
+        finally:
+            pump_task.cancel()
+            await asyncio.gather(pump_task, return_exceptions=True)
+            writer.close()
+
+    def _fault(self, name: str, kind: str) -> bool:
+        """Whether fault option ``name`` fires for a request of ``kind`` (counting it)."""
+        target = getattr(self.options, name)
+        if target is None or target not in (kind, "query"):
+            return False
+        counts = self.server.fault_counts if self.server is not None else {}
+        limit = self.options.fault_times
+        if limit is not None and counts.get(name, 0) >= limit:
+            return False
+        counts[name] = counts.get(name, 0) + 1
+        return True
+
+    async def _answer(self, text: str, writer: asyncio.StreamWriter) -> bool:
+        """Answer one request; False when the connection is to be closed instead."""
+        try:
+            request = json.loads(text)
+        except ValueError:
+            request = None
+        if not isinstance(request, dict):
+            await self._send(writer, {"error": "could not parse the request as a JSON object"})
+            return True
+        kind = "human" if "human" in request else "plain"
+        if self._fault("hangup_on", kind):
+            return False
+        if self.options.query_delay is not None:
+            delay = self.options.query_delay(request)
+            if delay:
+                await asyncio.sleep(delay)
+        request_id = request.get("id")
+        if self._fault("error_reply", kind):
+            reply: dict[str, Any] = {"error": f"the fake refused this {kind} request"}
+            if self.options.error_reply_id:
+                reply = {"id": request_id, **reply}
+        else:
+            reply = self._reply(request)
+            if self._fault("wrong_id_on", kind):
+                reply["id"] = f"{request_id}-other"
+        await self._send(writer, reply)
+        return True
+
+    def _reply(self, request: dict) -> dict:
+        request_id = request.get("id")
+        refusal = _handol_refusal(request)
+        if refusal is not None:
+            return {"id": request_id, "error": refusal}
+        try:
+            game, color = _handol_position(request)
+        except Exception as exc:  # noqa: BLE001 - an error for this request only
+            return {"id": request_id, "error": f"illegal position: {exc}"}
+        if "human" not in request:
+            return _handol_plain(game, color, request, self.options)
+        policies = request["human"]["policies"]
+        answers = [{"params": tuple_,
+                    "distribution": _handol_distribution(game, color, tuple_, self.options)}
+                   for tuple_ in policies]
+        if self.options.short_policies:
+            answers = answers[:-1]
+        return {"id": request_id, "policies": answers}
+
+    async def _send(self, writer: asyncio.StreamWriter, payload: dict) -> None:
+        text = json.dumps(payload).replace(f'"{_OVERFLOW}"', "1e999")
+        if self.server is not None:
+            self.server.replies.append((self.index, text))
+        writer.write((text + "\n").encode())
+        await writer.drain()
+
+
+#: The registered fake protocols.
+PROTOCOLS: dict[str, type] = {"gtp": FakeGTPEngine, "analysis": FakeAnalysisEngine,
+                              "handol": FakeHandolEngine}
 
 class FakeEngineServer:
     """A listening fake engine; every accepted connection gets a fresh engine."""
@@ -634,6 +941,17 @@ class FakeEngineServer:
         self.port = 0
         #: Every line received on any connection, in order (blank lines included).
         self.requests: list[str] = []
+        #: Handol: every non-blank line received, with the index of its connection (in accept
+        #: order), and every answer line sent, likewise.
+        self.connection_requests: list[tuple[int, str]] = []
+        self.replies: list[tuple[int, str]] = []
+        #: Handol: the connections closed for being idle.
+        self.idle_closed: list[int] = []
+        #: Handol: the most lines one connection had sent without an answer (pipelining counts).
+        self.max_in_flight = 0
+        #: Handol: how many times each fault option fired.
+        self.fault_counts: dict[str, int] = {}
+        self._next_index = 0
         self._server: asyncio.base_events.Server | None = None
         self._tasks: set[asyncio.Task] = set()
         self._writers: set[asyncio.StreamWriter] = set()
@@ -648,6 +966,9 @@ class FakeEngineServer:
             self._tasks.add(task)
         self._writers.add(writer)
         engine = PROTOCOLS[self.protocol](self.options, self.requests)
+        index, self._next_index = self._next_index, self._next_index + 1
+        if hasattr(engine, "attach"):
+            engine.attach(self, index)
         try:
             await engine.handle(reader, writer)
         except (asyncio.CancelledError, ConnectionError, OSError):

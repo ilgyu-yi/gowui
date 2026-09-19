@@ -27,47 +27,47 @@
 | &nbsp;&nbsp;§2.3 | GTP | 258 |
 | &nbsp;&nbsp;§2.4 | KataGo analysis engine | 303 |
 | &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 319 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 358 |
-| §3 | Session and boards | 374 |
-| &nbsp;&nbsp;§3.1 | Spaces | 376 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 382 |
-| &nbsp;&nbsp;§3.3 | Boards | 399 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 411 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 416 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 421 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 425 |
-| §4 | WebSocket protocol | 430 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 434 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 458 |
-| §5 | HTTP routes | 472 |
-| §6 | Launch modes and policies | 491 |
-| &nbsp;&nbsp;§6.1 | The rule | 493 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 510 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 516 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 530 |
-| §7 | Authentication and security | 536 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 538 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 548 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 556 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 564 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 578 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 585 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 602 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 612 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 618 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 624 |
-| §8 | Persistence | 634 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 636 |
-| &nbsp;&nbsp;§8.2 | Saving | 655 |
-| &nbsp;&nbsp;§8.3 | Local state file | 660 |
-| &nbsp;&nbsp;§8.4 | Server database | 669 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 674 |
-| §9 | Command line | 678 |
-| §10 | Configuration (server) | 693 |
-| §11 | Feature inventory | 713 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 719 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 757 |
-| §12 | Non-goals | 775 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 402 |
+| §3 | Session and boards | 426 |
+| &nbsp;&nbsp;§3.1 | Spaces | 428 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 434 |
+| &nbsp;&nbsp;§3.3 | Boards | 451 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 463 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 470 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 475 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 479 |
+| §4 | WebSocket protocol | 484 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 488 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 512 |
+| §5 | HTTP routes | 526 |
+| §6 | Launch modes and policies | 545 |
+| &nbsp;&nbsp;§6.1 | The rule | 547 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 564 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 570 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 584 |
+| §7 | Authentication and security | 590 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 592 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 602 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 610 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 618 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 632 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 639 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 657 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 667 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 673 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 679 |
+| §8 | Persistence | 689 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 691 |
+| &nbsp;&nbsp;§8.2 | Saving | 710 |
+| &nbsp;&nbsp;§8.3 | Local state file | 715 |
+| &nbsp;&nbsp;§8.4 | Server database | 724 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 729 |
+| §9 | Command line | 733 |
+| §10 | Configuration (server) | 748 |
+| §11 | Feature inventory | 768 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 774 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 812 |
+| §12 | Non-goals | 830 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -318,42 +318,86 @@ reported as in §2.1.
 
 ### 2.5 handol-mux human-policy surface
 
-The surface answers "where would a human of this profile play here?" as a move distribution.
+The surface answers "where would a human of this profile play here?" as a move distribution. The
+transport rules of §2.1 apply (one error kind, no address in the text, bounded input, one line
+out, valid address, clipped engine text, lost connection reported once).
 
 - **Wire rules.** One request line in, exactly one response line out; at most one query in flight
   per connection; the position keys are a closed set (`boardXSize`, `boardYSize`, `komi`, `rules`,
   `initialStones`, `moves`) — no `initialPlayer`, no `analyzeTurns`, no `action` verbs, no top-level
   `maxVisits` next to a `human` block. A request carries `human: {profile, policies: [tuple, …],
   search?: {visits}}`; the response is `{id, policies: [{params, distribution: [{move, p}]}]}`.
+  A human request carries exactly `id`, the position keys and `human`; `search` carries the
+  configured max visits and is left out when max visits is 1. A plain query (winrate, `katago`
+  style moves) carries `id`, the position keys, `maxVisits` and, when asked, `includeOwnership`,
+  and nothing else. A non-finite number is never sent.
+- **Perspective.** The mux fixes the perspective of its plain answers: winrates, scores and
+  ownership arrive from **White's** view and are flipped to Black's. The side-to-move requirement
+  of §2.3 does not apply to it.
+- **Request and reply.** Each connection (the human one and the winrate one) is a request/reply
+  channel: under a per-connection lock the client writes one line, then reads one line with a read
+  timeout (default 600 s, longer than a real search). A reply without an `id` answers the request
+  just sent; a present, different `id` is an engine error and closes that connection. More than
+  1,000 blank lines in place of an answer is an engine error too.
+- **Idle close and resend.** The surface closes idle connections silently. A connection found
+  closed, or closing before it answers, is reopened and the request resent once (queries are
+  reads, so resending is safe), with a `#` note at the reopen and no error surfaced. A second loss,
+  or a reopen that fails, is an engine error and the lost connection is reported once (§2.1). A
+  read timeout closes the connection and is an engine error; the request is not resent. A read
+  timeout or a mismatched id is an error of that request only: the connection is closed, the next
+  request reopens it, and it is not reported as a lost connection. Only the human connection's
+  loss is reported through §2.1's disconnect callback; a failure of the winrate connection only
+  leaves the distribution without winrates, with a `#` note.
 - **Latest position wins.** While a query is in flight, further analysis requests replace each
   other; only the newest is sent when the answer arrives, and an answer for a position the user has
-  left is dropped.
+  left — its winrate half included — is dropped. The winrate request goes with the human request
+  it belongs to, so the newest position wins on both connections; no winrate query for an older
+  position is queued. If the human request fails, its winrate request is abandoned rather than
+  awaited.
 - **Side to move.** The surface lets KataGo infer who is to move: after moves, the other side of the
   last move; with no moves, White when the setup is two or more black stones and no white stones,
   otherwise Black. A position whose actual side to move differs is refused with an explanation
-  ("play a move first") instead of being analysed for the wrong player.
-- **Profiles**: `preaz_<rank>`, `rank_<rank>`, `proyear_<year>`; any other name is passed through.
+  ("play a move first") instead of being analysed for the wrong player; nothing is sent.
+- **Profiles**: `preaz_<rank>`, `rank_<rank>`, `proyear_<year>`; any other name is passed through,
+  but a profile name is 1–64 characters of letters, digits, `_`, `.` and `-` (§7.6), checked with
+  the tuples before each send.
 - **Policy tuples** are JSON objects with the keys `lambda_utility`, `trust_mu`, `fill_kappa`,
   `min_p`, `distance_slope`, `distance_floor`, `distance_peak`, `temperature`. They are validated
-  before sending, both in the browser and on the server, with the mux's own ranges: unknown keys and
-  non-numbers are refused; `lambda_utility > 0`, `trust_mu > 0`, `fill_kappa ≥ 0`,
-  `0 ≤ min_p ≤ 1`, `distance_slope ≥ 0`, `distance_floor > 0`, `distance_peak > 0`,
-  `temperature > 0.0001`; `lambda_utility` requires `trust_mu` and `fill_kappa` and they require it;
-  `distance_floor < distance_peak` (defaults 0.1 and 1.5); `lambda_utility` needs a search
-  (visits > 1).
+  before sending, both in the browser and on the server, with the mux's own ranges: anything but a
+  JSON object, unknown keys and non-numbers are refused; `true`/`false`, `null` and non-finite
+  numbers (NaN, ±infinity, or overflowing) are non-numbers — except `lambda_utility: null`, which
+  counts as absent and is left out of the wire tuple; `lambda_utility > 0`, `trust_mu > 0`,
+  `fill_kappa ≥ 0`, `0 ≤ min_p ≤ 1`, `distance_slope ≥ 0`, `distance_floor > 0`,
+  `distance_peak > 0`, `temperature > 0.0001`; `lambda_utility` requires `trust_mu` and
+  `fill_kappa` and they require it; `distance_floor < distance_peak` (defaults 0.1 and 1.5);
+  `lambda_utility` needs a search (visits > 1). `{}` is a valid tuple.
+- **Settings validation.** A query carries one tuple, or two with a compare tuple; none or more
+  than two is refused. The tuples are validated before each send with the visits in effect, and a
+  refused tuple sends nothing (analysis and engine moves alike) and is an engine error. Early
+  feedback when a setting changes is the session's job (§3.4). A move style is `human` or
+  `katago`; eval visits are in the range of §7.6.
 - **Compare.** With a second tuple set, both go in one query; the second distribution arrives as
   `compare: {policy, moveInfos, probabilities}`.
 - **Winrate.** The distribution has no winrate or score. A plain analysis query (no `human` block)
   with the configured *eval visits* goes to the same port on a second connection; its winrates,
-  scores and ownership, which the mux reports from **White's** view, are flipped to Black's and
-  merged into the candidates and root. Eval visits 0 turns this off. A failed winrate query leaves
-  the distribution shown without winrates.
+  scores and ownership (White's view, flipped) are merged into the root and into the candidates of
+  both the primary and the compare distribution, matching moves regardless of case (`pass` /
+  `PASS`). Eval visits 0 turns this off and sends no plain query. A failed winrate query leaves
+  the distribution shown without winrates, with a `#` note.
+- **Parsing.** A distribution entry whose move is not on the board and not `pass` is dropped; a
+  `p` that is non-finite or negative becomes 0, and one above 1 becomes 1. An answer with fewer policies than tuples sent is
+  an engine error.
 - **Candidates** are the moves with p > 0, most likely first, at most 20; the full distribution
-  still fills `policy`.
-- **Engine moves** are chosen per colour: style `human` samples the distribution (weighted by p);
-  style `katago` plays KataGo's first choice from a plain query.
-- **Idle close.** The surface closes idle connections silently; the client reopens either
-  connection on next use without surfacing an error.
+  still fills `policy` (size² + 1 entries).
+- **Engine moves** are chosen per colour, and the colour must be the side to move. Style `human`
+  sends the human request with the configured max visits (`human.search.visits`, as in analysis)
+  and samples the distribution, weighted by p, among moves legal in the game only. Style `katago`
+  sends a plain query with the configured max visits and plays the move of `order` 0. An empty or
+  all-zero distribution (no legal move with p > 0), or a KataGo answer without moves, is an engine
+  error — never an implicit pass. An engine move carries only the primary tuple (never the
+  comparison tuple), and asking for one stops a running analysis first: that analysis's answer is
+  dropped when it arrives.
+- **No final score, no console.** The surface has no final score and no raw commands (§3.5).
 
 ### 2.6 Fake engine
 
@@ -364,8 +408,16 @@ entirely against it: no KataGo, GPU or model file is needed.
 - It is both an importable module (tests start and stop fake engines in-process, with options that
   switch off engine features or inject faults such as hang-ups, delays and malformed output) and a
   command-line program.
-- `--protocol` accepts exactly the registered fake protocols: `gtp` and `analysis`; `handol` is
-  added when the handol-mux client lands (#5).
+- `--protocol` accepts exactly the registered fake protocols: `gtp`, `analysis` and `handol`.
+- **Handol mode** (`--protocol handol`) plays the handol-mux surface of §2.5: exactly one answer
+  line per request, strictly serial per connection (the next request is read only after the
+  answer). It refuses, with an error reply, unknown top-level keys, `initialPlayer`,
+  `analyzeTurns`, `action`, a top-level `maxVisits` next to a `human` block, and
+  `lambda_utility` without a search. Its distributions are deterministic and depend on the tuple,
+  are built from the moves legal in the position, and include some `p: 0` points and a `pass`
+  entry; its plain answers report winrates, scores and ownership from White's view. Its fault
+  options include closing idle connections, per-query delays, hang-ups, error replies and a
+  distribution that puts p > 0 on an illegal point.
 - It listens on `127.0.0.1` unless another host is given.
 - `--port 0` binds a free port. Once listening, the program prints one line,
   `listening on 127.0.0.1:<port>` (with the actual host and bound port), and flushes it, so a
@@ -411,7 +463,9 @@ all of them — the way a desktop GUI shows one window.
 ### 3.4 Engine settings
 
 Max visits, report interval (≥ 0.1 s), include ownership, handol-mux profile, tuple, compare tuple,
-eval visits, and per-colour move style (`human` / `katago`). Limits are in §7.6.
+eval visits, and per-colour move style (`human` / `katago`). Limits are in §7.6. The handol-mux
+client checks its tuples again before each send (§2.5); refusing a bad tuple as soon as it is set
+is the session's job, with the same rules.
 
 ### 3.5 Final score and console
 
@@ -589,6 +643,7 @@ error messages) is inserted as text, never as HTML.
 | WebSocket frame | 1 MiB |
 | SGF body (`POST /api/sgf`, `load_sgf`) | 1 MiB |
 | Boards per space | 64 |
+| handol-mux profile name | 64 characters: letters, digits, `_`, `.`, `-` |
 | Moves per game | 2,000 (playing past it is refused) |
 | SGF main line | 10,000 nodes |
 | Board name | 40 characters (longer names are truncated, §3.3) |
@@ -722,12 +777,12 @@ issue that builds it lands.
 |---|---|---|---|---|
 | B1 | Play human vs human, human vs engine, engine vs engine | §3.2 | both | pending |
 | B2 | Engine move on demand (`genmove`) | §3.2 | both | pending |
-| B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | pending |
+| B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
 | B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B5 | PV preview on hover with numbered stones | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B6 | Raw policy heatmap | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
-| B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
-| B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
+| B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
 | B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
 | B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: pending |
 | B11 | SGF load | §1.5 | both | `tests/test_sgf.py` |
@@ -736,14 +791,14 @@ issue that builds it lands.
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; UI: pending |
 | B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; UI: pending |
 | B16 | Final score | §3.5 | both | engine: `tests/test_gtp.py`; UI: pending |
-| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: pending; UI: pending |
+| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: `tests/test_handol.py`; UI: pending |
 | B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
-| B19 | handol-mux profile picker with explanations | §2.5 | both | pending |
-| B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | pending |
+| B19 | handol-mux profile picker with explanations | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
+| B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | validation: `tests/test_handol_tuple.py`, `tests/test_handol.py`; UI: pending |
 | B21 | Tuple presets: built-in, save, delete, export, import | §8.5 | both | pending |
-| B22 | Two-tuple compare with A / B / Δ heatmaps and table | §2.5 | both | pending |
-| B23 | handol-mux winrate through eval visits | §2.5 | both | pending |
-| B24 | handol-mux side-to-move refusal with an explanation | §2.5 | both | pending |
+| B22 | Two-tuple compare with A / B / Δ heatmaps and table | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
+| B23 | handol-mux winrate through eval visits | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
+| B24 | handol-mux side-to-move refusal with an explanation | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
 | B25 | Multiple boards: duplicate, select, `[` `]`, rename in place, delete, thumbnails | §3.3 | both | pending |
 | B26 | Analysis only on the board on screen | §3.3 | both | pending |
 | B27 | Korean / English UI, remembered | §8.5 | both | pending |

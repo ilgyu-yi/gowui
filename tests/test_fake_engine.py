@@ -22,8 +22,8 @@ LISTENING = re.compile(r"listening on 127\.0\.0\.1:([0-9]+)")
 
 
 # -- module surface ---------------------------------------------------------------------
-def test_the_registered_fake_protocols_are_exactly_gtp_and_analysis():
-    assert set(fake_module.PROTOCOLS) == {"gtp", "analysis"}
+def test_the_registered_fake_protocols_are_exactly_gtp_analysis_and_handol():
+    assert set(fake_module.PROTOCOLS) == {"gtp", "analysis", "handol"}
 
 
 def test_fake_options_is_exported():
@@ -44,7 +44,7 @@ async def test_the_server_knows_its_protocol(analysis_server):
 
 async def test_an_unknown_protocol_is_refused():
     with pytest.raises(ValueError):
-        await asyncio.wait_for(fake_module.start_fake_engine("handol"), HANG)
+        await asyncio.wait_for(fake_module.start_fake_engine("telepathy"), HANG)
 
 
 async def test_stop_with_a_client_still_connected_does_not_hang(fake_engine):
@@ -127,7 +127,7 @@ async def test_cli_prints_exactly_the_listening_line():
         await reap(process)
 
 
-@pytest.mark.parametrize("protocol", ["handol", "telepathy"])
+@pytest.mark.parametrize("protocol", ["telepathy", "kgs"])
 async def test_cli_refuses_an_unregistered_protocol(protocol):
     process = await run_cli("--protocol", protocol, "--port", "0")
     try:
@@ -636,3 +636,354 @@ async def test_open_connections_counts_live_connections(gtp_server):
     finally:
         await client.close()
     assert live == 1
+
+
+# -- handol (SPEC §2.6 handol mode) ---------------------------------------------------------------
+def human_query(size: int = 9, moves=None, policies=None, search: int | None = 10,
+                **extra) -> dict:
+    human = {"profile": "preaz_1d", "policies": [{}] if policies is None else policies}
+    if search is not None:
+        human["search"] = {"visits": search}
+    base = {"id": "h1", "boardXSize": size, "boardYSize": size, "komi": 6.5,
+            "rules": "japanese", "initialStones": [], "moves": moves or [], "human": human}
+    base.update(extra)
+    return base
+
+
+def plain_query(size: int = 9, moves=None, **extra) -> dict:
+    base = {"id": "p1", "boardXSize": size, "boardYSize": size, "komi": 6.5,
+            "rules": "japanese", "initialStones": [], "moves": moves or [], "maxVisits": 20}
+    base.update(extra)
+    return base
+
+
+async def handol_client(fake_engine, **options):
+    server = await fake_engine("handol", **options)
+    return server, await RawClient.open(server.port)
+
+
+async def handol_ask(fake_engine, request: dict, **options) -> dict:
+    _, client = await handol_client(fake_engine, **options)
+    try:
+        await client.json(request)
+        return await client.json_line()
+    finally:
+        await client.close()
+
+
+def distribution(reply: dict, index: int = 0) -> list[dict]:
+    return reply["policies"][index]["distribution"]
+
+
+async def test_cli_handol_prints_its_port_and_answers():
+    process = await run_cli("--protocol", "handol", "--port", "0")
+    try:
+        client = await RawClient.open(await cli_port(process))
+        try:
+            await client.json(human_query())
+            reply = await client.json_line()
+        finally:
+            await client.close()
+        assert reply.get("id") == "h1" and reply.get("policies")
+    finally:
+        await reap(process)
+
+
+async def test_handol_answers_with_the_request_id(fake_engine):
+    reply = await handol_ask(fake_engine, human_query())
+    assert reply["id"] == "h1"
+
+
+async def test_handol_answers_one_distribution_per_tuple(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(policies=[{}, {"distance_slope": 1}]))
+    assert len(reply["policies"]) == 2
+
+
+async def test_handol_distribution_moves_are_legal(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(moves=[["B", "E5"]]))
+    game = game_with(9, "E5")
+    assert all(game.legal_error(color_of("W"), coords.from_gtp(e["move"], 9)) is None
+               for e in distribution(reply))
+
+
+async def test_handol_distribution_has_a_pass_entry_with_positive_p(fake_engine):
+    reply = await handol_ask(fake_engine, human_query())
+    assert [e["p"] > 0 for e in distribution(reply) if e["move"] == "pass"] == [True]
+
+
+async def test_handol_pass_is_among_the_twenty_most_likely(fake_engine):
+    reply = await handol_ask(fake_engine, human_query())
+    ranked = sorted(distribution(reply), key=lambda e: -e["p"])
+    assert "pass" in [e["move"] for e in ranked[:20]]
+
+
+async def test_handol_distribution_has_some_zero_points(fake_engine):
+    reply = await handol_ask(fake_engine, human_query())
+    assert any(e["p"] == 0 for e in distribution(reply))
+
+
+async def test_handol_distribution_spreads_over_several_moves(fake_engine):
+    reply = await handol_ask(fake_engine, human_query())
+    assert len([e for e in distribution(reply) if e["p"] > 0]) >= 3
+
+
+async def test_handol_distribution_is_deterministic(fake_engine):
+    first = await handol_ask(fake_engine, human_query())
+    assert await handol_ask(fake_engine, human_query()) == first
+
+
+async def test_handol_distribution_depends_on_the_tuple(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(policies=[{}, {"distance_slope": 1}]))
+    assert distribution(reply, 0) != distribution(reply, 1)
+
+
+@pytest.mark.parametrize("request_", [
+    human_query(bogus=1),
+    human_query(initialPlayer="W"),
+    human_query(analyzeTurns=[0]),
+    human_query(maxVisits=10),
+    human_query(policies=[{"lambda_utility": 0.1, "trust_mu": 0.05, "fill_kappa": 1}],
+                search=None),
+    {"id": "a", "action": "query_version"},
+    plain_query(bogus=1),
+    plain_query(initialPlayer="W"),
+])
+async def test_handol_refuses_what_the_surface_refuses(fake_engine, request_):
+    reply = await handol_ask(fake_engine, request_)
+    assert "error" in reply
+
+
+async def test_handol_plain_answer_carries_root_and_move_infos(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query())
+    assert reply["id"] == "p1" and reply["rootInfo"] and reply["moveInfos"]
+
+
+async def test_handol_plain_answer_is_from_whites_view(fake_engine):
+    # Black to move on an empty board with komi: from White's view, White is ahead.
+    reply = await handol_ask(fake_engine, plain_query(komi=7.5))
+    assert (reply["rootInfo"]["winrate"] > 0.5, reply["rootInfo"]["scoreLead"] > 0) == (True,
+                                                                                        True)
+
+
+async def test_handol_plain_answer_moves_are_listed_out_of_order(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query())
+    assert reply["moveInfos"][0].get("order") != 0
+
+
+async def test_handol_plain_answer_has_exactly_one_order_zero_move(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query())
+    assert [m.get("order") for m in reply["moveInfos"]].count(0) == 1
+
+
+async def test_handol_plain_answer_spells_pass_in_capitals(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query())
+    assert "PASS" in [m["move"] for m in reply["moveInfos"]]
+
+
+async def test_handol_plain_answer_carries_ownership_when_asked(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query(includeOwnership=True))
+    assert len(reply["ownership"]) == 81
+
+
+async def test_handol_plain_answer_is_deterministic(fake_engine):
+    first = await handol_ask(fake_engine, plain_query())
+    assert await handol_ask(fake_engine, plain_query()) == first
+
+
+async def test_handol_plain_and_human_answers_share_candidate_moves(fake_engine):
+    human = await handol_ask(fake_engine, human_query())
+    plain = await handol_ask(fake_engine, plain_query())
+    likely = {e["move"].upper() for e in distribution(human) if e["p"] > 0}
+    assert likely & {m["move"].upper() for m in plain["moveInfos"] if m["move"] != "PASS"}
+
+
+async def test_handol_answers_requests_on_one_connection_in_order(fake_engine):
+    _, client = await handol_client(fake_engine)
+    try:
+        await client.json(human_query(id="a"))
+        await client.json(plain_query(id="b"))
+        ids = [(await client.json_line())["id"], (await client.json_line())["id"]]
+    finally:
+        await client.close()
+    assert ids == ["a", "b"]
+
+
+# -- handol fault options and bookkeeping --------------------------------------------------------
+async def test_handol_idle_close_closes_an_idle_connection(fake_engine):
+    _, client = await handol_client(fake_engine, idle_close=0.2)
+    try:
+        closed = await client.at_eof()
+    finally:
+        await client.close()
+    assert closed
+
+
+async def test_handol_idle_close_is_logged_by_connection(fake_engine):
+    server, client = await handol_client(fake_engine, idle_close=0.2)
+    try:
+        await client.at_eof()
+    finally:
+        await client.close()
+    assert server.idle_closed == [0]
+
+
+async def test_handol_query_delay_holds_the_answer(fake_engine):
+    _, client = await handol_client(fake_engine, query_delay=lambda q: 0.5)
+    try:
+        start = time.monotonic()
+        await client.json(human_query())
+        await client.json_line()
+        elapsed = time.monotonic() - start
+    finally:
+        await client.close()
+    assert elapsed >= 0.5
+
+
+@pytest.mark.parametrize("kind, request_", [
+    ("human", human_query()),
+    ("plain", plain_query()),
+    ("query", human_query()),
+    ("query", plain_query()),
+])
+async def test_handol_hangup_on_closes_the_connection(fake_engine, kind, request_):
+    _, client = await handol_client(fake_engine, hangup_on=kind)
+    try:
+        await client.json(request_)
+        closed = await client.at_eof()
+    finally:
+        await client.close()
+    assert closed
+
+
+async def test_handol_hangup_on_another_kind_answers(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query(), hangup_on="human")
+    assert reply["id"] == "p1"
+
+
+async def test_handol_error_reply_carries_the_id(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), error_reply="human")
+    assert (reply.get("id"), "error" in reply) == ("h1", True)
+
+
+async def test_handol_error_reply_without_id(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), error_reply="human",
+                             error_reply_id=False)
+    assert ("id" in reply, "error" in reply) == (False, True)
+
+
+async def test_handol_error_reply_for_plain_queries_only(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), error_reply="plain")
+    assert "policies" in reply
+
+
+async def test_handol_wrong_id_on_answers_with_another_id(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), wrong_id_on="human")
+    assert reply.get("id") not in (None, "h1")
+
+
+async def test_handol_fault_times_limits_a_fault(fake_engine):
+    _, client = await handol_client(fake_engine, wrong_id_on="human", fault_times=1)
+    try:
+        await client.json(human_query(id="a"))
+        await client.json_line()
+        await client.json(human_query(id="b"))
+        second = await client.json_line()
+    finally:
+        await client.close()
+    assert second["id"] == "b"
+
+
+async def test_handol_illegal_point_puts_mass_on_an_occupied_point(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(moves=[["B", "E5"], ["W", "D4"]]),
+                             illegal_point=True)
+    occupied = {"E5", "D4"}
+    assert any(e["move"].upper() in occupied and e["p"] > 0 for e in distribution(reply))
+
+
+async def test_handol_empty_katago_answers_without_moves(fake_engine):
+    reply = await handol_ask(fake_engine, plain_query(), empty_katago=True)
+    assert reply.get("moveInfos") == []
+
+
+async def test_handol_empty_distribution_has_no_positive_p(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), empty_distribution=True)
+    assert not [e for e in distribution(reply) if e["p"] > 0]
+
+
+async def test_handol_request_log_is_tagged_by_connection(fake_engine):
+    server = await fake_engine("handol")
+    first, second = await RawClient.open(server.port), await RawClient.open(server.port)
+    try:
+        await first.json(human_query(id="a"))
+        await first.json_line()
+        await second.json(plain_query(id="b"))
+        await second.json_line()
+    finally:
+        await first.close()
+        await second.close()
+    assert [(i, json.loads(line)["id"]) for i, line in server.connection_requests] == [
+        (0, "a"), (1, "b")]
+
+
+async def test_handol_reply_log_is_tagged_by_connection(fake_engine):
+    server, client = await handol_client(fake_engine)
+    try:
+        await client.json(human_query(id="a"))
+        await client.json_line()
+    finally:
+        await client.close()
+    assert [(i, json.loads(line)["id"]) for i, line in server.replies] == [(0, "a")]
+
+
+async def test_handol_max_in_flight_counts_pipelined_requests(fake_engine):
+    server, client = await handol_client(fake_engine, query_delay=lambda q: 0.3)
+    try:
+        await client.json(human_query(id="a"))
+        await client.json(human_query(id="b"))
+        await client.json_line()
+        await client.json_line()
+    finally:
+        await client.close()
+    assert server.max_in_flight == 2
+
+
+async def test_handol_max_in_flight_is_one_for_a_serial_client(fake_engine):
+    server, client = await handol_client(fake_engine)
+    try:
+        for name in ("a", "b"):
+            await client.json(human_query(id=name))
+            await client.json_line()
+    finally:
+        await client.close()
+    assert server.max_in_flight == 1
+
+
+# -- handol parsing faults (SPEC §2.5 "Parsing") --------------------------------------------------
+async def test_handol_short_policies_answers_one_policy_fewer(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(policies=[{}, {"distance_slope": 1}]),
+                             short_policies=True)
+    assert len(reply["policies"]) == 1
+
+
+async def test_handol_offboard_move_adds_off_board_entries_with_positive_p(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), offboard_move=True)
+
+    def on_board(move) -> bool:
+        try:
+            coords.from_gtp(move, 9)
+        except (ValueError, TypeError):
+            return False
+        return True
+
+    assert any(not on_board(e["move"]) and e["p"] > 0 for e in distribution(reply))
+
+
+async def test_handol_bad_p_sends_nan_negative_and_overflowing_p(fake_engine):
+    _, client = await handol_client(fake_engine, bad_p=True)
+    try:
+        await client.json(human_query())
+        line = await client.line()
+    finally:
+        await client.close()
+    ps = [e["p"] for e in json.loads(line)["policies"][0]["distribution"]]
+    assert ("NaN" in line, "1e999" in line, any(p < 0 for p in ps)) == (True, True, True)
