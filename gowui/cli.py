@@ -8,6 +8,7 @@ import argparse
 import ipaddress
 import logging
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any
@@ -167,5 +168,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         _Server(config, args.host).run()
     except KeyboardInterrupt:  # Ctrl-C after a clean shutdown (§9 "Stopping")
-        return 130
+        return _die_by_sigint()
     return 0
+
+
+def _die_by_sigint() -> int:
+    """End the way a program killed by Ctrl-C does, so an enclosing shell loop stops (§9)."""
+    if sys.platform == "win32":
+        return 130
+    sys.stdout.flush()
+    sys.stderr.flush()
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.raise_signal(signal.SIGINT)
+    return 130  # not reached: the default handler ends the process
