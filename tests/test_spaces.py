@@ -288,6 +288,28 @@ async def test_attaching_a_tab_gets_the_space_of_its_identity(registries):
     assert attached.space is registry.live["alice"]
 
 
+async def test_a_broadcast_during_attach_reaches_the_tab_once_after_its_frames(registries):
+    """Registering the tab and enqueueing its attach frames is one step with no await (§4.3): a
+    broadcast scheduled while the attach frames are taken reaches the tab exactly once."""
+    registry = registries()
+    space = await registry.get(owner())
+    loop = asyncio.get_running_loop()
+    real = space.session.attach_frames
+    marker = {"type": "log", "line": {"direction": "note", "text": "marker", "at": 0}}
+
+    def attach_frames():
+        frames = real()
+        loop.call_soon(space.hub.broadcast, marker)
+        return frames
+
+    space.session.attach_frames = attach_frames
+    tab = FakeTab()
+    await registry.attach(owner(), tab.send, tab.close)
+    await settle(0.3)
+    markers = [f for f in tab.frames if f.get("type") == "log" and f["line"]["text"] == "marker"]
+    assert (tab.types()[:2], len(markers)) == (["state", "log_history"], 1)
+
+
 async def test_broadcast_is_synchronous(registries):
     registry = registries()
     space = await registry.get(owner())
@@ -456,9 +478,10 @@ async def test_an_older_snapshot_never_overwrites_a_newer_one(registries):
     await play(space, "E5")
     newer = asyncio.create_task(registry.save_changed())
     await settle(0.1)
+    started_while_gated = [kind for kind, _ in storage.threads].count("save")
     storage.gate.set()
     await asyncio.wait_for(asyncio.gather(older, newer), HANG)
-    assert storage.stored()["boards"][0]["cursor"] == 2
+    assert (started_while_gated, storage.stored()["boards"][0]["cursor"]) == (1, 2)
 
 
 # -- idle release (§7.8, §8.2) --------------------------------------------------------------------

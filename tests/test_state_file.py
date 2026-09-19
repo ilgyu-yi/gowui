@@ -5,17 +5,20 @@ and a restart that brings the same boards back.
 
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import os
 import re
 import stat
 import sys
+import threading
 from pathlib import Path
 
 import pytest
 
 from app_helpers import local_bundle, snapshot_with
+from helpers import HANG
 from session_helpers import settle
 
 BAD_NAME = re.compile(r"state\.json\.bad-\d{8}T\d{6}Z\S*")
@@ -159,6 +162,40 @@ def test_a_file_over_the_cap_is_set_aside(tmp_path):
     assert (loaded, len(set_aside_files(tmp_path))) == (None, 1)
 
 
+def test_reading_asks_for_at_most_the_cap_and_one_byte(tmp_path, monkeypatch):
+    """The cap bounds what is read, not only what is kept (§8.3)."""
+    import builtins
+
+    import gowui.local_mode as local_mode
+
+    sizes: list[tuple] = []
+    real_open = builtins.open
+
+    class Spy:
+        def __init__(self, file) -> None:
+            self.file = file
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc) -> None:
+            self.file.close()
+
+        def read(self, *args):
+            sizes.append(args)
+            return self.file.read(*args)
+
+        def __getattr__(self, name):
+            return getattr(self.file, name)
+
+    monkeypatch.setattr(local_mode, "open", lambda *a, **k: Spy(real_open(*a, **k)),
+                        raising=False)
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps(snapshot_with("D4")))
+    storage(path, max_bytes=100).load("owner")
+    assert sizes == [(101,)]
+
+
 @POSIX_MODES
 @pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root reads anything")
 def test_a_file_that_cannot_be_read_is_set_aside(tmp_path):
@@ -185,6 +222,151 @@ def test_two_files_set_aside_in_the_same_second_are_both_kept(tmp_path):
     path.write_bytes(b"second")
     store.load("owner")
     assert sorted(p.read_bytes() for p in set_aside_files(tmp_path)) == [b"first", b"second"]
+
+
+def race_set_aside(monkeypatch, names=("rename", "replace", "link", "open")) -> list[str]:
+    """Make a file named like a set-aside appear just before the first call that would create
+    it, as another process could between a check and the rename. Returns the raced names."""
+    raced: list[str] = []
+
+    def race(dst) -> None:
+        target = Path(os.fsdecode(dst))
+        if not raced and BAD_NAME.fullmatch(target.name):
+            target.write_bytes(b"earlier")
+            raced.append(target.name)
+
+    for name in names:
+        real = getattr(os, name)
+        if name == "open":
+            def wrapper(path, *args, _real=real, **kwargs):
+                race(path)
+                return _real(path, *args, **kwargs)
+        else:
+            def wrapper(src, dst, *args, _real=real, **kwargs):
+                race(dst)
+                return _real(src, dst, *args, **kwargs)
+        monkeypatch.setattr(os, name, wrapper)
+    return raced
+
+
+def test_a_set_aside_never_replaces_a_file_that_appears_during_the_rename(tmp_path, monkeypatch):
+    """Nothing is deleted (§8.3): the rename fails if the name is taken, and the next suffix is
+    tried."""
+    path = tmp_path / "state.json"
+    path.write_bytes(b"current")
+    raced = race_set_aside(monkeypatch)
+    storage(path).load("owner")
+    kept = sorted(p.read_bytes() for p in set_aside_files(tmp_path))
+    assert (bool(raced), path.exists(), kept) == (True, False, [b"current", b"earlier"])
+
+
+def test_without_hard_links_a_set_aside_still_never_replaces_a_file(tmp_path, monkeypatch):
+    def no_link(*args, **kwargs):
+        raise OSError(errno.EPERM, "Operation not permitted")
+
+    monkeypatch.setattr(os, "link", no_link)
+    path = tmp_path / "state.json"
+    path.write_bytes(b"current")
+    raced = race_set_aside(monkeypatch, names=("rename", "replace", "open"))
+    storage(path).load("owner")
+    kept = sorted(p.read_bytes() for p in set_aside_files(tmp_path))
+    assert (bool(raced), path.exists(), kept) == (True, False, [b"current", b"earlier"])
+
+
+# -- checks before parsing (§8.3) ------------------------------------------------------------------
+def containers(count: int) -> bytes:
+    """A JSON object holding ``count`` arrays and objects in all (itself included)."""
+    return b'{"a": [' + b", ".join([b"[]"] * (count - 2)) + b"]}"
+
+
+def test_the_container_bound_is_1024():
+    from gowui.local_mode import STATE_MAX_CONTAINERS
+
+    assert STATE_MAX_CONTAINERS == 1024
+
+
+def test_a_file_whose_first_value_is_not_an_object_is_set_aside_unparsed(tmp_path, monkeypatch):
+    path = tmp_path / "state.json"
+    path.write_bytes(b" \r\n\t[" + b"[], " * 10 + b"[]]")
+    parsed = []
+    real = json.loads
+    monkeypatch.setattr(json, "loads", lambda *a, **k: (parsed.append(1), real(*a, **k))[1])
+    loaded = storage(path).load("owner")
+    assert (loaded, parsed, len(set_aside_files(tmp_path))) == (None, [], 1)
+
+
+def test_a_file_with_more_than_1024_arrays_and_objects_is_set_aside(tmp_path):
+    path = tmp_path / "state.json"
+    path.write_bytes(containers(1025))
+    loaded = storage(path).load("owner")
+    assert (loaded, len(set_aside_files(tmp_path))) == (None, 1)
+
+
+def test_a_file_with_1024_arrays_and_objects_is_read(tmp_path):
+    path = tmp_path / "state.json"
+    path.write_bytes(containers(1024))
+    assert storage(path).load("owner") == json.loads(containers(1024))
+
+
+def test_brackets_inside_strings_do_not_count_toward_the_bound(tmp_path):
+    """Every SGF property has a ``[``; a board of long games must still load."""
+    store = storage(tmp_path / "state.json")
+    snapshot = snapshot_with("D4", name='\\"[{' * 2000)
+    snapshot["boards"][0]["sgf"] = "(;GM[1]SZ[19]" + ";B[dd]C[[{]" * 2000 + ")"
+    store.save("owner", snapshot)
+    assert store.load("owner") == snapshot
+
+
+def test_a_full_snapshot_has_fewer_containers_than_the_bound():
+    """64 boards with both tuples set and a stored request (§8.1)."""
+    from gowui.local_mode import STATE_MAX_CONTAINERS
+
+    snapshot = snapshot_with("D4", request={"protocol": "gtp", "host": "h", "port": 1})
+    board = {**snapshot["boards"][0], "humanPolicy": {"min_p": 0.1},
+             "humanCompare": {"min_p": 0.2}}
+    snapshot["boards"] = [{**board, "id": index + 1} for index in range(64)]
+    text = json.dumps(snapshot)
+    structural = re.sub(r'"(?:[^"\\]|\\.)*"', "", text)
+    assert structural.count("[") + structural.count("{") <= STATE_MAX_CONTAINERS
+
+
+# -- a path that is not a regular file (§8.3, §9) --------------------------------------------------
+def test_a_directory_at_the_state_path_is_refused_and_left_untouched(tmp_path):
+    from gowui.local_mode import StateFileError
+
+    directory = tmp_path / "mydocs"
+    directory.mkdir()
+    (directory / "keep.txt").write_text("keep")
+    with pytest.raises(StateFileError):
+        storage(directory).load("owner")
+    assert (sorted(p.name for p in tmp_path.iterdir()),
+            (directory / "keep.txt").read_text()) == (["mydocs"], "keep")
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
+def test_a_fifo_at_the_state_path_is_refused_without_blocking(tmp_path):
+    from gowui.local_mode import StateFileError
+
+    fifo = tmp_path / "state.json"
+    os.mkfifo(fifo)
+    outcome: list = []
+
+    def load() -> None:
+        try:
+            outcome.append(storage(fifo).load("owner"))
+        except StateFileError as exc:
+            outcome.append(exc)
+
+    thread = threading.Thread(target=load, daemon=True)
+    thread.start()
+    thread.join(2)
+    blocked = thread.is_alive()
+    if blocked:  # unblock the reader so the thread ends
+        with open(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK), "wb"):
+            pass
+        thread.join(HANG)
+    assert (blocked, [type(o).__name__ for o in outcome], stat.S_ISFIFO(fifo.stat().st_mode)) == \
+        (False, ["StateFileError"], True)
 
 
 # -- writing (§8.3) -------------------------------------------------------------------------------
@@ -362,6 +544,49 @@ async def test_a_restart_keeps_a_lone_surrogate_board_name(serve, tabs, tmp_path
     second = await serve(build_app(parse(["--state", str(path)])))
     state = (await ready_tab(tabs, second)).state()
     assert state["boards"][0]["name"] == "a\ud800b"
+
+
+async def test_a_restart_keeps_a_board_whose_move_comment_holds_a_lone_surrogate(
+        serve, tabs, tmp_path):
+    """A lone surrogate counts as three bytes and is restored, not refused (§4.1, §7.6)."""
+    from gowui.cli import build_app, parse
+
+    path = tmp_path / "state.json"
+    first = await serve(build_app(parse(["--state", str(path)])))
+    tab = await ready_tab(tabs, first)
+    sgf = "(;GM[1]SZ[19];B[dd]C[x\ud800y];W[pp])"
+    await send_and_wait(tab, {"type": "load_sgf", "sgf": sgf},
+                        lambda f: f["game"]["moveCount"] == 2)
+    await first.stop()
+    second = await serve(build_app(parse(["--state", str(path)])))
+    state = (await ready_tab(tabs, second)).state()
+    assert (state["game"]["moveCount"], state["game"]["cursor"]) == (2, 2)
+
+
+def test_a_state_path_that_is_a_directory_refuses_to_build_the_app(tmp_path):
+    from gowui.cli import build_app, parse
+    from gowui.local_mode import StateFileError
+
+    directory = tmp_path / "games"
+    directory.mkdir()
+    with pytest.raises(StateFileError):
+        build_app(parse(["--state", str(directory)]))
+    assert [p.name for p in tmp_path.iterdir()] == ["games"]
+
+
+def test_main_refuses_a_directory_state_path_with_a_usage_error(tmp_path, monkeypatch, capsys):
+    import gowui.cli as cli
+
+    def serve_instead(*args, **kwargs):
+        raise AssertionError("gowui started serving")
+
+    monkeypatch.setattr(cli, "_Server", serve_instead)
+    directory = tmp_path / "games"
+    directory.mkdir()
+    with pytest.raises(SystemExit) as info:
+        cli.main(["--state", str(directory)])
+    assert (info.value.code, str(directory) in capsys.readouterr().err,
+            [p.name for p in tmp_path.iterdir()]) == (2, True, ["games"])
 
 
 async def test_shutdown_saves_the_state_file(serve, tabs, tmp_path):

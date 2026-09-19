@@ -166,6 +166,10 @@ def test_the_server_runs_lifespan_handlers():
     assert config("--fresh").lifespan == "on"
 
 
+def test_the_server_sends_no_server_header():
+    assert config("--fresh").server_header is False
+
+
 def test_the_shared_builder_applies_the_same_settings():
     from gowui.app import create_app
     from gowui.cli import uvicorn_config

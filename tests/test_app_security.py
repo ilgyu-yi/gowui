@@ -104,6 +104,19 @@ async def test_the_local_host_rule_accepts_loopback_names_and_ip_literals(host):
     assert http_status(sent) == 200
 
 
+def test_the_host_normaliser_refuses_userinfo():
+    from gowui.guard import normalise_host
+
+    assert normalise_host("user@localhost") is None
+
+
+async def test_userinfo_is_refused_without_an_allow_list():
+    """Server mode has no allow list to catch it (§7.4)."""
+    policies = dataclasses.replace(local_bundle(), allowed_hosts=None)
+    sent, _ = await call_guard(policies, scope_for(headers=[("Host", "user@localhost")]))
+    assert http_status(sent) == 403
+
+
 async def test_the_local_host_rule_accepts_the_bound_host_name_in_any_case():
     sent, _ = await call_guard(local_bundle(host="mybox.lan"),
                                scope_for(headers=[("Host", "MyBox.LAN:8080")]))
@@ -461,6 +474,23 @@ async def test_a_401_carries_the_security_headers(anonymous_app):
         response = await client.get("/api/health")
     assert (response.headers.get("content-security-policy"),
             response.headers.get("x-content-type-options")) == (CSP, "nosniff")
+
+
+async def test_a_500_carries_the_security_headers(serve, monkeypatch):
+    """The guard is outside the server-error handler, so its headers reach a 500 too (§7.5)."""
+    from gowui.app import create_app
+
+    app = create_app(local_bundle())
+    running = await serve(app)
+
+    async def broken(identity):
+        raise RuntimeError("forced")
+
+    monkeypatch.setattr(app.state.registry, "get", broken)
+    async with running.client() as client:
+        response = await client.get("/api/health")
+    assert (response.status_code, response.headers.get("content-security-policy"),
+            response.headers.get("x-content-type-options")) == (500, CSP, "nosniff")
 
 
 # -- upload size (§5, §7.6) ----------------------------------------------------------------------

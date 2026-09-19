@@ -126,6 +126,15 @@ def test_the_local_bundle_uses_typed_engine_addresses():
     assert isinstance(local_bundle().engines, TypedAddresses)
 
 
+def test_the_typed_policy_refuses_a_boolean_port():
+    """A boolean is not a port (§6.3), though Python counts True as the integer 1."""
+    from gowui.local_mode import TypedAddresses
+    from gowui.session import EngineRequestError
+
+    with pytest.raises(EngineRequestError):
+        TypedAddresses({}).resolve({"protocol": "gtp", "host": "h", "port": True})
+
+
 # -- AC4: one route module; lifespan, not on_event (§5, §9) ----------------------------------------
 def test_exactly_one_module_under_gowui_declares_routes_and_it_is_routes_py():
     declaring = sorted(str(path.relative_to(REPO)) for path in PACKAGE.rglob("*.py")
@@ -449,19 +458,22 @@ async def test_a_restored_connected_space_reconnects_at_startup(serve, tabs, gtp
 
 
 async def test_connect_flag_does_not_double_a_restored_reconnect(serve, tabs, gtp_server,
-                                                                 tmp_path):
+                                                                 fake_engine, tmp_path):
+    """The flags name another engine than the snapshot, so a --connect sent anyway would show."""
     from gowui.cli import build_app, parse
 
+    flagged = await fake_engine("gtp")
     state = tmp_path / "state.json"
     state.write_text(json.dumps(snapshot_with("D4", connected=True, request={
         "protocol": "gtp", "host": LOOPBACK, "port": gtp_server.port})))
     running = await serve(build_app(parse([
         "--state", str(state), "--connect", "--engine-protocol", "gtp",
-        "--engine-host", LOOPBACK, "--engine-port", str(gtp_server.port)])))
+        "--engine-host", LOOPBACK, "--engine-port", str(flagged.port)])))
     tab = await ready_tab(tabs, running)
     await tab.wait_state(lambda f: f["engine"]["connected"])
     await settle(0.5)
-    assert gtp_count(gtp_server, "list_commands") == 1
+    assert (gtp_count(gtp_server, "list_commands"), gtp_count(flagged, "list_commands"),
+            tab.state()["engine"]["request"]["port"]) == (1, 0, gtp_server.port)
 
 
 async def test_the_owner_space_is_loaded_before_the_first_request(serve, tmp_path):
