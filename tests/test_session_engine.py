@@ -1127,11 +1127,22 @@ async def test_a_cancelled_aclose_drops_the_engine_it_was_closing(h, fake_engine
     assert server.open_connections == 0
 
 
-async def test_a_cancelled_aclose_leaves_no_session_task_pending(h, fake_engine):
+async def test_a_cancelled_aclose_leaves_no_engine_still_closing(h, fake_engine):
     """§3.2: a shutdown that is itself cancelled while a released engine is still closing
-    cancels every session task still running before the cancellation propagates."""
+    drops that engine, so no session task is left behind."""
     await analysing_engine_that_ignores_the_interrupt(h, fake_engine)
     await h.send({"type": "disconnect"})  # the close now waits out the stop timeout (5 s)
+    await cancel_aclose_after(h, 0.3)
+    await settle(0.1)
+    assert gowui_tasks() == []
+
+
+async def test_a_cancelled_aclose_leaves_no_session_task_pending(h, fake_engine):
+    """§3.2: a shutdown that is itself cancelled cancels every session task still running
+    before the cancellation propagates, here a connect still in its handshake."""
+    server = await fake_engine("gtp", delay={"name": 3.0})
+    await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": server.port})
+    assert await wait_for(lambda: server.open_connections == 1)
     await cancel_aclose_after(h, 0.3)
     await settle(0.1)
     assert gowui_tasks() == []
