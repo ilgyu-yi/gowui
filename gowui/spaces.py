@@ -4,7 +4,8 @@ The registry holds at most one live space per identity key. Getting a space, att
 releasing a space take one lock per key. A space is loaded and restored in worker threads, then
 published, then resumed in a task the registry owns. Each space has a hub whose synchronous
 ``broadcast`` is the session's: it serialises a frame once and puts the text into every tab's
-bounded queue, drained by one sender task per tab. Saves are change-detected and serialised per
+bounded queue, drained by one sender task per tab. A newer ``state`` or ``analysis`` frame
+supersedes a queued unsent one of its type, so only other frames can overflow a queue. Saves are change-detected and serialised per
 space; the write runs in a worker thread.
 """
 
@@ -15,13 +16,14 @@ import contextlib
 import json
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from .policies import Identity, Policies
 from .session import GameSession
 
-__all__ = ["DEFAULT_QUEUE_SIZE", "SAVE_INTERVAL", "Hub", "Space", "SpaceRegistry", "Tab"]
+__all__ = ["DEFAULT_QUEUE_SIZE", "SAVE_INTERVAL", "Hub", "Space", "SpaceRegistry", "Tab", "TabQueue"]
 
 log = logging.getLogger("gowui")
 
@@ -34,8 +36,43 @@ CLOSE_OVERFLOW = 1013
 #: How long shutdown waits for a space's resume task after ``aclose()``.
 RESUME_WAIT = 5.0
 
+#: Frame types a newer frame of the same type supersedes in a tab's queue (§4.3 Coalescing).
+COALESCED = frozenset({"state", "analysis"})
+
 Send = Callable[[str], Awaitable[None]]
 Close = Callable[[int], Awaitable[None]]
+
+
+class TabQueue:
+    """A tab's bounded frame queue (§4.3). A ``state`` or ``analysis`` put while an unsent frame
+    of its type waits removes that frame and goes to the end; other frames are only appended."""
+
+    def __init__(self, maxsize: int) -> None:
+        self.maxsize = maxsize
+        self._items: deque[tuple[str | None, str]] = deque()
+        self._ready = asyncio.Event()
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def put(self, kind: str | None, text: str) -> bool:
+        """Enqueue one frame's text; ``False`` when the queue is full."""
+        if kind in COALESCED:
+            for index, (queued, _) in enumerate(self._items):
+                if queued == kind:
+                    del self._items[index]
+                    break
+        if len(self._items) >= self.maxsize:
+            return False
+        self._items.append((kind, text))
+        self._ready.set()
+        return True
+
+    async def get(self) -> str:
+        while not self._items:
+            self._ready.clear()
+            await self._ready.wait()
+        return self._items.popleft()[1]
 
 
 class Tab:
@@ -45,14 +82,14 @@ class Tab:
         self.space = space
         self._send = send
         self._close = close
-        self.queue: asyncio.Queue[str] = asyncio.Queue(queue_size)
+        self.queue = TabQueue(queue_size)
         self.sender: asyncio.Task | None = None
         #: Set once the registry has detached the tab.
         self.detached = False
 
     def push(self, frame: dict) -> None:
         """Send one frame to this tab only, in order with its broadcasts."""
-        self.space.hub.deliver(self, json.dumps(frame))
+        self.space.hub.deliver(self, json.dumps(frame), frame.get("type"))
 
 
 class Hub:
@@ -69,17 +106,15 @@ class Hub:
         # With no tab attached nothing is touched: restore() broadcasts from a worker thread.
         if not self.tabs:
             return None
-        text = json.dumps(frame)
+        text, kind = json.dumps(frame), frame.get("type")
         for tab in list(self.tabs):
-            self.deliver(tab, text)
+            self.deliver(tab, text, kind)
         return None
 
-    def deliver(self, tab: Tab, text: str) -> None:
+    def deliver(self, tab: Tab, text: str, kind: str | None = None) -> None:
         if tab not in self.tabs:
             return
-        try:
-            tab.queue.put_nowait(text)
-        except asyncio.QueueFull:
+        if not tab.queue.put(kind, text):
             self.remove(tab)
             task = asyncio.ensure_future(_close_quietly(tab, CLOSE_OVERFLOW))
             self._closing.add(task)
@@ -89,7 +124,7 @@ class Hub:
         """Register ``tab`` and enqueue its attach frames in one step, with no ``await``."""
         self.tabs.append(tab)
         for frame in frames:
-            self.deliver(tab, json.dumps(frame))
+            self.deliver(tab, json.dumps(frame), frame.get("type"))
         if tab in self.tabs:
             tab.sender = asyncio.ensure_future(_drain(self, tab))
 
