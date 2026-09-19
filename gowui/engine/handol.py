@@ -17,6 +17,7 @@ import asyncio
 import itertools
 import json
 import random
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -38,6 +39,10 @@ DEFAULT_EVAL_VISITS = 200
 MAX_VISITS_LIMIT = 1_000_000
 #: Candidates listed; the full distribution still fills ``policy``.
 TOP_CANDIDATES = 20
+#: A profile name: 1-64 characters of letters, digits, ``_``, ``.`` and ``-`` (§7.6).
+PROFILE_PATTERN = re.compile(r"[A-Za-z0-9_.\-]{1,64}")
+#: Blank lines skipped while waiting for one answer; past this the answer is an engine error.
+MAX_BLANK_LINES = 1000
 _UNSET: Any = object()
 
 __all__ = ["HandolEngine", "engine_to_play"]
@@ -61,6 +66,18 @@ def _visits(value: Any, name: str, low: int) -> int:
     return value
 
 
+def _error_text(value: Any) -> str:
+    """A mux error value as bounded text: a string as-is, anything else as JSON, and a fixed
+    text when it cannot be rendered (nested deeper than the interpreter can walk)."""
+    if isinstance(value, str):
+        return clip(value, TEXT_LIMIT)
+    try:
+        text = json.dumps(value)
+    except (RecursionError, ValueError, TypeError):
+        return "(an error value that cannot be shown)"
+    return clip(text, TEXT_LIMIT)
+
+
 def _encode(payload: dict) -> str:
     """The request as one JSON line; a non-finite number is never sent."""
     try:
@@ -80,12 +97,18 @@ class _Channel:
         self.lock = asyncio.Lock()
         self.conn: LineConnection | None = None
         self.opened = False
+        #: Set when the engine closes or reconnects; never reset (a new connect() makes new
+        #: channels), so a request still running here never reopens or resends.
+        self.retired = False
 
     async def open(self) -> None:
         engine = self.engine
         conn = LineConnection(engine.host, engine.port)
         conn.send_timeout = engine.send_timeout
         await conn.connect(timeout=engine.connect_timeout)
+        if self.retired:
+            await conn.close()
+            raise self._retired_error()
         if self.opened:
             engine.note(f"# reopened the {self.name} connection "
                         "(the surface closes idle connections)")
@@ -96,6 +119,14 @@ class _Channel:
         conn, self.conn = self.conn, None
         if conn is not None:
             await conn.close()
+
+    async def retire(self) -> None:
+        """Close for good: the engine is closing or reconnecting."""
+        self.retired = True
+        await self.close()
+
+    def _retired_error(self) -> ConnectionClosed:
+        return ConnectionClosed("the engine connection is closed", address=self.engine.address)
 
     def abort(self) -> None:
         """Drop the connection at once (a request was cancelled mid-flight)."""
@@ -120,6 +151,8 @@ class _Channel:
             self.engine._check()  # noqa: SLF001
             losses = 0
             while True:
+                if self.retired:
+                    raise self._retired_error()
                 if self.conn is not None and not self.conn.connected:
                     await self.close()  # found closed: that is one loss
                     losses += 1
@@ -129,13 +162,15 @@ class _Channel:
                     try:
                         await self.open()
                     except EngineError as exc:
-                        if self.opened:
+                        if self.opened and not self.retired:
                             raise self._lost(exc) from None
                         raise
                 try:
                     return await self._exchange(payload, text)
                 except ConnectionClosed as exc:
                     await self.close()
+                    if self.retired:
+                        raise self._retired_error() from None
                     losses += 1
                     if losses > 1:
                         raise self._lost(exc) from None
@@ -155,6 +190,7 @@ class _Channel:
         loop = asyncio.get_running_loop()
         timeout = engine.read_timeout
         deadline = loop.time() + timeout
+        blank = 0
         while True:
             remaining = deadline - loop.time()
             if remaining <= 0:
@@ -168,6 +204,10 @@ class _Channel:
                     raise
                 raise engine.error(f"the engine did not answer within {timeout:g}s") from exc
             if not line.strip():
+                blank += 1
+                if blank > MAX_BLANK_LINES:
+                    raise engine.error(f"the engine sent more than {MAX_BLANK_LINES:,} blank "
+                                       "lines instead of an answer")
                 continue
             engine.log("recv", clip(line))
             try:
@@ -215,7 +255,7 @@ class HandolEngine(Engine):
         self.compare: Any = None
         self.eval_visits: Any = DEFAULT_EVAL_VISITS
         self.max_visits: Any = DEFAULT_MAX_VISITS
-        self.move_style: dict[str, Any] = {"B": "human", "W": "human"}
+        self.move_style: Any = {"B": "human", "W": "human"}
         self.name = "handol-mux human analysis"
         self._human = _Channel(self, "human", primary=True)
         self._eval = _Channel(self, "winrate", primary=False)
@@ -238,14 +278,20 @@ class HandolEngine(Engine):
             self.eval_visits = eval_visits
         if max_visits is not _UNSET:
             self.max_visits = max_visits
-        if isinstance(move_style, dict):
-            self.move_style = {**self.move_style, **move_style}
+        if move_style is not _UNSET:
+            if isinstance(move_style, dict) and isinstance(self.move_style, dict):
+                self.move_style = {**self.move_style, **move_style}
+            else:
+                self.move_style = dict(move_style) if isinstance(move_style, dict) else move_style
 
     # -- lifecycle ---------------------------------------------------------------------------
     async def connect(self) -> None:
         if self._human.conn is not None or self._eval.conn is not None:
             self._closing = True
             await self._teardown()
+        # Retire the old channels even when idle, so nothing still running there reopens.
+        await self._human.retire()
+        await self._eval.retire()
         self._human = _Channel(self, "human", primary=True)
         self._eval = _Channel(self, "winrate", primary=False)
         self._arm()
@@ -262,8 +308,8 @@ class HandolEngine(Engine):
         if task is not None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
-        await self._human.close()
-        await self._eval.close()
+        await self._human.retire()
+        await self._eval.retire()
         self._set_failure(ConnectionClosed("the engine connection is closed",
                                            address=self.address))
 
@@ -289,8 +335,9 @@ class HandolEngine(Engine):
     def _human_query(self, position: Position, visits: Any, compare: bool) -> dict:
         """The human request, validated with the visits in effect (nothing is sent on refusal)."""
         visits = _visits(visits, "max visits", 1)
-        if not isinstance(self.profile, str) or not self.profile.strip():
-            raise EngineError("the profile must be a non-empty name")
+        if not isinstance(self.profile, str) or not PROFILE_PATTERN.fullmatch(self.profile):
+            raise EngineError("the profile must be a name of 1-64 letters, digits, "
+                              "'_', '.' or '-'")
         policies = [self.policy]
         if compare and self.compare is not None:
             policies.append(self.compare)
@@ -311,8 +358,7 @@ class HandolEngine(Engine):
     async def _ask(self, channel: _Channel, payload: dict, text: str) -> dict:
         answer = await channel.request(payload, text)
         if "error" in answer:
-            raise self.error(f"the engine refused the query: "
-                             f"{clip(str(answer['error']), TEXT_LIMIT)}")
+            raise self.error(f"the engine refused the query: {_error_text(answer['error'])}")
         return answer
 
     # -- analysis ------------------------------------------------------------------------------
@@ -350,6 +396,9 @@ class HandolEngine(Engine):
             except EngineError as exc:
                 self.note(f"# analysis failed: {clip(exc.message, TEXT_LIMIT)}")
                 continue
+            except Exception as exc:  # noqa: BLE001 - an unreadable answer must not end the queue
+                self.note(f"# analysis failed: {type(exc).__name__}")
+                continue
             if self._live != job.token:
                 continue  # the position was left while this was answered
             try:
@@ -368,13 +417,18 @@ class HandolEngine(Engine):
             return None
 
     async def _analyse(self, job: _Job) -> Analysis:
-        answer, scored = await asyncio.gather(
-            self._ask(self._human, job.human, job.human_text), self._winrate(job),
-            return_exceptions=True)
-        if isinstance(answer, BaseException):
-            raise answer
-        if isinstance(scored, BaseException):
-            raise scored
+        human = asyncio.ensure_future(self._ask(self._human, job.human, job.human_text))
+        winrate = asyncio.ensure_future(self._winrate(job))
+        try:
+            answer = await human
+            scored = await winrate
+        except BaseException:
+            # A failed human request abandons its winrate request (cancelling it drops that
+            # connection, whose stream position is then unknown); so does being cancelled.
+            human.cancel()
+            winrate.cancel()
+            await asyncio.gather(human, winrate, return_exceptions=True)
+            raise
         analysis, _ = parse_answer(answer, job.position, job.tuples)
         if scored is not None:
             merge_evaluation(analysis, scored, job.position.size)
@@ -389,7 +443,10 @@ class HandolEngine(Engine):
                               f"({'black' if position.to_play == 'B' else 'white'})")
         await self.stop_analysis()
         self._check()
-        style = self.move_style.get(letter)
+        styles = self.move_style
+        if not isinstance(styles, dict):
+            raise EngineError("the move style must give each colour human or katago")
+        style = styles.get(letter)
         if style not in MOVE_STYLES:
             raise EngineError(f"unknown move style {str(style)[:40]!r}; expected human or katago")
         if style == "katago":
@@ -463,7 +520,8 @@ def _katago_choice(answer: dict, position: Position) -> str:
 
 
 def _distribution(entry: Any, size: int) -> list[tuple[str, float]]:
-    """One tuple's distribution: on-board moves (or pass) with p, a bad p as 0."""
+    """One tuple's distribution: on-board moves (or pass) with p clamped to [0, 1] (a non-finite
+    p as 0)."""
     items = entry.get("distribution") if isinstance(entry, dict) else None
     out: list[tuple[str, float]] = []
     seen: set[str] = set()
@@ -475,7 +533,7 @@ def _distribution(entry: Any, size: int) -> list[tuple[str, float]]:
             continue
         seen.add(move)
         p = finite(item.get("p"))
-        out.append((move, p if p is not None and p > 0 else 0.0))
+        out.append((move, min(p, 1.0) if p is not None and p > 0 else 0.0))
     return out
 
 
