@@ -330,3 +330,17 @@ async def test_changing_the_players_mid_genmove_keeps_the_explicit_move(h, fake_
     await h.send({"type": "players", "whiteStyle": "katago"})
     state = await h.rec.wait_state(lambda f: not f["thinking"], start)
     assert state is not None and state["game"]["moveCount"] == 1
+
+
+async def test_changing_the_movers_style_mid_search_discards_the_automatic_move(h, fake_engine):
+    """§3.2: an automatic move is discarded when the players changed while it searched, even
+    when its side is still set to engine (the players epoch, not the engine flag)."""
+    server = await slow_gtp(fake_engine)
+    await h.connect_to(server)
+    await h.send({"type": "players", "blackIsEngine": True})
+    assert await wait_for(lambda: gtp_count(server, "genmove") == 1)
+    start = h.rec.mark()
+    await h.send({"type": "players", "blackStyle": "katago"})
+    state = await h.rec.wait_state(lambda f: f["status"].startswith("Discarded"), start,
+                                   timeout=SLOW + 2.0)
+    assert state is not None and state["game"]["moveCount"] == 0

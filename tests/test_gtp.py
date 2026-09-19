@@ -1050,6 +1050,18 @@ async def test_stray_lines_are_logged_clipped(fake_engine, connect):
     assert stray and max(len(text) for text in stray) <= 4100
 
 
+async def test_a_long_reply_is_logged_clipped(fake_engine, connect):
+    """§2.1: a reply longer than the log limit is logged cut to it, marked with " ..."."""
+    from gowui.engine.base import LOG_LIMIT
+
+    log = Log()
+    engine = await connect(await fake_engine("gtp", replies={"final_score": "B+" + "x" * 6000}),
+                           log=log)
+    await asyncio.wait_for(engine.raw("final_score"), HANG)
+    lines = [text for direction, text in log.entries if direction == "recv" and "xxx" in text]
+    assert lines and all(len(t) <= LOG_LIMIT + 4 and t.endswith(" ...") for t in lines)
+
+
 async def test_a_rejection_message_is_clipped_in_the_error(fake_engine, connect):
     engine = await connect(await fake_engine("gtp", reject=["final_score"],
                                              reject_message="r" * 5000))

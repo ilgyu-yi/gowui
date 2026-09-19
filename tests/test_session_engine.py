@@ -877,6 +877,60 @@ async def test_a_superseded_connect_does_not_block_a_new_one(h, fake_engine):
     assert state is not None and state["engine"]["request"]["port"] == live.port
 
 
+async def test_a_connect_while_two_superseded_attempts_run_is_refused(h, fake_engine):
+    """§3.2, §4.1: at most two connect attempts run, the live one and one superseded."""
+    slow = await fake_engine("gtp", delay={"name": 3.0})
+    connect = {"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": slow.port}
+    for _ in range(2):
+        await h.send(connect)
+        await h.send({"type": "disconnect"})
+    assert await wait_for(lambda: slow.open_connections == 2)
+    start = h.rec.mark()
+    await h.send(connect)
+    error = await h.rec.wait_error(start)
+    await settle(0.3)
+    assert (error is not None and "still closing" in error, slow.open_connections) == (True, 2)
+
+
+async def test_a_connect_disconnect_flood_opens_at_most_two_engine_connections(h, fake_engine):
+    """§3.2, §4.1: a flood of connect/disconnect pairs never runs more than two attempts."""
+    slow = await fake_engine("gtp", delay={"name": 3.0})
+    connect = {"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": slow.port}
+    most = 0
+    for _ in range(200):
+        await h.send(connect)
+        await h.send({"type": "disconnect"})
+        most = max(most, slow.open_connections)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 0.5
+    while loop.time() < deadline:
+        most = max(most, slow.open_connections)
+        await asyncio.sleep(0.02)
+    assert most <= 2
+
+
+async def test_a_players_change_rearms_auto_play_halted_while_it_was_still_searching(
+        h, fake_engine, monkeypatch):
+    """§3.2: an unexpected failure halts automatic play until something re-arms it, such as a
+    change of the players — also when the halted auto-play task is still finishing a search."""
+    # Patches the engine client (not the session): final_score raises a non-engine error. It
+    # waits behind the running genmove, so the halt lands while the next genmove is in flight.
+    async def broken(self, *args, **kwargs):
+        raise RuntimeError("injected by the test")
+
+    monkeypatch.setattr(GTPEngine, "final_score", broken)
+    server = await slow_gtp(fake_engine, 0.5)
+    await h.connect_to(server)
+    await h.send({"type": "players", "blackIsEngine": True, "whiteIsEngine": True})
+    await h.wait_moves(1)
+    start = h.rec.mark()
+    await h.send({"type": "final_score"})
+    assert await h.rec.wait_error(start) is not None
+    at_error = h.rec.state()["game"]["moveCount"]
+    await h.send({"type": "players", "blackStyle": "katago", "whiteStyle": "katago"})
+    await h.wait_moves(at_error + 2, start, timeout=3.0)
+
+
 def empty_host_resolver(request):
     from gowui.session import EngineTarget
     return EngineTarget(protocol="gtp", host="", port=1, request_echo={"engineId": "x"})
