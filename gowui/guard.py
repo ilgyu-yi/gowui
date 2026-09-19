@@ -26,7 +26,8 @@ IDENTITY_KEY = "gowui.identity"
 
 CSP = "default-src 'self'; frame-ancestors 'none'"
 SECURITY_HEADERS = [(b"content-security-policy", CSP.encode("ascii")),
-                    (b"x-content-type-options", b"nosniff")]
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"cache-control", b"no-cache")]
 _SECURITY_NAMES = {name for name, _ in SECURITY_HEADERS}
 
 #: Headers of which a request may carry at most one (§7.4 rule 1).
