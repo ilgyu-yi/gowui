@@ -1,0 +1,81 @@
+# gowui behind traefik with Authentik forward auth (single sign-on, SPEC §10.1).
+#
+#   docker compose -f deploy/compose.sso.yaml up -d --build
+#
+# traefik signs the user in through Authentik, which answers with the user name in
+# X-authentik-username (GOWUI_AUTH_HEADER). Three rules keep that header honest:
+#   1. The router's first middleware, gowui-strip-sso, removes any client-sent
+#      X-authentik-username (an empty value removes a header) before forward auth runs, so only
+#      Authentik's value reaches gowui. If Authentik sends none, gowui answers 401.
+#   2. gowui and traefik meet on their own network, gowui-edge, a fixed /29 no other container
+#      joins; traefik has a fixed address in it and routes to gowui over it.
+#   3. GOWUI_TRUSTED_PROXIES is that one address (/32), not the subnet, so the network gateway
+#      (processes on the host) is not trusted.
+# gowui publishes no port. Replace the example host names, the Authentik address and the engine.
+name: gowui
+
+services:
+  traefik:
+    image: traefik:v3.5
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.websecure.address=:443
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      default: {}
+      gowui-edge:
+        ipv4_address: 172.30.52.2
+    security_opt:
+      - no-new-privileges:true
+
+  gowui:
+    build: ..
+    image: gowui:local
+    restart: unless-stopped
+    environment:
+      GOWUI_AUTH: "header"
+      GOWUI_AUTH_HEADER: "X-authentik-username"
+      GOWUI_TRUSTED_PROXIES: "172.30.52.2/32"
+      GOWUI_LOGOUT_URL: "https://gowui.example.com/outpost.goauthentik.io/sign_out"
+      GOWUI_ENGINES: >-
+        [{"id": "katago", "label": "KataGo", "protocol": "analysis",
+          "host": "katago.example.internal", "port": 6364}]
+    volumes:
+      - gowui-data:/data
+    networks:
+      default: {}
+      gowui-edge: {}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "gowui-edge"
+      traefik.http.routers.gowui.rule: "Host(`gowui.example.com`)"
+      traefik.http.routers.gowui.entrypoints: "websecure"
+      traefik.http.routers.gowui.tls: "true"
+      traefik.http.routers.gowui.middlewares: "gowui-strip-sso@docker,gowui-authentik@docker"
+      traefik.http.middlewares.gowui-strip-sso.headers.customrequestheaders.X-authentik-username: ""
+      traefik.http.middlewares.gowui-authentik.forwardauth.address: "http://authentik.example.internal:9000/outpost.goauthentik.io/auth/traefik"
+      traefik.http.middlewares.gowui-authentik.forwardauth.trustForwardHeader: "true"
+      traefik.http.middlewares.gowui-authentik.forwardauth.authResponseHeaders: "X-authentik-username"
+      traefik.http.services.gowui.loadbalancer.server.port: "8080"
+
+volumes:
+  gowui-data:
+
+networks:
+  gowui-edge:
+    name: gowui-edge
+    ipam:
+      config:
+        - subnet: 172.30.52.0/29

@@ -1,0 +1,7 @@
+# Base-image digest bumps for the Dockerfile's pinned python:3.13-slim (SPEC §10.1).
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly

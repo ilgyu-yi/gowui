@@ -1782,10 +1782,10 @@ addition to the section in its Behaviour column.
 | N6 | Per-account isolation and idle release | §7.8 | server | app: `tests/test_server_isolation.py`; registry: `tests/test_server_spaces.py` |
 | N7 | Catalog-only engines, addresses never sent to the browser | §6.3, §7.7 | server | app: `tests/test_server_catalog.py`; UI: `tests/test_server_i18n.py`, `tests/browser/test_server_ui.py` |
 | N8 | `gowui user` account management | §9 | server | `tests/test_user_cli.py` |
-| N9 | `/healthz` liveness | §5 | both | app: `tests/test_app_local.py`, `tests/test_app_security.py`, `tests/test_cli.py` |
+| N9 | `/healthz` liveness | §5 | both | app: `tests/test_app_local.py`, `tests/test_app_security.py`, `tests/test_cli.py`; container: `tools/container_smoke.sh` (CI `container` job) |
 | N10 | Fail-closed server configuration | §7.9 | server | `tests/test_server_auth.py` |
 | N11 | Request limits and response headers | §7.5, §7.6 | both | session: `tests/test_session_messages.py`; app: `tests/test_app_security.py`, `tests/test_app_local.py`; page: `tests/test_frontend_static.py`, `tests/browser/test_smoke.py` |
-| N12 | Container deployment | §10.1 | server | pending |
+| N12 | Container deployment | §10.1 | server | files: `tests/test_deploy_files.py`; image: `tools/container_smoke.sh` (CI `container` job) |
 | N13 | Operation behind a reverse proxy | §7.10 | server | `tests/test_server_auth.py`, `tests/test_app_security.py` |
 
 ## 12. Non-goals
