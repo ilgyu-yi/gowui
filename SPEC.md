@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 576 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 580 |
 | &nbsp;&nbsp;§3.8 | The page | 589 |
-| §4 | WebSocket protocol | 840 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 844 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 885 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 922 |
-| §5 | HTTP routes | 981 |
-| §6 | Launch modes and policies | 1056 |
-| &nbsp;&nbsp;§6.1 | The rule | 1058 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1094 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1133 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1166 |
-| §7 | Authentication and security | 1185 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1187 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1234 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1252 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1266 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1314 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1331 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1371 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1387 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1401 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1410 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1439 |
-| §8 | Persistence | 1458 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1460 |
-| &nbsp;&nbsp;§8.2 | Saving | 1494 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1523 |
-| &nbsp;&nbsp;§8.4 | Server database | 1565 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1601 |
-| §9 | Command line | 1613 |
-| §10 | Configuration (server) | 1672 |
-| &nbsp;&nbsp;§10.1 | Container | 1710 |
-| §11 | Feature inventory | 1764 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1771 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1809 |
-| §12 | Non-goals | 1827 |
+| §4 | WebSocket protocol | 847 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 851 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 893 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 930 |
+| §5 | HTTP routes | 1004 |
+| §6 | Launch modes and policies | 1079 |
+| &nbsp;&nbsp;§6.1 | The rule | 1081 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1117 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1156 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1189 |
+| §7 | Authentication and security | 1208 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1210 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1257 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1275 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1289 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1337 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1354 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1394 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1410 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1424 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1433 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1462 |
+| §8 | Persistence | 1481 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1483 |
+| &nbsp;&nbsp;§8.2 | Saving | 1517 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1546 |
+| &nbsp;&nbsp;§8.4 | Server database | 1588 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1624 |
+| §9 | Command line | 1636 |
+| §10 | Configuration (server) | 1695 |
+| &nbsp;&nbsp;§10.1 | Container | 1733 |
+| §11 | Feature inventory | 1787 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1794 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1832 |
+| §12 | Non-goals | 1850 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -632,7 +632,10 @@ too follows the data, never a mode name.
   sends `new_game` with `komi: null` unless the user typed one, so the server decides the default
   (§1.2).
 - **Moves section:** an ordered list with one item per move (`●` or `○` and the vertex). The move
-  at the cursor is marked and scrolled into view; clicking an item navigates to it.
+  at the cursor is marked and scrolled into view; clicking an item navigates to it. A new `state`
+  replaces only the items after the first move that differs and moves the mark, and the page
+  scrolls the list and the traffic log at most once per animation frame, so a long game does not
+  lay the whole page out again for every frame it receives.
 - **Engine console section:** the traffic log (§3.6; sent lines marked `▸`, at most 400 lines kept
   on the page, replaced by `log_history`) and a one-line form that sends `raw`.
 - A field the server echoes in `state` (visits, interval, profile, eval visits) is not overwritten
@@ -813,6 +816,10 @@ Every frame the page sends goes through one `send`. While the socket is not open
 dropped, not queued, and the status shows the lost-connection text again (or the `4401` /
 `4403` reason), so the user sees that the action did not go through.
 
+After it has applied each `state` — even when applying it failed — the page sends `ack` (§4.1).
+The server then sends the next frames (§4.3 "Acknowledgement"), so a page that renders slowly
+shows the newest `state` as soon as it is ready for one, never a backlog of stale ones.
+
 **Rendering safety** (§7.5). The page has no inline script or style, no `style=` or `on*=`
 attribute, and no `data:` or `javascript:` URL; the icon is `/favicon.svg`. Scripts build the DOM
 with `createElement`, `textContent` and `replaceChildren`, and never use `innerHTML`,
@@ -864,6 +871,7 @@ One WebSocket per tab at `/ws`, JSON text frames.
 | `final_score` | — |
 | `load_sgf` | `sgf` |
 | `state` | — (asks for a fresh `state`) |
+| `ack` | — (the page has applied one `state`; taken by the transport, §4.3 "Acknowledgement") |
 
 `resign` is an action (§1.3), never a vertex of `play`. A field of the wrong type is refused with an
 `error` and changes nothing — a boolean is not a number, and a `komi` that is not a finite number
@@ -951,6 +959,21 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
 - Every other frame (`error`, and any other type of §4.2) is never coalesced, folded or dropped,
   and all frames keep their order. A tab that reads slowly, such as one watching two fast
   engines play each other, therefore keeps its socket and its messages are still handled.
+- **Acknowledgement.** Coalescing and folding act only on frames still in the queue. Whatever the
+  sender task has written is buffered by the network stack and the browser, where nothing
+  supersedes it, so without a signal from the page a tab that renders slowly would fall behind a
+  backlog of stale `state` frames already sent — during a fast engine-vs-engine game, many
+  seconds of moves, which would also hide the page's own Untick until the backlog drained. The
+  page therefore sends `ack` (§4.1) after applying each `state` (§3.8). A tab that has sent an
+  `ack` is *acknowledging*: its sender task counts every `state` it has sent since the tab
+  attached, and while one of them is not yet acknowledged it sends nothing, so the tab's frames
+  wait in its queue, where a newer `state` or `analysis` supersedes the waiting one and `log`
+  frames fold. The page thus gets the newest `state` as soon as it has applied the previous one,
+  and every frame still arrives in broadcast order. A tab that has never sent `ack` (an older
+  page, a script) is sent frames as they come. An `ack` beyond the `state` frames sent changes
+  nothing. `ack` belongs to the transport: it is not passed to `session.handle`, gets no reply,
+  and changes nothing in the space. A page that stops acknowledging holds only its own tab back;
+  the queue's bound still applies (Overflow below).
 - **Overflow.** The queue stays bounded (`256` frames). Code `1013` closes a tab, which is then
   detached while broadcasting to the other tabs goes on, in two cases: its queue is full when an
   `error` (or any other frame that cannot be folded) arrives, or a fold would leave more than half
@@ -960,8 +983,8 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   event loop. Short of those cases, coalescing and log folding mean `state`, `analysis`, `log`
   and `log_history` frames never close a slow tab. A reopened tab is brought up to date by its
   attach frames.
-- **Receiving.** Each received frame is parsed (§7.6) and passed to `session.handle`, which is
-  awaited inline, so a tab's messages are handled in the order they were sent. A frame that is
+- **Receiving.** Each received frame is parsed (§7.6) and, unless it is an `ack` (Acknowledgement
+  above), passed to `session.handle`, which is awaited inline, so a tab's messages are handled in the order they were sent. A frame that is
   not valid JSON, or is nested too deeply to parse, gets an `error` and the socket stays open.
 - **Detach.** When a socket closes, its queue and sender task are removed. The last tab to detach
   triggers a save (§8.2).
