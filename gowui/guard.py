@@ -1,0 +1,238 @@
+"""The guard in front of every HTTP request and WebSocket handshake (SPEC §5, §7.4, §7.5).
+
+Pure ASGI middleware. In order it refuses duplicate ``Host`` / ``Origin`` / ``X-Forwarded-Host``
+headers, applies the Host rule to the effective host, applies the Origin rule to handshakes and to
+every request that is not ``GET`` or ``HEAD``, and resolves the identity (required except on the
+public routes). It reads only the policy bundle's data (§6.1) and adds the §7.5 headers to every
+response. Refusal bodies are fixed text: they never echo a header or the path.
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import json
+import unicodedata
+from typing import Any
+
+from starlette.requests import HTTPConnection
+
+from .policies import Policies
+
+__all__ = ["Guard", "IDENTITY_KEY", "is_ip_literal", "normalise_host"]
+
+#: The scope key under which the guard hands the resolved identity (or ``None``) to the routes.
+IDENTITY_KEY = "gowui.identity"
+
+CSP = "default-src 'self'; frame-ancestors 'none'"
+SECURITY_HEADERS = [(b"content-security-policy", CSP.encode("ascii")),
+                    (b"x-content-type-options", b"nosniff")]
+_SECURITY_NAMES = {name for name, _ in SECURITY_HEADERS}
+
+#: Headers of which a request may carry at most one (§7.4 rule 1).
+_SINGLE = (b"host", b"origin", b"x-forwarded-host")
+DEFAULT_PORTS = {"http": 80, "ws": 80, "https": 443, "wss": 443}
+#: Reachable without an identity, matched exactly (§5); ``/css/`` is the one public prefix.
+PUBLIC_PATHS = frozenset({"/healthz", "/login", "/logout"})
+PUBLIC_PREFIX = "/css/"
+
+WS_FORBIDDEN = 4403
+WS_UNAUTHENTICATED = 4401
+
+
+def _bad_char(ch: str) -> bool:
+    return ch in "@/\\" or ch.isspace() or unicodedata.category(ch) == "Cc"
+
+
+def _port(text: str) -> int | None:
+    if not (text.isascii() and text.isdigit()):
+        return None
+    value = int(text)
+    return value if 1 <= value <= 65535 else None
+
+
+def normalise_host(value: str) -> tuple[str, int | None] | None:
+    """``(host, port)`` from a ``Host``-style value, or ``None`` when it is refused (§7.4).
+
+    The port is stripped (``None`` when absent), ``[IPv6]`` unwrapped and the host lowercased.
+    """
+    if not value or any(_bad_char(ch) for ch in value):
+        return None
+    if value.startswith("["):
+        end = value.find("]")
+        if end < 0:
+            return None
+        try:
+            host = ipaddress.IPv6Address(value[1:end]).compressed
+        except ValueError:
+            return None
+        rest = value[end + 1:]
+        if not rest:
+            return host.lower(), None
+        if not rest.startswith(":"):
+            return None
+        port = _port(rest[1:])
+        return None if port is None else (host.lower(), port)
+    host, sep, port_text = value.partition(":")
+    if ":" in port_text or not host:
+        return None  # an unbracketed host containing ':'
+    if not sep:
+        return host.lower(), None
+    port = _port(port_text)
+    return None if port is None else (host.lower(), port)
+
+
+def is_ip_literal(host: str) -> bool:
+    """Whether ``host`` is an IP literal: only what ``ipaddress.ip_address`` accepts (§7.4)."""
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
+def is_public(scope: dict) -> bool:
+    """Whether the path is reachable without an identity (§5)."""
+    path = scope.get("path", "")
+    if path in PUBLIC_PATHS:
+        return True
+    if not path.startswith(PUBLIC_PREFIX):
+        return False
+    raw = scope.get("raw_path") or path.encode("utf-8", "surrogateescape")
+    if b"%2f" in raw.lower():
+        return False
+    return ".." not in path.split("/")
+
+
+class _Refusal(Exception):
+    def __init__(self, status: int, ws_code: int) -> None:
+        super().__init__(status)
+        self.status = status
+        self.ws_code = ws_code
+
+
+_FORBIDDEN = _Refusal(403, WS_FORBIDDEN)
+
+
+class Guard:
+    """ASGI middleware applying the §7.4 rules in front of ``app``."""
+
+    def __init__(self, app: Any, policies: Policies) -> None:
+        self.app = app
+        self.policies = policies
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        kind = scope.get("type")
+        if kind not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message: dict) -> None:
+            if message.get("type") in ("http.response.start", "websocket.http.response.start"):
+                headers = [(k, v) for k, v in message.get("headers", [])
+                           if k.lower() not in _SECURITY_NAMES]
+                message = {**message, "headers": headers + SECURITY_HEADERS}
+            await send(message)
+
+        try:
+            scope[IDENTITY_KEY] = self._check(scope)
+        except _Refusal as refusal:
+            await self._refuse(scope, receive, send_with_headers, refusal)
+            return
+        await self.app(scope, receive, send_with_headers)
+
+    # -- the rules ----------------------------------------------------------------------------
+    def _check(self, scope: dict) -> Any:
+        policies = self.policies
+        seen: dict[bytes, list[str]] = {}
+        for name, value in scope.get("headers", []):
+            name = name.lower()
+            if name in _SINGLE or name == b"x-forwarded-proto":
+                seen.setdefault(name, []).append(value.decode("latin-1"))
+        if any(len(seen.get(name, ())) > 1 for name in _SINGLE):
+            raise _FORBIDDEN
+        hosts = seen.get(b"host")
+        if not hosts:
+            raise _FORBIDDEN
+        parsed = normalise_host(hosts[0])
+        if parsed is None:
+            raise _FORBIDDEN
+        scheme = scope.get("scheme", "http")
+        if self._trusted_peer(scope):
+            forwarded = seen.get(b"x-forwarded-host")
+            if forwarded:
+                parsed = normalise_host(forwarded[0])
+                if parsed is None:
+                    raise _FORBIDDEN
+            proto = seen.get(b"x-forwarded-proto")
+            if proto and proto[-1].strip().lower() == "https":
+                scheme = "https"
+        host, port = parsed
+        if port is None:
+            port = DEFAULT_PORTS.get(scheme, 80)
+        allowed = policies.allowed_hosts
+        if allowed is not None and host not in allowed and not (
+                policies.allow_ip_literals and is_ip_literal(host)):
+            raise _FORBIDDEN
+        if scope["type"] == "websocket" or scope.get("method") not in ("GET", "HEAD"):
+            origins = seen.get(b"origin")
+            if origins and not _origin_matches(origins[0], host, port):
+                raise _FORBIDDEN
+        identity = policies.identity.identify(HTTPConnection(scope))
+        if identity is None and not is_public(scope):
+            raise _Refusal(401, WS_UNAUTHENTICATED)
+        return identity
+
+    def _trusted_peer(self, scope: dict) -> bool:
+        proxies = self.policies.trusted_proxies
+        client = scope.get("client")
+        if not proxies or not client:
+            return False
+        try:
+            peer = ipaddress.ip_address(client[0])
+        except ValueError:
+            return False
+        return any(peer in network for network in proxies)
+
+    # -- refusals -----------------------------------------------------------------------------
+    async def _refuse(self, scope: dict, receive: Any, send: Any, refusal: _Refusal) -> None:
+        if scope["type"] == "websocket":
+            # Accepted, then closed, so a browser sees the close code (§4.3).
+            message = await receive()
+            if message.get("type") != "websocket.connect":
+                return
+            await send({"type": "websocket.accept"})
+            await send({"type": "websocket.close", "code": refusal.ws_code})
+            return
+        if refusal.status == 403:
+            await _respond(send, 403, b"Forbidden", b"text/plain; charset=utf-8")
+            return
+        path = scope.get("path", "")
+        if path == "/api" or path.startswith("/api/"):
+            body = json.dumps({"error": "sign-in required"}).encode()
+            await _respond(send, 401, body, b"application/json")
+        elif self.policies.sign_in_url is not None:
+            await _respond(send, 303, b"", b"text/plain; charset=utf-8",
+                           [(b"location", self.policies.sign_in_url.encode("latin-1"))])
+        else:
+            await _respond(send, 401, b"Sign-in required", b"text/plain; charset=utf-8")
+
+
+def _origin_matches(origin: str, host: str, port: int) -> bool:
+    """Whether an ``Origin`` names the effective host and port (§7.4 rule 3)."""
+    scheme, sep, rest = origin.partition("://")
+    scheme = scheme.lower()
+    if not sep or scheme not in ("http", "https"):
+        return False
+    parsed = normalise_host(rest)
+    if parsed is None:
+        return False
+    origin_host, origin_port = parsed
+    return (origin_host, origin_port or DEFAULT_PORTS[scheme]) == (host, port)
+
+
+async def _respond(send: Any, status: int, body: bytes, content_type: bytes,
+                   extra: list[tuple[bytes, bytes]] | None = None) -> None:
+    headers = [(b"content-type", content_type), (b"content-length", str(len(body)).encode())]
+    await send({"type": "http.response.start", "status": status,
+                "headers": headers + (extra or [])})
+    await send({"type": "http.response.body", "body": body})
