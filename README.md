@@ -27,11 +27,65 @@ gowui user add alice       # prompts twice for the password (or use --password-s
 gowui serve                # serves on 0.0.0.0:8080; users sign in at /login
 ```
 
-Each account gets its own boards, saved in SQLite, and picks engines only from the catalog; the
-engine addresses never reach the browser. For SSO behind a reverse proxy, set `GOWUI_AUTH=header`
-(or `local,header`) and `GOWUI_TRUSTED_PROXIES`, and have the proxy strip any client-supplied
-user header. Every variable, the sign-in rules and the proxy rules are in `SPEC.md` §10, §7 and §9;
-`gowui serve` refuses to start on a malformed setting.
+`gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` is configured only by the
+environment variables below. Each account gets its own boards, saved in SQLite, and picks engines
+only from the catalog; the engine addresses never reach the browser. `gowui serve` refuses to
+start, with one line naming the variable, on a malformed setting. The sign-in and proxy rules are in
+`SPEC.md` §7 and §9.
+
+### Configuration
+
+Unset or empty means the default. The exact rules for each value are in `SPEC.md` §10.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `GOWUI_DB` | SQLite file | `./data/gowui.db` (container: `/data/gowui.db`) |
+| `GOWUI_AUTH` | `local` (passwords), `header` (SSO proxy) or `local,header` | `local` |
+| `GOWUI_AUTH_HEADER` | header the proxy sets to the user name | `X-authentik-username` |
+| `GOWUI_TRUSTED_PROXIES` | comma-separated IPs/CIDRs of the proxies whose headers are believed; required for `header` | — |
+| `GOWUI_LOGOUT_URL` | where log-out sends SSO users | — |
+| `GOWUI_SESSION_DAYS` | password session lifetime, days | `14` |
+| `GOWUI_COOKIE_SECURE` | `auto` (Secure over https), `1` or `0` | `auto` |
+| `GOWUI_ENGINES` | JSON list of catalog entries `{id, label?, protocol, host, port, console?}` | `[]` |
+| `GOWUI_IDLE_MINUTES` | release a space after this many minutes with no tab | `10` |
+
+For SSO behind a reverse proxy, set `GOWUI_AUTH=header` (or `local,header`) and
+`GOWUI_TRUSTED_PROXIES` to the proxy's own address, and have the proxy remove any client-sent
+`GOWUI_AUTH_HEADER` before its forward auth sets it. A TLS proxy in front of password sign-in must
+be listed in `GOWUI_TRUSTED_PROXIES` too, or set `GOWUI_COOKIE_SECURE=1`.
+
+### Accounts
+
+Password accounts live in `GOWUI_DB`; the commands read no other variable and work while the
+server runs.
+
+```bash
+gowui user add alice                       # prompts twice; or --password-stdin reads one line
+gowui user passwd alice [--password-stdin] # new password; signs the account out everywhere
+gowui user remove alice                    # deletes the account, its sessions and its boards
+gowui user list                            # one name per line
+```
+
+### Container
+
+The `Dockerfile` builds the server-mode image: non-root (uid 10001), the database at
+`/data/gowui.db` on the `/data` volume, `gowui serve` as the default command, and a health check on
+`/healthz` (`SPEC.md` §10.1).
+
+```bash
+docker build -t gowui:local .
+docker run -d --name gowui -p 127.0.0.1:8080:8080 -v gowui-data:/data \
+  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+  -e GOWUI_ENGINES='[{"id": "katago", "protocol": "analysis", "host": "10.0.0.5", "port": 6364}]' \
+  gowui:local
+docker exec -it gowui gowui user add alice                                  # prompts
+printf '%s\n' "$PASSWORD" | docker exec -i gowui gowui user add bob --password-stdin
+```
+
+A bind mount on `/data` must be writable by uid 10001. `deploy/compose.password.yaml` runs it with
+password sign-in on a loopback port; `deploy/compose.sso.yaml` puts it behind traefik with
+Authentik forward auth, strips the client-sent user header first and trusts only traefik's fixed
+address. Replace the example values before use.
 
 ## Development
 
