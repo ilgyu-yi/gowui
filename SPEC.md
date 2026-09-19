@@ -1435,7 +1435,7 @@ addition to the section in its Behaviour column.
 | B1 | Play human vs human, human vs engine, engine vs engine | §3.2 | both | session: `tests/test_session_play.py`; UI: pending |
 | B2 | Engine move on demand (`genmove`) | §3.2 | both | session: `tests/test_session_play.py`; UI: pending |
 | B3 | handol-mux move style per colour (human sample / KataGo first choice) | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
-| B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
+| B4 | Candidate overlay with label choice (winrate / visits / policy / score) and candidate table | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: `tests/browser/test_smoke.py` |
 | B5 | PV preview on hover with numbered stones | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B6 | Raw policy heatmap | §2.2 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; UI: pending |
 | B7 | Ownership overlay | §2.3, §2.4, §2.5 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: pending |
@@ -1446,19 +1446,19 @@ addition to the section in its Behaviour column.
 | B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: pending |
 | B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: pending |
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: pending |
-| B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: pending |
-| B16 | Final score | §3.5 | both | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: pending |
-| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
+| B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/test_frontend_static.py` |
+| B16 | Final score | §3.5 | both | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py` |
+| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/browser/test_smoke.py` |
 | B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; session: `tests/test_session_engine.py`, `tests/test_session_messages.py`; UI: pending |
 | B19 | handol-mux profile picker with explanations | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
-| B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | validation: `tests/test_handol_tuple.py`, `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
+| B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | validation: `tests/test_handol_tuple.py`, `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_validator.py` |
 | B21 | Tuple presets: built-in, save, delete, export, import | §8.5 | both | pending |
 | B22 | Two-tuple compare with A / B / Δ heatmaps and table | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
 | B23 | handol-mux winrate through eval visits | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
 | B24 | handol-mux side-to-move refusal with an explanation | §2.5 | both | engine: `tests/test_handol.py`; UI: pending |
-| B25 | Multiple boards: duplicate, select, `[` `]`, rename in place, delete, thumbnails | §3.3 | both | session: `tests/test_session_boards.py`; UI: pending |
+| B25 | Multiple boards: duplicate, select, `[` `]`, rename in place, delete, thumbnails | §3.3 | both | session: `tests/test_session_boards.py`; UI: `tests/browser/test_smoke.py` |
 | B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: pending |
-| B27 | Korean / English UI, remembered | §8.5 | both | pending |
+| B27 | Korean / English UI, remembered | §8.5 | both | UI: `tests/test_frontend_i18n.py`, `tests/test_frontend_static.py` |
 | B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | pending |
 | B29 | Several tabs share one view | §3.1 | both | session: `tests/test_session_messages.py`; transport: `tests/test_spaces.py`, `tests/test_app_local.py` |
 | B30 | Engine traffic log | §3.6 | both | session: `tests/test_session_engine.py`; UI: pending |
@@ -1480,7 +1480,7 @@ addition to the section in its Behaviour column.
 | N8 | `gowui user` account management | §9 | server | pending |
 | N9 | `/healthz` liveness | §5 | both | app: `tests/test_app_local.py`, `tests/test_app_security.py`, `tests/test_cli.py` |
 | N10 | Fail-closed server configuration | §7.9 | server | pending |
-| N11 | Request limits and response headers | §7.5, §7.6 | both | session: `tests/test_session_messages.py`; app: `tests/test_app_security.py`, `tests/test_app_local.py` |
+| N11 | Request limits and response headers | §7.5, §7.6 | both | session: `tests/test_session_messages.py`; app: `tests/test_app_security.py`, `tests/test_app_local.py`; page: `tests/test_frontend_static.py`, `tests/browser/test_smoke.py` |
 | N12 | Container deployment | §10 | server | pending |
 | N13 | Operation behind a reverse proxy | §7.10 | server | pending |
 

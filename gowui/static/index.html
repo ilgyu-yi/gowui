@@ -1,11 +1,235 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>gowui</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<h1>gowui</h1>
-<p>The page is not built yet.</p>
+<header class="topbar">
+  <h1>gowui</h1>
+  <div class="engine-line">
+    <select id="protocol" data-i18n-title="protocol.title">
+      <option value="gtp">GTP</option>
+      <option value="analysis">Analysis</option>
+      <option value="handol" data-i18n="protocol.handol">handol-mux (human)</option>
+    </select>
+    <input id="host" type="text" value="127.0.0.1" size="11" data-i18n-title="host.title">
+    <input id="port" type="number" value="6363" min="1" max="65535" data-i18n-title="port.title">
+    <button id="connect" class="primary" data-i18n="connect">Connect</button>
+    <span id="engine-state" class="badge off" data-i18n="disconnected">disconnected</span>
+  </div>
+  <select id="lang" title="Language / 언어">
+    <option value="ko">한국어</option>
+    <option value="en">English</option>
+  </select>
+  <div id="status" class="status"></div>
+</header>
+
+<main>
+  <nav class="boards">
+    <div id="board-list" class="board-list"></div>
+    <button id="board-duplicate" type="button" data-i18n="boards.duplicate" data-i18n-title="boards.duplicate.title">+ Duplicate</button>
+  </nav>
+
+  <section class="board-pane">
+    <div id="board-wrap">
+      <canvas id="board" width="820" height="820"></canvas>
+    </div>
+    <div class="board-controls">
+      <button id="first" data-i18n-title="nav.first">&#124;&laquo;</button>
+      <button id="prev10" data-i18n-title="nav.prev10">&laquo;</button>
+      <button id="prev" data-i18n-title="nav.prev">&lsaquo;</button>
+      <span id="move-counter" class="counter">0 / 0</span>
+      <button id="next" data-i18n-title="nav.next">&rsaquo;</button>
+      <button id="next10" data-i18n-title="nav.next10">&raquo;</button>
+      <button id="last" data-i18n-title="nav.last">&raquo;&#124;</button>
+      <span class="spacer"></span>
+      <button id="pass" data-i18n="pass">Pass</button>
+      <button id="undo" data-i18n="undo">Undo</button>
+      <button id="resign" data-i18n="resign">Resign</button>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="winbar" data-i18n-title="winbar.title">
+      <div id="winbar-black" class="winbar-black"></div>
+      <span id="winbar-label" class="winbar-label">--</span>
+    </div>
+    <div class="eval-line">
+      <span><span data-i18n="toPlay">To play:</span> <b id="to-play">black</b></span>
+      <span id="score-lead">score --</span>
+      <span id="visit-count">0 visits</span>
+    </div>
+
+    <details open class="human-only" hidden>
+      <summary data-i18n="human.section">Human policy</summary>
+      <div class="row">
+        <label><span data-i18n="human.profile">Profile</span>
+          <input type="text" id="human-profile" value="preaz_1d" size="14" list="profile-list"
+                 autocomplete="off" data-i18n-title="human.profile.title"></label>
+        <datalist id="profile-list"></datalist>
+        <span class="help-anchor"><span id="profile-help" class="help-dot" tabindex="0">?</span></span>
+        <label data-i18n-title="human.evalVisits.title"><span data-i18n="human.evalVisits">Winrate visits</span>
+          <input type="number" id="eval-visits" value="200" min="0" max="100000" step="100"></label>
+      </div>
+
+      <div class="row compare-row">
+        <label><input type="checkbox" id="compare-on"> <span data-i18n="compare.on">Compare two tuples</span></label>
+        <span class="tabs" id="tuple-tabs" hidden>
+          <button type="button" data-slot="A" class="tab active">A</button>
+          <button type="button" data-slot="B" class="tab">B</button>
+        </span>
+        <label id="compare-view-wrap" hidden><span data-i18n="compare.view">Show</span>
+          <select id="compare-view">
+            <option value="A" data-i18n="compare.view.A">A</option>
+            <option value="B" data-i18n="compare.view.B">B</option>
+            <option value="diff" data-i18n="compare.view.diff">Difference B − A</option>
+          </select></label>
+      </div>
+
+      <div class="row">
+        <label class="grow"><span data-i18n="human.preset">Preset</span>
+          <select id="human-preset"></select></label>
+      </div>
+      <div class="row preset-actions">
+        <button type="button" id="preset-save" data-i18n="preset.save">Save as…</button>
+        <button type="button" id="preset-delete" data-i18n="preset.delete">Delete</button>
+        <button type="button" id="preset-export" data-i18n="preset.export">Export</button>
+        <button type="button" id="preset-import" data-i18n="preset.import">Import</button>
+        <input type="file" id="preset-file" accept=".json,application/json" hidden>
+      </div>
+
+      <div class="knobs" id="tuple-knobs"></div>
+      <label class="live"><input type="checkbox" id="live-apply" checked> <span data-i18n="human.live">Apply while dragging</span></label>
+
+      <details class="advanced">
+        <summary data-i18n="human.advanced">Raw values</summary>
+        <div class="tuple-grid" id="tuple-fields"></div>
+        <div class="row">
+          <label class="grow"><span data-i18n="human.json">JSON</span>
+            <input type="text" id="human-policy" value="{}" spellcheck="false"
+                   data-i18n-title="human.json.title"></label>
+        </div>
+      </details>
+      <p id="tuple-problem" class="problem" hidden></p>
+      <p class="hint" data-i18n="human.hint">Visits 1 = policy only (no search). Labels and the heatmap show the selection probability.</p>
+    </details>
+
+    <details open>
+      <summary data-i18n="analysis.section">Analysis</summary>
+      <div class="row">
+        <label><input type="checkbox" id="analysis-on"> <span data-i18n="analysis.continuous">Continuous analysis</span></label>
+      </div>
+      <div class="row">
+        <label><span data-i18n="analysis.visits">Visits</span> <input type="number" id="max-visits" value="500" min="1" max="1000000" step="100"></label>
+        <label><span data-i18n="analysis.every">Every</span> <input type="number" id="interval" value="0.4" min="0.1" max="10" step="0.1"><span data-i18n="analysis.seconds">s</span></label>
+      </div>
+      <div class="row">
+        <label><span data-i18n="analysis.label">Label</span>
+          <select id="label-mode">
+            <option value="winrate" data-i18n="label.winrate">Winrate</option>
+            <option value="visits" data-i18n="label.visits">Visits</option>
+            <option value="prior" data-i18n="label.prior">Policy %</option>
+            <option value="score" data-i18n="label.score">Score lead</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="show-ownership"> <span data-i18n="analysis.ownership">Ownership</span></label>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="show-policy"> <span data-i18n="analysis.heatmap">Raw policy heatmap</span></label>
+        <label><input type="checkbox" id="show-numbers"> <span data-i18n="analysis.numbers">Move numbers</span></label>
+      </div>
+      <table class="candidates">
+        <thead><tr>
+          <th data-i18n="col.move">Move</th><th data-i18n="col.win">Win</th><th data-i18n="col.score">Score</th>
+          <th data-i18n="col.visits">Visits</th><th data-i18n="col.policy">Policy</th>
+        </tr></thead>
+        <tbody id="candidates"></tbody>
+      </table>
+    </details>
+
+    <details open>
+      <summary data-i18n="players.section">Players</summary>
+      <div class="row">
+        <label><input type="checkbox" id="black-engine"> <span data-i18n="players.black">KataGo plays Black</span></label>
+        <label><input type="checkbox" id="white-engine"> <span data-i18n="players.white">KataGo plays White</span></label>
+      </div>
+      <div class="row human-only" hidden>
+        <label data-i18n-title="style.title"><span data-i18n="style.black">Black moves</span>
+          <select id="black-style">
+            <option value="human" data-i18n="style.human">human distribution</option>
+            <option value="katago" data-i18n="style.katago">KataGo's best</option>
+          </select></label>
+        <label data-i18n-title="style.title"><span data-i18n="style.white">White moves</span>
+          <select id="white-style">
+            <option value="human" data-i18n="style.human">human distribution</option>
+            <option value="katago" data-i18n="style.katago">KataGo's best</option>
+          </select></label>
+      </div>
+      <div class="row">
+        <button id="genmove" data-i18n="players.genmove">Engine move now</button>
+        <button id="final-score" data-i18n="players.finalScore">Final score</button>
+      </div>
+      <div class="row captures">
+        <span><span data-i18n="captures.black">Black captured</span> <b id="captures-black">0</b></span>
+        <span><span data-i18n="captures.white">White captured</span> <b id="captures-white">0</b></span>
+      </div>
+    </details>
+
+    <details>
+      <summary data-i18n="newGame.section">New game</summary>
+      <div class="row">
+        <label><span data-i18n="newGame.size">Size</span>
+          <select id="new-size">
+            <option>9</option><option>13</option><option selected>19</option>
+          </select>
+        </label>
+        <label><span data-i18n="newGame.handicap">Handicap</span> <input type="number" id="new-handicap" value="0" min="0" max="9"></label>
+      </div>
+      <div class="row">
+        <label><span data-i18n="newGame.komi">Komi</span> <input type="number" id="new-komi" value="6.5" step="0.5"></label>
+        <label><span data-i18n="newGame.rules">Rules</span>
+          <select id="new-rules">
+            <option value="japanese" selected data-i18n="rules.japanese">Japanese</option>
+            <option value="korean" data-i18n="rules.korean">Korean</option>
+            <option value="chinese" data-i18n="rules.chinese">Chinese</option>
+            <option value="aga">AGA</option>
+            <option value="new-zealand" data-i18n="rules.newZealand">New Zealand</option>
+            <option value="tromp-taylor">Tromp-Taylor</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="new-game" class="primary" data-i18n="newGame.start">Start</button>
+        <button id="save-sgf" data-i18n="newGame.save">Save SGF</button>
+        <button id="load-sgf" data-i18n="newGame.load">Load SGF</button>
+        <input type="file" id="sgf-file" accept=".sgf,text/plain" hidden>
+      </div>
+    </details>
+
+    <details>
+      <summary data-i18n="moves.section">Moves</summary>
+      <ol id="move-list" class="move-list"></ol>
+    </details>
+
+    <details id="console-section">
+      <summary data-i18n="console.section">Engine console</summary>
+      <div id="log" class="log"></div>
+      <form id="raw-form" class="row">
+        <input id="raw" type="text" placeholder="showboard" autocomplete="off">
+        <button type="submit" data-i18n="console.send">Send</button>
+      </form>
+    </details>
+  </aside>
+</main>
+
+<script src="/js/i18n.js"></script>
+<script src="/js/tuple.js"></script>
+<script src="/js/profile.js"></script>
+<script src="/js/board.js"></script>
+<script src="/js/app.js"></script>
 </body>
 </html>
