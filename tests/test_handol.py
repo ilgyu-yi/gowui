@@ -424,8 +424,8 @@ BAD = [
     dict(compare={"foo": 1}),
     dict(policy=LAMBDA, max_visits=1),
 ]
-#: SPEC §2.5 does not say whether an engine move carries the compare tuple, so the bad-compare
-#: case is left out of the engine-move refusals.
+#: An engine move carries only the primary tuple (SPEC §2.5), so a bad compare tuple does not
+#: refuse it; the bad-compare case is left out of the engine-move refusals.
 BAD_FOR_MOVES = [s for s in BAD if "compare" not in s]
 
 
@@ -963,3 +963,363 @@ async def test_a_bad_p_is_never_played(fake_engine, connect):
         engine.rng = random.Random(seed)
         moves.append(await genmove(engine, EMPTY, "B"))
     assert not {key(m) for m in moves} & {key(m) for m in bad}
+
+
+# -- review round 1 ----------------------------------------------------------------------------------
+class Scripted:
+    """A handol surface whose answers the test writes: ``await answer(request)`` returns the reply
+    lines (raw text) for each request line, in order."""
+
+    protocol = "handol"
+
+    def __init__(self, answer) -> None:
+        self.answer = answer
+        self.port = 0
+        self.requests: list[dict] = []
+        self.accepted = 0
+        self._writers: set = set()
+        self._tasks: set = set()
+        self._server = None
+
+    async def start(self) -> "Scripted":
+        self._server = await asyncio.start_server(self._client, HOST, 0, limit=16 * 1024 * 1024)
+        self.port = self._server.sockets[0].getsockname()[1]
+        return self
+
+    @property
+    def open_connections(self) -> int:
+        return len(self._writers)
+
+    async def _client(self, reader, writer) -> None:
+        self.accepted += 1
+        self._writers.add(writer)
+        task = asyncio.current_task()
+        self._tasks.add(task)
+        try:
+            while True:
+                raw = await reader.readline()
+                if not raw:
+                    return
+                request = json.loads(raw)
+                self.requests.append(request)
+                for line in await self.answer(request):
+                    writer.write((line + "\n").encode())
+                await writer.drain()
+        except (asyncio.CancelledError, ConnectionError, OSError, ValueError):
+            pass
+        finally:
+            self._writers.discard(writer)
+            self._tasks.discard(task)
+            writer.close()
+
+    async def stop(self) -> None:
+        if self._server is not None:
+            self._server.close()
+        for writer in list(self._writers):
+            writer.close()
+        tasks = [t for t in self._tasks if t is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.fixture
+async def scripted():
+    """``await scripted(answer)`` starts a :class:`Scripted` surface, stopped at teardown."""
+    servers = []
+
+    async def start(answer) -> Scripted:
+        server = await Scripted(answer).start()
+        servers.append(server)
+        return server
+
+    yield start
+    for server in servers:
+        await asyncio.wait_for(server.stop(), HANG)
+
+
+def human_answer(request: dict, entries=(("E5", 0.5), ("D4", 0.3))) -> str:
+    distribution = [{"move": move, "p": p} for move, p in entries]
+    count = len(request["human"]["policies"])
+    return json.dumps({"id": request["id"],
+                       "policies": [{"params": {}, "distribution": distribution}] * count})
+
+
+def plain_answer(request: dict) -> str:
+    return json.dumps({"id": request["id"], "moveInfos": [],
+                       "rootInfo": {"visits": 1, "winrate": 0.4, "scoreLead": 1.0}})
+
+
+def nested_error(request: dict, depth: int = 100_000) -> str:
+    """An error reply whose value is nested ``depth`` deep: json.loads takes it, str() cannot."""
+    return '{"id": "%s", "error": %s%s}' % (request["id"], "[" * depth, "]" * depth)
+
+
+def is_human(request: dict) -> bool:
+    return "human" in request
+
+
+# F1: a request in flight when the engine is closed or reconnected is not resent.
+async def request_during(scripted, connect, action: str):
+    async def answer(request):
+        if len(server.requests) == 1:
+            await asyncio.sleep(0.5)
+        return [human_answer(request)]
+
+    server = await scripted(answer)
+    engine = await handol(connect, server)
+    task = asyncio.create_task(engine.genmove(EMPTY, "B"))
+    await wait_for(lambda: len(server.requests) == 1)
+    await asyncio.wait_for(getattr(engine, action)(), HANG)
+    error = None
+    try:
+        await asyncio.wait_for(task, HANG)
+    except EngineError as exc:
+        error = exc
+    await asyncio.sleep(0.8)  # past the held reply
+    return server, error
+
+
+#: After close() no connection is left; after connect() only the new one (one more accepted).
+AFTER = {"close": 1, "connect": 2}
+
+
+@pytest.mark.parametrize("action", AFTER)
+async def test_a_request_in_flight_at_close_or_connect_is_an_engine_error(scripted, connect,
+                                                                           action):
+    _, error = await request_during(scripted, connect, action)
+    assert isinstance(error, EngineError)
+
+
+@pytest.mark.parametrize("action", AFTER)
+async def test_a_request_in_flight_at_close_or_connect_is_not_resent(scripted, connect, action):
+    server, _ = await request_during(scripted, connect, action)
+    assert len(server.requests) == 1
+
+
+@pytest.mark.parametrize("action", AFTER)
+async def test_a_request_in_flight_at_close_or_connect_opens_no_connection(scripted, connect,
+                                                                           action):
+    server, _ = await request_during(scripted, connect, action)
+    assert server.accepted == AFTER[action]
+
+
+@pytest.mark.parametrize("action", AFTER)
+async def test_a_request_in_flight_at_close_or_connect_leaves_nothing_open(scripted, connect,
+                                                                           action):
+    server, _ = await request_during(scripted, connect, action)
+    assert server.open_connections == AFTER[action] - 1
+
+
+# F2a: asking for a move stops a running analysis (without the caller stopping it).
+async def test_genmove_stops_a_running_analysis(fake_engine, connect):
+    server = await fake_engine("handol", query_delay=FirstOnly(0.5))
+    engine = await handol(connect, server)
+    reports = Reports()
+    await asyncio.wait_for(engine.start_analysis(EMPTY, reports, max_visits=10), HANG)
+    await wait_for(lambda: len(human_requests(server)) == 1)
+    await genmove(engine, position_from(game_with(9, "E5")), "W")
+    await asyncio.sleep(0.3)
+    assert len(reports) == 0
+
+
+# F2b: an engine move carries only the primary tuple.
+async def test_an_engine_move_carries_only_the_primary_tuple(handol_server, connect):
+    engine = await handol(connect, handol_server, policy={"min_p": 0.05},
+                          compare={"distance_slope": 1})
+    await genmove(engine, EMPTY, "B")
+    assert human_requests(handol_server)[0]["human"]["policies"] == [{"min_p": 0.05}]
+
+
+# F2c: with two tuples out and one policy back, the note names the short answer.
+async def test_fewer_policies_than_two_tuples_leaves_a_note_naming_it(fake_engine, connect):
+    server = await fake_engine("handol", short_policies=True)
+    log = Log()
+    engine = await handol(connect, server, log=log, compare={"distance_slope": 1},
+                          eval_visits=0)
+    await asyncio.wait_for(engine.start_analysis(EMPTY, Reports(), max_visits=10), HANG)
+    await wait_for(lambda: log.notes)
+    assert any("1 policies for 2 tuples" in note for note in log.notes)
+
+
+# F2d: a non-finite number is never sent.
+NAN_KOMI = Position(size=9, komi=float("nan"), rules="japanese", initial_stones=[], moves=[])
+
+
+async def test_genmove_refuses_a_non_finite_komi_and_sends_nothing(handol_server, connect):
+    engine = await handol(connect, handol_server)
+    with pytest.raises(EngineError):
+        await genmove(engine, NAN_KOMI, "B")
+    await asyncio.sleep(0.2)
+    assert handol_server.requests == []
+
+
+async def test_start_analysis_refuses_a_non_finite_komi_and_sends_nothing(handol_server,
+                                                                         connect):
+    engine = await handol(connect, handol_server)
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.start_analysis(NAN_KOMI, Reports(), max_visits=10), HANG)
+    await asyncio.sleep(0.2)
+    assert handol_server.requests == []
+
+
+# F5: a move style that is not a colour map is stored and refused at the move.
+@pytest.mark.parametrize("style", ["katago", None, ["human"]])
+async def test_a_move_style_that_is_not_a_colour_map_is_refused_and_sends_nothing(
+        handol_server, connect, style):
+    engine = await handol(connect, handol_server)
+    engine.configure(move_style=style)
+    with pytest.raises(EngineError):
+        await genmove(engine, EMPTY, "B")
+    await asyncio.sleep(0.2)
+    assert handol_server.requests == []
+
+
+# M1 + F3: an error value that cannot be rendered, or any other failure while reading an answer,
+# is an engine error: a move fails with it, and analysis notes it and goes on.
+async def test_a_deeply_nested_error_reply_is_an_engine_error_for_genmove(scripted, connect):
+    async def answer(request):
+        return [nested_error(request)]
+
+    server = await scripted(answer)
+    engine = await handol(connect, server)
+    with pytest.raises(EngineError):
+        await genmove(engine, EMPTY, "B")
+
+
+async def first_fails_then_next(server, connect, log):
+    """Analyse EMPTY; while its answer is held, ask for the next position (White to move)."""
+    engine = await handol(connect, server, log=log, eval_visits=0)
+    reports = Reports()
+    await asyncio.wait_for(engine.start_analysis(EMPTY, reports, max_visits=10), HANG)
+    await wait_for(lambda: len(server.requests) == 1)
+    await asyncio.wait_for(engine.start_analysis(position_from(game_with(9, "E5")), reports,
+                                                 max_visits=10), HANG)
+    await reports.at_least(1)
+    return reports
+
+
+async def test_a_deeply_nested_error_reply_leaves_a_note_and_the_next_position_arrives(
+        scripted, connect):
+    async def answer(request):
+        if len(server.requests) == 1:
+            await asyncio.sleep(0.3)
+            return [nested_error(request)]
+        return [human_answer(request)]
+
+    server = await scripted(answer)
+    log = Log()
+    reports = await first_fails_then_next(server, connect, log)
+    assert [r.current_player for r in reports.items] == ["W"]
+    assert any("analysis failed" in note for note in log.notes)
+
+
+async def test_an_unexpected_failure_reading_an_answer_leaves_a_note_and_the_queue_goes_on(
+        scripted, connect, monkeypatch):
+    import gowui.engine.handol as handol_module
+
+    real = handol_module.parse_answer
+    calls = []
+
+    def flaky(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("unexpected")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(handol_module, "parse_answer", flaky)
+
+    async def answer(request):
+        if len(server.requests) == 1:
+            await asyncio.sleep(0.3)
+        return [human_answer(request)]
+
+    server = await scripted(answer)
+    log = Log()
+    reports = await first_fails_then_next(server, connect, log)
+    assert [r.current_player for r in reports.items] == ["W"]
+    assert any("analysis failed" in note and "RuntimeError" in note for note in log.notes)
+
+
+# M2: p above 1 becomes 1, so huge finite ps never break the weighted draw.
+async def test_huge_finite_ps_never_break_the_draw(scripted, connect):
+    async def answer(request):
+        return [human_answer(request, (("E5", 1e308), ("D4", 1e308)))]
+
+    server = await scripted(answer)
+    engine = await handol(connect, server)
+    try:
+        move = await genmove(engine, EMPTY, "B")
+    except EngineError:
+        return
+    assert key(move) in {"E5", "D4"}
+
+
+async def test_a_p_above_one_is_one_in_the_policy(scripted, connect):
+    async def answer(request):
+        return [human_answer(request, (("E5", 5.0), ("D4", 0.25)))]
+
+    server = await scripted(answer)
+    engine = await handol(connect, server, eval_visits=0)
+    reports = await analyse(engine, EMPTY)
+    policy = reports[0].policy
+    assert (policy[point_index("E5", 9)], policy[point_index("D4", 9)]) == (1.0, 0.25)
+
+
+# L1: a profile name is 1-64 characters of letters, digits, "_", "." and "-".
+BAD_PROFILES = ["x" * 65, "rank 5k", "a/b", "prö"]
+
+
+@pytest.mark.parametrize("profile", BAD_PROFILES)
+async def test_start_analysis_refuses_a_bad_profile_and_sends_nothing(handol_server, connect,
+                                                                      profile):
+    engine = await handol(connect, handol_server, profile=profile)
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.start_analysis(EMPTY, Reports(), max_visits=10), HANG)
+    await asyncio.sleep(0.2)
+    assert handol_server.requests == []
+
+
+@pytest.mark.parametrize("profile", BAD_PROFILES)
+async def test_genmove_refuses_a_bad_profile_and_sends_nothing(handol_server, connect, profile):
+    engine = await handol(connect, handol_server, profile=profile)
+    with pytest.raises(EngineError):
+        await genmove(engine, EMPTY, "B")
+    await asyncio.sleep(0.2)
+    assert handol_server.requests == []
+
+
+# L2: a winrate request whose human request failed is abandoned, not awaited.
+async def test_a_failed_human_request_does_not_wait_for_its_winrate(scripted, connect):
+    held = asyncio.Event()
+
+    async def answer(request):
+        first = sum(1 for r in server.requests if is_human(r) == is_human(request)) == 1
+        if first and is_human(request):
+            # Refuse only once the winrate request is out, so that it is in flight.
+            await wait_for(lambda: any(not is_human(r) for r in server.requests))
+            return [json.dumps({"id": request["id"], "error": "refused"})]
+        if first:
+            await held.wait()  # never set: the first winrate answer never comes
+        return [human_answer(request) if is_human(request) else plain_answer(request)]
+
+    server = await scripted(answer)
+    engine = await handol(connect, server)
+    reports = Reports()
+    await asyncio.wait_for(engine.start_analysis(EMPTY, reports, max_visits=10), HANG)
+    await wait_for(lambda: len(server.requests) == 2)
+    await asyncio.wait_for(engine.start_analysis(position_from(game_with(9, "E5")), reports,
+                                                 max_visits=10), HANG)
+    await reports.at_least(1, timeout=1.5)
+    assert [r.current_player for r in reports.items] == ["W"]
+
+
+# L3: blank lines are skipped only up to a limit.
+async def test_endless_blank_lines_are_an_engine_error(scripted, connect):
+    async def answer(request):
+        return [" "] * 5000
+
+    server = await scripted(answer)
+    engine = await handol(connect, server)
+    with pytest.raises(EngineError):
+        await genmove(engine, EMPTY, "B")
