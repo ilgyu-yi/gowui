@@ -64,11 +64,11 @@
 | &nbsp;&nbsp;§8.4 | Server database | 1102 |
 | &nbsp;&nbsp;§8.5 | Browser storage | 1107 |
 | §9 | Command line | 1111 |
-| §10 | Configuration (server) | 1148 |
-| §11 | Feature inventory | 1168 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1174 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1212 |
-| §12 | Non-goals | 1230 |
+| §10 | Configuration (server) | 1152 |
+| §11 | Feature inventory | 1172 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1178 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1216 |
+| §12 | Non-goals | 1234 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1136,8 +1136,12 @@ One command, `gowui`:
     header is sent.
   - **State path.** A `--state` path, or the default path, that exists but is not a regular file
     is a usage error (§8.3).
-  - **Stopping.** Ctrl-C (SIGINT) runs the lifespan shutdown, which saves (§8.2), and then exits
-    with status 130 without printing a traceback.
+  - **Stopping.** Ctrl-C (SIGINT) runs the lifespan shutdown, which saves (§8.2). The process
+    then dies by SIGINT without printing a traceback: the shell shows status 130, and an
+    enclosing shell loop or script stops as it would for any program killed by Ctrl-C. (On
+    Windows, which has no such signal death, it exits with status 130.) A second Ctrl-C while the
+    server is still waiting to shut down forces the quit: the lifespan shutdown is skipped, so
+    nothing is saved.
 - `gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` — server mode, configured by §10.
   Runs without generic forwarded-header rewriting: only the headers of §7.10 are read, and only from trusted proxies.
 - `gowui user add NAME`, `gowui user passwd NAME` — prompt twice for the password, or read one line
