@@ -213,6 +213,9 @@ async def websocket(ws: WebSocket) -> None:
             if not isinstance(data, dict):
                 tab.push({"type": "error", "message": "a frame must be a JSON object"})
                 continue
+            if data.get("type") == "ack":
+                tab.ack()  # the transport's, never the session's (§4.3 Acknowledgement)
+                continue
             await session.handle(data)
     finally:
         revalidators.discard(revalidate)

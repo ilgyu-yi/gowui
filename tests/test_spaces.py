@@ -406,6 +406,64 @@ async def test_a_stalled_tab_is_not_closed_by_state_and_analysis_frames(registri
     assert (tab.closed, tab.types().count("log_history")) == ([], 1)
 
 
+async def acknowledging(registry) -> tuple[FakeTab, object, object]:
+    """A tab that has received its attach frames and acknowledged the attach ``state``."""
+    fake = FakeTab()
+    tab = await registry.attach(owner(), fake.send, fake.close)
+    await wait_for(lambda: len(fake.texts) >= 2)
+    tab.ack()
+    return fake, tab, registry.live["owner"]
+
+
+async def test_an_acknowledging_tab_is_sent_nothing_while_a_state_is_unacknowledged(registries):
+    """§4.3 "Acknowledgement": the frames wait in the queue, where the newest ``state``
+    supersedes the others; each ``ack`` lets the frames up to the next ``state`` go, in order."""
+    registry = registries(queue_size=8)
+    fake, tab, space = await acknowledging(registry)
+    space.hub.broadcast({"type": "state", "n": 0})
+    await wait_for(lambda: any(f.get("n") == 0 for f in fake.frames))
+    for n in range(1, 50):
+        space.hub.broadcast({"type": "state", "n": n})
+    space.hub.broadcast(note("t-after"))
+    await settle(0.1)
+    assert [f.get("n") for f in marked(fake)] == [0]
+    tab.ack()
+    await wait_for(lambda: any(f.get("n") == 49 for f in fake.frames))
+    await settle(0.1)
+    assert [f.get("n") for f in marked(fake)] == [0, 49]
+    tab.ack()
+    await wait_for(lambda: fake.types()[-1] == "log")
+    assert [f.get("n", f.get("line", {}).get("text")) for f in marked(fake)] == [0, 49, "t-after"]
+    assert fake.closed == []
+
+
+async def test_an_ack_beyond_the_states_sent_opens_no_extra_window(registries):
+    """§4.3 "Acknowledgement": an ``ack`` beyond the ``state`` frames sent changes nothing."""
+    registry = registries()
+    fake, tab, space = await acknowledging(registry)
+    for _ in range(5):
+        tab.ack()
+    space.hub.broadcast({"type": "state", "n": 0})
+    await wait_for(lambda: any(f.get("n") == 0 for f in fake.frames))
+    for n in range(1, 3):
+        space.hub.broadcast({"type": "state", "n": n})
+    await settle(0.1)
+    assert [f.get("n") for f in marked(fake)] == [0]
+
+
+async def test_a_tab_that_never_acknowledges_is_not_held_back(registries):
+    """§4.3 "Acknowledgement": a tab that never sent ``ack`` is sent frames as they come."""
+    registry = registries()
+    fake = FakeTab()
+    await registry.attach(owner(), fake.send, fake.close)
+    space = registry.live["owner"]
+    await wait_for(lambda: len(fake.texts) >= 2)
+    for n in range(3):
+        space.hub.broadcast({"type": "state", "n": n})
+        await wait_for(lambda n=n: any(f.get("n") == n for f in fake.frames))
+    assert [f.get("n") for f in marked(fake)] == [0, 1, 2]
+
+
 async def test_a_coalesced_analysis_never_arrives_before_its_state(registries):
     """The newest ``state`` and ``analysis`` keep their broadcast order (§4.3): the page ignores
     an ``analysis`` whose cursor its ``state`` has not reached (§3.8)."""

@@ -24,6 +24,8 @@ from frontend_helpers import (REPO, read_js, send_calls, sent_types, spec_table_
 #: The §4.1 types the page never sends: SGF goes through POST /api/sgf (§3.8 "SGF"), and the
 #: attach frames bring a fresh state without asking.
 NOT_SENT_BY_THE_PAGE = {"load_sgf", "state"}
+#: The §4.1 types the ``/ws`` route takes itself and never passes to the session (§4.3).
+TRANSPORT = {"ack"}
 
 
 def dispatched() -> set[str]:
@@ -71,12 +73,14 @@ def page_handles() -> set[str]:
 
 # -- the server half ------------------------------------------------------------------------------
 def test_the_spec_browser_to_server_table_names_the_known_types():
-    """Count guard on the SPEC reader: §4.1 names 21 types."""
-    assert len(spec_table_types("### 4.1")) == 21
+    """Count guard on the SPEC reader: §4.1 names 22 types."""
+    assert len(spec_table_types("### 4.1")) == 22
 
 
 def test_the_server_dispatches_exactly_the_spec_browser_to_server_types():
-    assert dispatched() == spec_table_types("### 4.1")
+    """The session dispatches every §4.1 type but the transport's ``ack`` (§4.3)."""
+    assert (dispatched(), TRANSPORT <= spec_table_types("### 4.1")) == (
+        spec_table_types("### 4.1") - TRANSPORT, True)
 
 
 def test_the_spec_server_to_browser_table_names_the_known_types():
@@ -103,7 +107,7 @@ def test_only_app_js_sends_frames(name):
 
 def test_every_type_the_page_sends_is_dispatched_by_the_server():
     sends = page_sends()
-    assert sends and sorted(sends - dispatched()) == []
+    assert sends and sorted(sends - dispatched() - TRANSPORT) == []
 
 
 def test_the_page_sends_every_control_type_of_the_spec():
@@ -180,3 +184,13 @@ def test_the_page_never_compares_a_launch_mode_name():
                      ("app.js", "board.js", "tuple.js", "profile.js"))
     mode = r"['\"](?:local|server)['\"]"
     assert re.findall(rf"[!=]==?\s*{mode}|{mode}\s*[!=]==?", code) == []
+
+
+def test_the_page_acknowledges_every_state_it_handles_even_one_it_fails_to_apply():
+    """§3.8, §4.3 "Acknowledgement": the ``state`` case sends ``ack`` in a ``finally``."""
+    block = switch_block(read_js("app.js"))
+    case = re.search(r"case\s+'state'\s*:(?P<body>.*?)break\s*;", block, re.S)
+    assert case is not None, "the page has no state case"
+    assert re.search(r"try\s*\{\s*applyState\(message\);\s*\}\s*finally\s*\{\s*"
+                     r"send\(\{\s*type\s*:\s*'ack'\s*\}\);\s*\}", case.group("body")), \
+        case.group("body")
