@@ -10,6 +10,7 @@ import json
 
 import pytest
 
+from helpers import wait_for
 from session_helpers import settle, sgf_of
 
 
@@ -169,11 +170,16 @@ async def test_only_the_board_on_screen_is_analysed(h, analysis_server):
     start = h.rec.mark()
     await h.send({"type": "board_duplicate"})
     assert await h.rec.wait_state(lambda f: len(f["boards"]) == 2, start)
-    await h.play("E5")
     index = len(analysis_server.requests)
+    await h.play("E5")
+    both = [["B", "D4"], ["W", "E5"]]
+    # A query for the one-move position may still be in flight; count from the first E5 query.
+    assert await wait_for(lambda: any(q["moves"] == both for q in queries_since(analysis_server, index)))
+    queries = queries_since(analysis_server, index)
+    first = next(i for i, q in enumerate(queries) if q["moves"] == both)
     await settle(1.0)
-    moves = [q["moves"] for q in queries_since(analysis_server, index)]
-    assert moves and all(m == [["B", "D4"], ["W", "E5"]] for m in moves)
+    moves = [q["moves"] for q in queries_since(analysis_server, index)[first:]]
+    assert moves and all(m == both for m in moves)
 
 
 async def test_a_report_for_the_board_left_is_not_shown_on_the_new_one(h, fake_engine):

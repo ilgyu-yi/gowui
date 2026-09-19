@@ -178,9 +178,9 @@ async def test_undo_and_a_different_move_at_the_same_cursor_discards_the_search(
     await h.send({"type": "genmove"})
     assert await wait_for(lambda: gtp_count(server, "genmove") == 1)
     await h.send({"type": "undo"})
-    await h.play("E5")
+    await h.play("A1")  # a corner: the fake's genmove never picks it, so only staleness can discard
     await settle(SLOW + 0.8)
-    assert move_list(await h.fresh_state()) == ["E5"]
+    assert move_list(await h.fresh_state()) == ["A1"]
 
 
 async def test_switching_boards_and_back_discards_the_move(h, fake_engine):
