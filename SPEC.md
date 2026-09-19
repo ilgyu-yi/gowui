@@ -481,8 +481,12 @@ all of them — the way a desktop GUI shows one window.
   A `connect` releases the current engine before it connects, so a failed connect leaves the space
   disconnected. A connect superseded by a later lifecycle is no longer pending (§4.1), but its
   attempt runs on until its handshake returns (an engine call is never cancelled mid-command), and
-  the engine it connected is then closed. At most two connect attempts run per space — the live
-  one and one superseded — so a `connect` that would start a third is refused (§4.1).
+  the engine it connected is then closed. An engine released by a `connect`, a `disconnect` or a
+  lost connection is closed in the background, and that close can take seconds. Connect attempts
+  and engines still being closed share one bound of two per space — a `connect` counts the
+  current engine it releases as one being closed — so a `connect` that would exceed it is refused
+  (§4.1), and no more than two engine connections are open or closing at once. A close cut short
+  (at shutdown) drops the engine's connection at once rather than leaving it open.
 - **Broadcast.** Every frame leaves the session through one `broadcast` callable the transport
   supplies. It is synchronous and non-blocking, and it may raise; a failure is contained where it
   happens and never reaches the session's tasks. An awaitable it returns is closed (or ignored) and
@@ -574,9 +578,10 @@ gets "komi must be a finite number". Numbers out of range are clamped (§7.6). A
 on-demand command of each kind — `genmove`, `raw`, `final_score`, `connect` — is pending per space;
 a further one of the same kind while it runs is refused with an `error`. A connect superseded by a
 later lifecycle (a `disconnect`, §3.2) is no longer pending, so a new `connect` is accepted while
-that superseded attempt is still running — but at most two connect attempts run per space (the
-live one and one superseded, §3.2): a `connect` that arrives while two superseded attempts are
-still running is refused with an `error` ("the previous connect is still closing").
+that superseded attempt is still running — but connect attempts and engines still being closed
+share a bound of two per space (§3.2): a `connect` that would exceed it (for instance while two
+superseded attempts, or two released engines, are still closing) is refused with an `error` ("the
+previous connect is still closing").
 A `play` vertex longer than 8 characters and a `new_game` rules name longer than 40 characters are
 refused before they are read, and a refusal quotes at most 40 characters of the value it refuses.
 
