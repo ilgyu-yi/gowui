@@ -469,6 +469,14 @@ async def test_every_answer_carries_nosniff(local_app, kind):
     assert headers.get("x-content-type-options") == "nosniff"
 
 
+@pytest.mark.parametrize("kind", ["200 api", "200 healthz", "200 page", "200 sgf", "400", "403",
+                                  "404", "303", "413"])
+async def test_every_answer_carries_no_cache(local_app, kind):
+    """§7.5: the page is revalidated, so a reload after a 4401 always reaches the guard."""
+    headers = (await answers(local_app))[kind]
+    assert headers.get("cache-control") == "no-cache"
+
+
 async def test_a_401_carries_the_security_headers(anonymous_app):
     async with anonymous_app.client() as client:
         response = await client.get("/api/health")
