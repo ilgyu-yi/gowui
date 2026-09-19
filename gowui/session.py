@@ -645,11 +645,8 @@ class GameSession:
 
     async def _msg_load_sgf(self, message: dict) -> None:
         text = _string(message, "sgf")
-        try:
-            size = len(text.encode("utf-8"))
-        except UnicodeEncodeError:
-            raise _Refused("Could not load SGF: the text is not valid UTF-8") from None
-        if size > MAX_SGF_BYTES:
+        # A lone surrogate counts as its three UTF-8 bytes; a download writes it as ``?`` (§5).
+        if len(text.encode("utf-8", errors="surrogatepass")) > MAX_SGF_BYTES:
             raise _Refused("Could not load SGF: the file is larger than 1 MiB")
         try:
             game = await asyncio.to_thread(Game.from_sgf, text)
@@ -1344,7 +1341,7 @@ class GameSession:
         sgf = raw.get("sgf")
         if isinstance(sgf, str):
             try:
-                if len(sgf.encode("utf-8")) <= MAX_SGF_BYTES:
+                if len(sgf.encode("utf-8", errors="surrogatepass")) <= MAX_SGF_BYTES:
                     game = Game.from_sgf(sgf)
             except Exception:  # noqa: BLE001 - a board that no longer reads comes back empty
                 game = Game(19)

@@ -443,7 +443,8 @@ async def test_fresh_leaves_the_default_file_untouched_after_changes_and_shutdow
               sorted(p.name for p in private_home.parent.iterdir()))
     running = await serve(build_app(parse(["--fresh"])))
     tab = await ready_tab(tabs, running)
-    await send_and_wait(tab, {"type": "load_sgf", "sgf": snapshot_with("Q16")["boards"][0]["sgf"]},
+    await send_and_wait(tab, {"type": "load_sgf",
+                              "sgf": snapshot_with("Q16", size=19)["boards"][0]["sgf"]},
                         lambda f: f["game"]["moveCount"] == 1)
     await running.stop()
     after = (private_home.read_bytes(), private_home.stat().st_mtime_ns,

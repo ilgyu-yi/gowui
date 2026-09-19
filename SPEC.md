@@ -1173,7 +1173,7 @@ issue that builds it lands.
 | B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: pending |
 | B27 | Korean / English UI, remembered | §8.5 | both | pending |
 | B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | pending |
-| B29 | Several tabs share one view | §3.1 | both | session: `tests/test_session_messages.py`; transport: pending |
+| B29 | Several tabs share one view | §3.1 | both | session: `tests/test_session_messages.py`; transport: `tests/test_spaces.py`, `tests/test_app_local.py` |
 | B30 | Engine traffic log | §3.6 | both | session: `tests/test_session_engine.py`; UI: pending |
 | B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | pending |
 | B32 | Move numbers on stones, toggleable | §1.4 | both | model: `tests/test_game.py`; UI: pending |
@@ -1183,17 +1183,17 @@ issue that builds it lands.
 
 | # | Feature | Behaviour | Modes | Tests |
 |---|---|---|---|---|
-| N1 | Boards restored after restart; `--fresh`, `--state` | §8 | local | session: `tests/test_session_snapshot.py`; app restart, `--fresh`, `--state`: pending |
-| N2 | Engine connection restored after restart | §8.1 | both | session: `tests/test_session_snapshot.py`; app restart: pending |
-| N3 | Origin and Host checks | §7.4 | both | pending |
+| N1 | Boards restored after restart; `--fresh`, `--state` | §8 | local | session: `tests/test_session_snapshot.py`; app restart, `--fresh`, `--state`: `tests/test_state_file.py`, `tests/test_spaces.py`, `tests/test_cli.py` |
+| N2 | Engine connection restored after restart | §8.1 | both | session: `tests/test_session_snapshot.py`; app: `tests/test_app_local.py`, `tests/test_spaces.py` |
+| N3 | Origin and Host checks | §7.4 | both | app: `tests/test_app_security.py`; CLI warning: `tests/test_cli.py` |
 | N4 | Password sign-in, sessions, throttling | §7.1, §7.2 | server | pending |
 | N5 | SSO header sign-in from trusted proxies | §7.3 | server | pending |
 | N6 | Per-account isolation and idle release | §7.8 | server | pending |
 | N7 | Catalog-only engines, addresses never sent to the browser | §6.3, §7.7 | server | pending |
 | N8 | `gowui user` account management | §9 | server | pending |
-| N9 | `/healthz` liveness | §5 | both | pending |
+| N9 | `/healthz` liveness | §5 | both | app: `tests/test_app_local.py`, `tests/test_app_security.py`, `tests/test_cli.py` |
 | N10 | Fail-closed server configuration | §7.9 | server | pending |
-| N11 | Request limits and response headers | §7.5, §7.6 | both | pending |
+| N11 | Request limits and response headers | §7.5, §7.6 | both | session: `tests/test_session_messages.py`; app: `tests/test_app_security.py`, `tests/test_app_local.py` |
 | N12 | Container deployment | §10 | server | pending |
 | N13 | Operation behind a reverse proxy | §7.10 | server | pending |
 
