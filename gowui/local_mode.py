@@ -6,11 +6,15 @@ Only the command line builds this bundle (§9); nothing below it knows which mod
 
 from __future__ import annotations
 
+import contextlib
 import copy
+import errno
 import ipaddress
 import json
 import logging
 import os
+import re
+import stat
 import tempfile
 import time
 import unicodedata
@@ -25,14 +29,23 @@ from .guard import normalise_host
 from .policies import Identity, Policies
 from .session import EngineRequestError, EngineTarget
 
-__all__ = ["JsonFileStorage", "LocalIdentity", "MemoryStorage", "STATE_READ_CAP",
-           "TypedAddresses", "default_state_path", "local_policies"]
+__all__ = ["JsonFileStorage", "LocalIdentity", "MemoryStorage", "STATE_MAX_CONTAINERS",
+           "STATE_READ_CAP", "StateFileError", "TypedAddresses", "check_state_path",
+           "default_state_path", "local_policies"]
 
 log = logging.getLogger("gowui")
 
 MIB = 1024 * 1024
 #: 64 boards × 1 MiB of SGF × 6 (worst-case ASCII-escaped JSON growth) + 1 MiB (§8.3).
 STATE_READ_CAP = 64 * MIB * 6 + MIB
+#: Arrays and objects outside strings a state file may hold (§8.3); a snapshot has at most 197.
+STATE_MAX_CONTAINERS = 1024
+#: A JSON string; removed before the containers are counted, so an SGF's ``[`` does not count.
+_JSON_STRING = re.compile(rb'"[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
+_JSON_OBJECT_START = re.compile(rb"[ \t\r\n]*\{")
+#: Errors of ``os.link`` that mean the file system has no hard links.
+_NO_LINKS = frozenset(getattr(errno, name) for name in
+                      ("EPERM", "EOPNOTSUPP", "ENOTSUP", "ENOSYS", "EMLINK") if hasattr(errno, name))
 LOOPBACK_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
 DEFAULT_ENGINE = {"protocol": "gtp", "host": "127.0.0.1", "port": 6363}
 MAX_ENGINE_HOST = 253
@@ -88,6 +101,25 @@ class TypedAddresses:
         return {"kind": "typed", "defaults": dict(self.defaults)}
 
 
+class StateFileError(Exception):
+    """The state path exists but is not a regular file; startup is refused (§8.3)."""
+
+
+def check_state_path(path: str | os.PathLike) -> None:
+    """Raise :class:`StateFileError` when ``path`` exists and is not a regular file (§8.3, §9)."""
+    try:
+        info = os.stat(path)
+    except OSError:
+        return  # missing or unreadable: load() starts fresh or sets it aside
+    if not stat.S_ISREG(info.st_mode):
+        raise StateFileError(f"the state file {os.fspath(path)} exists and is not a regular file")
+
+
+def _open_nonblocking(path: str, flags: int) -> int:
+    """Open without blocking on a FIFO swapped in after the check."""
+    return os.open(path, flags | getattr(os, "O_NONBLOCK", 0))
+
+
 class MemoryStorage:
     """Snapshots in memory only; never touches a file (``--fresh``, §6.4)."""
 
@@ -114,8 +146,13 @@ class JsonFileStorage:
         self.max_bytes = max_bytes
 
     def load(self, key: str) -> dict | None:
+        # Checked before open(): a directory is never set aside, and a FIFO never blocks startup.
+        check_state_path(self.path)
         try:
-            with open(self.path, "rb") as file:
+            with open(self.path, "rb", opener=_open_nonblocking) as file:
+                if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
+                    raise StateFileError(
+                        f"the state file {self.path} exists and is not a regular file")
                 data = file.read(self.max_bytes + 1)
         except FileNotFoundError:
             return None
@@ -125,6 +162,15 @@ class JsonFileStorage:
         if len(data) > self.max_bytes:
             self._set_aside(f"is larger than {self.max_bytes} bytes")
             return None
+        # Before parsing, so a file of tiny nested arrays cannot blow up in memory (§8.3).
+        if not _JSON_OBJECT_START.match(data):
+            self._set_aside("is not a JSON object")
+            return None
+        structural = _JSON_STRING.sub(b"", data)
+        if structural.count(b"[") + structural.count(b"{") > STATE_MAX_CONTAINERS:
+            self._set_aside(f"holds more than {STATE_MAX_CONTAINERS} arrays and objects")
+            return None
+        del structural
         try:
             value = json.loads(data.decode("utf-8"))
         except UnicodeDecodeError:
@@ -163,21 +209,49 @@ class JsonFileStorage:
     def _set_aside(self, reason: str) -> None:
         stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         base = f"{self.path.name}.bad-{stamp}"
-        target = self.path.with_name(base)
-        suffix = 2
-        while os.path.lexists(target):
-            target = self.path.with_name(f"{base}-{suffix}")
-            suffix += 1
-        try:
-            os.rename(self.path, target)
-        except FileNotFoundError:
-            return
-        except OSError as exc:
-            log.warning("gowui: the state file %s %s and could not be set aside (%s)",
-                        self.path, reason, exc.strerror or type(exc).__name__)
-            return
+        suffix = 1
+        while True:
+            target = self.path.with_name(base if suffix == 1 else f"{base}-{suffix}")
+            try:
+                _rename_no_replace(self.path, target)
+            except FileExistsError:
+                suffix += 1  # taken, perhaps just now: never replace it (§8.3)
+                continue
+            except FileNotFoundError:
+                return
+            except OSError as exc:
+                log.warning("gowui: the state file %s %s and could not be set aside (%s)",
+                            self.path, reason, exc.strerror or type(exc).__name__)
+                return
+            break
         log.warning("gowui: the state file %s %s; it was set aside as %s and gowui starts fresh",
                     self.path, reason, target)
+
+
+def _rename_no_replace(source: Path, target: Path) -> None:
+    """Rename ``source`` to ``target``, raising ``FileExistsError`` if ``target`` exists, even
+    when it appears during the call: a hard link, then an unlink; without hard links, an
+    exclusive-create reservation that the rename then replaces."""
+    try:
+        os.link(source, target, follow_symlinks=False)
+    except FileExistsError:
+        raise
+    except (NotImplementedError, AttributeError):
+        pass
+    except OSError as exc:
+        if exc.errno not in _NO_LINKS:
+            raise
+    else:
+        os.unlink(source)
+        return
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    os.close(fd)
+    try:
+        os.replace(source, target)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(target)
+        raise
 
 
 def _make_private_dirs(directory: Path) -> None:

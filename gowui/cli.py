@@ -17,8 +17,8 @@ from fastapi import FastAPI
 
 from .app import create_app
 from .engine import PROTOCOLS
-from .local_mode import (JsonFileStorage, LocalIdentity, MemoryStorage, default_state_path,
-                         local_policies)
+from .local_mode import (JsonFileStorage, LocalIdentity, MemoryStorage, StateFileError,
+                         check_state_path, default_state_path, local_policies)
 
 __all__ = ["build_app", "build_config", "main", "parse", "url_line", "uvicorn_config"]
 
@@ -71,12 +71,17 @@ def _is_loopback(host: str) -> bool:
 
 
 def build_app(args: argparse.Namespace) -> FastAPI:
-    """The local app from the flags: the bundle, and a startup hook that loads the owner's space."""
+    """The local app from the flags: the bundle, and a startup hook that loads the owner's space.
+
+    Raises :class:`StateFileError` when the state path exists and is not a regular file (§8.3).
+    """
     if args.fresh:
         storage: Any = MemoryStorage()
     else:
-        storage = JsonFileStorage(args.state if args.state is not None
-                                  else default_state_path(sys.platform, os.environ, Path.home()))
+        path = (args.state if args.state is not None
+                else default_state_path(sys.platform, os.environ, Path.home()))
+        check_state_path(path)
+        storage = JsonFileStorage(path)
     engine = {"protocol": args.engine_protocol, "host": args.engine_host,
               "port": args.engine_port}
     policies = local_policies(host=args.host, storage=storage, engine_defaults=engine)
@@ -117,9 +122,11 @@ def _websocket_protocol() -> Any:
 
 
 def uvicorn_config(app: Any, *, host: str, port: int, log_level: str = "info") -> uvicorn.Config:
-    """The server settings of §9: no forwarded-header rewriting, 1 MiB frames, lifespan on."""
+    """The server settings of §9: no forwarded-header rewriting, 1 MiB frames, lifespan on, no
+    ``Server`` header."""
     return uvicorn.Config(app, host=host, port=port, log_level=log_level, proxy_headers=False,
-                          ws=_websocket_protocol(), ws_max_size=WS_MAX_SIZE, lifespan="on")
+                          ws=_websocket_protocol(), ws_max_size=WS_MAX_SIZE, lifespan="on",
+                          server_header=False)
 
 
 def build_config(args: argparse.Namespace) -> uvicorn.Config:
@@ -153,6 +160,9 @@ class _Server(uvicorn.Server):
 def main(argv: list[str] | None = None) -> int:
     args = parse(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
-    config = build_config(args)
+    try:
+        config = build_config(args)
+    except StateFileError as exc:
+        _parser().error(str(exc))  # a usage error: exits with status 2 (§9)
     _Server(config, args.host).run()
     return 0

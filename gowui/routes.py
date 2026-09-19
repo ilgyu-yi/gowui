@@ -42,12 +42,14 @@ class _TooLarge(JSONResponse):
     """The ``413`` of an oversize upload (§7.6).
 
     The answer is sent at once, before the body is read. The body the client is still sending is
-    then discarded, briefly and up to a bound, before the connection closes: closing a socket with
+    then discarded — at most ``DRAIN_BYTES``, ``DRAIN_IDLE`` seconds without data and
+    ``DRAIN_DEADLINE`` seconds in all — before the connection closes: closing a socket with
     unread data resets it, and the reset can destroy the answer before the client reads it.
     """
 
     DRAIN_BYTES = 4 * 1024 * 1024
     DRAIN_IDLE = 0.3
+    DRAIN_DEADLINE = 2.0
 
     def __init__(self) -> None:
         super().__init__({"error": "the SGF is larger than 1 MiB"}, status_code=413)
@@ -57,9 +59,14 @@ class _TooLarge(JSONResponse):
                     "headers": self.raw_headers})
         await send({"type": "http.response.body", "body": self.body, "more_body": True})
         drained = 0
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.DRAIN_DEADLINE
         while drained <= self.DRAIN_BYTES:
+            left = deadline - loop.time()
+            if left <= 0:
+                break
             try:
-                message = await asyncio.wait_for(receive(), self.DRAIN_IDLE)
+                message = await asyncio.wait_for(receive(), min(self.DRAIN_IDLE, left))
             except asyncio.TimeoutError:
                 break
             if message.get("type") != "http.request":
@@ -162,6 +169,8 @@ async def websocket(ws: WebSocket) -> None:
             if text is None:
                 tab.push({"type": "error", "message": "a frame must be JSON text"})
                 continue
+            # Defence in depth: the server's own message limit is also 1 MiB (§7.6, §9), so a
+            # larger frame is normally closed with 1009 before it reaches this check.
             if len(text) > MAX_FRAME_BYTES or len(text.encode("utf-8")) > MAX_FRAME_BYTES:
                 await close(CLOSE_TOO_BIG)
                 break
