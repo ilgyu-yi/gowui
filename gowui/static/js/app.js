@@ -103,7 +103,9 @@
   function handle(message) {
     switch (message.type) {
       case 'state':
-        applyState(message);
+        // The server sends the next state only once this one is applied (SPEC §4.3), so a slow
+        // page gets the newest state instead of falling behind a backlog of stale ones.
+        try { applyState(message); } finally { send({ type: 'ack' }); }
         break;
       case 'analysis':
         if (state.game && message.cursor !== state.game.cursor) return;
@@ -243,26 +245,53 @@
     $('undo').disabled = game.cursor === 0;
   }
 
-  var moveListSignature = null;
+  // The items on screen, one "b<vertex>" / "w<vertex>" key each, and the marked cursor. A new
+  // state only replaces the items after the first move that differs and moves the mark, so a
+  // long game does not rebuild (and lay out) its whole list on every move.
+  var shownMoves = [];
+  var shownCursor = -1;
   function renderMoveList() {
     var list = $('move-list');
     var game = state.game;
-    var signature = game.cursor + ':' + game.moves.map(function (m) {
-      return m.color[0] + m.vertex;
-    }).join(',');
-    if (signature === moveListSignature) return;
-    moveListSignature = signature;
-    list.replaceChildren();
-    game.moves.forEach(function (move, index) {
+    var keys = game.moves.map(function (m) { return m.color[0] + m.vertex; });
+    var same = 0;
+    while (same < keys.length && same < shownMoves.length && keys[same] === shownMoves[same]) same++;
+    if (same === keys.length && same === shownMoves.length && game.cursor === shownCursor) return;
+    while (list.children.length > same) list.removeChild(list.lastChild);
+    game.moves.slice(same).forEach(function (move, offset) {
+      var index = same + offset;
       var item = document.createElement('li');
       item.textContent = (move.color === 'black' ? '● ' : '○ ') + move.vertex;
       item.value = index + 1;
-      if (index + 1 === game.cursor) item.className = 'current';
       item.onclick = function () { send({ type: 'navigate', index: index + 1 }); };
       list.appendChild(item);
     });
-    var current = list.querySelector('.current');
-    if (current) current.scrollIntoView({ block: 'nearest' });
+    shownMoves = keys;
+    shownCursor = game.cursor;
+    Array.prototype.forEach.call(list.querySelectorAll('li.current'), function (item) {
+      item.className = '';
+    });
+    if (game.cursor > 0 && list.children[game.cursor - 1]) {
+      list.children[game.cursor - 1].className = 'current';
+    }
+    scrollLater('moves');
+  }
+
+  // Scrolling reads the layout, so it runs once per animation frame, not once per frame from
+  // the server: a fast engine-vs-engine game would otherwise lay the page out on every move.
+  var scrollsDue = {};
+  function scrollLater(what) {
+    if (scrollsDue.moves || scrollsDue.log) { scrollsDue[what] = true; return; }
+    scrollsDue[what] = true;
+    requestAnimationFrame(function () {
+      var due = scrollsDue;
+      scrollsDue = {};
+      if (due.moves) {
+        var current = $('move-list').querySelector('.current');
+        if (current) current.scrollIntoView({ block: 'nearest' });
+      }
+      if (due.log) $('log').scrollTop = $('log').scrollHeight;
+    });
   }
 
   function renderEvaluation() {
@@ -609,7 +638,7 @@
     entry.textContent = (line.direction === 'send' ? '▸ ' : '  ') + line.text;
     log.appendChild(entry);
     while (log.childElementCount > 400) log.removeChild(log.firstChild);
-    log.scrollTop = log.scrollHeight;
+    scrollLater('log');
   }
 
   // Messages clear after 8 s; a sticky one (the connection is down) stays.

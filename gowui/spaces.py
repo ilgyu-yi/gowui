@@ -8,8 +8,10 @@ bounded queue, drained by one sender task per tab. A newer ``state`` or ``analys
 supersedes a queued unsent one of its type, and a ``state``, ``analysis``, ``log`` or
 ``log_history`` that would overflow a queue first folds the queued logs into one ``log_history``,
 so only other frames can overflow a queue; a fold that would leave the queue mostly unfoldable
-closes the tab instead. Saves are change-detected and serialised per space; the write runs in a
-worker thread.
+closes the tab instead. Once a tab's page acknowledges a ``state`` (the ``ack`` frame), its
+sender sends nothing while a ``state`` it sent is unacknowledged, so the frames wait where they
+can still be superseded rather than piling up in transit. Saves are change-detected and
+serialised per space; the write runs in a worker thread.
 """
 
 from __future__ import annotations
@@ -39,6 +41,8 @@ CLOSE_OVERFLOW = 1013
 #: How long shutdown waits for a space's resume task after ``aclose()``.
 RESUME_WAIT = 5.0
 
+#: Unacknowledged ``state`` frames an acknowledging tab may have before its queue waits (§4.3).
+STATE_WINDOW = 1
 #: Frame types a newer frame of the same type supersedes in a tab's queue (§4.3 Coalescing).
 COALESCED = frozenset({"state", "analysis"})
 #: Frame types a ``log_history`` of the current history replaces on overflow (§4.3 Log folding).
@@ -92,11 +96,12 @@ class TabQueue:
         self._ready.set()
         return True
 
-    async def get(self) -> str:
+    async def get(self) -> tuple[str | None, str]:
+        """The oldest queued frame's type and text, once there is one."""
         while not self._items:
             self._ready.clear()
             await self._ready.wait()
-        return self._items.popleft()[1]
+        return self._items.popleft()
 
 
 class Tab:
@@ -110,6 +115,25 @@ class Tab:
         self.sender: asyncio.Task | None = None
         #: Set once the registry has detached the tab.
         self.detached = False
+        #: ``state`` frames sent and acknowledged; a tab is paced once it acknowledges (§4.3).
+        self.states_sent = 0
+        self.states_acked = 0
+        self.acknowledging = False
+        self._acked = asyncio.Event()
+
+    def ack(self) -> None:
+        """The page applied one more ``state`` (§4.1 ``ack``, §4.3 Acknowledgement)."""
+        self.acknowledging = True
+        if self.states_acked < self.states_sent:
+            self.states_acked += 1
+        self._acked.set()
+
+    async def window(self) -> None:
+        """Wait while an acknowledging tab has ``STATE_WINDOW`` unacknowledged ``state`` frames:
+        frames wait in the queue meanwhile, where newer ones supersede or fold them."""
+        while self.acknowledging and self.states_sent - self.states_acked >= STATE_WINDOW:
+            self._acked.clear()
+            await self._acked.wait()
 
     def push(self, frame: dict) -> None:
         """Send one frame to this tab only, in order with its broadcasts."""
@@ -177,7 +201,10 @@ class Hub:
 
 async def _drain(hub: Hub, tab: Tab) -> None:
     while True:
-        text = await tab.queue.get()
+        await tab.window()
+        kind, text = await tab.queue.get()
+        if kind == "state":
+            tab.states_sent += 1
         try:
             await tab._send(text)
         except asyncio.CancelledError:
