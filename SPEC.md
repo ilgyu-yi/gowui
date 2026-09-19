@@ -27,47 +27,47 @@
 | &nbsp;&nbsp;§2.3 | GTP | 258 |
 | &nbsp;&nbsp;§2.4 | KataGo analysis engine | 303 |
 | &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 319 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 398 |
-| §3 | Session and boards | 422 |
-| &nbsp;&nbsp;§3.1 | Spaces | 424 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 430 |
-| &nbsp;&nbsp;§3.3 | Boards | 447 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 459 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 466 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 471 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 475 |
-| §4 | WebSocket protocol | 480 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 484 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 508 |
-| §5 | HTTP routes | 522 |
-| §6 | Launch modes and policies | 541 |
-| &nbsp;&nbsp;§6.1 | The rule | 543 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 560 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 566 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 580 |
-| §7 | Authentication and security | 586 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 588 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 598 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 606 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 614 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 628 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 635 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 652 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 662 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 668 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 674 |
-| §8 | Persistence | 684 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 686 |
-| &nbsp;&nbsp;§8.2 | Saving | 705 |
-| &nbsp;&nbsp;§8.3 | Local state file | 710 |
-| &nbsp;&nbsp;§8.4 | Server database | 719 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 724 |
-| §9 | Command line | 728 |
-| §10 | Configuration (server) | 743 |
-| §11 | Feature inventory | 763 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 769 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 807 |
-| §12 | Non-goals | 825 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 401 |
+| §3 | Session and boards | 425 |
+| &nbsp;&nbsp;§3.1 | Spaces | 427 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 433 |
+| &nbsp;&nbsp;§3.3 | Boards | 450 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 462 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 469 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 474 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 478 |
+| §4 | WebSocket protocol | 483 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 487 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 511 |
+| §5 | HTTP routes | 525 |
+| §6 | Launch modes and policies | 544 |
+| &nbsp;&nbsp;§6.1 | The rule | 546 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 563 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 569 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 583 |
+| §7 | Authentication and security | 589 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 591 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 601 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 609 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 617 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 631 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 638 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 656 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 666 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 672 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 678 |
+| §8 | Persistence | 688 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 690 |
+| &nbsp;&nbsp;§8.2 | Saving | 709 |
+| &nbsp;&nbsp;§8.3 | Local state file | 714 |
+| &nbsp;&nbsp;§8.4 | Server database | 723 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 728 |
+| §9 | Command line | 732 |
+| §10 | Configuration (server) | 747 |
+| §11 | Feature inventory | 767 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 773 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 811 |
+| §12 | Non-goals | 829 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -351,12 +351,15 @@ out, valid address, clipped engine text, lost connection reported once).
   other; only the newest is sent when the answer arrives, and an answer for a position the user has
   left — its winrate half included — is dropped. The winrate request goes with the human request
   it belongs to, so the newest position wins on both connections; no winrate query for an older
-  position is queued.
+  position is queued. If the human request fails, its winrate request is abandoned rather than
+  awaited.
 - **Side to move.** The surface lets KataGo infer who is to move: after moves, the other side of the
   last move; with no moves, White when the setup is two or more black stones and no white stones,
   otherwise Black. A position whose actual side to move differs is refused with an explanation
   ("play a move first") instead of being analysed for the wrong player; nothing is sent.
-- **Profiles**: `preaz_<rank>`, `rank_<rank>`, `proyear_<year>`; any other name is passed through.
+- **Profiles**: `preaz_<rank>`, `rank_<rank>`, `proyear_<year>`; any other name is passed through,
+  but a profile name is 1–64 characters of letters, digits, `_`, `.` and `-` (§7.6), checked with
+  the tuples before each send.
 - **Policy tuples** are JSON objects with the keys `lambda_utility`, `trust_mu`, `fill_kappa`,
   `min_p`, `distance_slope`, `distance_floor`, `distance_peak`, `temperature`. They are validated
   before sending, both in the browser and on the server, with the mux's own ranges: anything but a
@@ -381,7 +384,7 @@ out, valid address, clipped engine text, lost connection reported once).
   `PASS`). Eval visits 0 turns this off and sends no plain query. A failed winrate query leaves
   the distribution shown without winrates, with a `#` note.
 - **Parsing.** A distribution entry whose move is not on the board and not `pass` is dropped; a
-  `p` that is non-finite or negative becomes 0. An answer with fewer policies than tuples sent is
+  `p` that is non-finite or negative becomes 0, and one above 1 becomes 1. An answer with fewer policies than tuples sent is
   an engine error.
 - **Candidates** are the moves with p > 0, most likely first, at most 20; the full distribution
   still fills `policy` (size² + 1 entries).
@@ -639,6 +642,7 @@ error messages) is inserted as text, never as HTML.
 | WebSocket frame | 1 MiB |
 | SGF body (`POST /api/sgf`, `load_sgf`) | 1 MiB |
 | Boards per space | 64 |
+| handol-mux profile name | 64 characters: letters, digits, `_`, `.`, `-` |
 | Moves per game | 2,000 (playing past it is refused) |
 | SGF main line | 10,000 nodes |
 | Board name | 40 characters (longer names are truncated, §3.3) |
