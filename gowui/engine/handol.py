@@ -136,8 +136,7 @@ class _Channel:
         """Drop the connection at once (a request was cancelled mid-flight)."""
         conn, self.conn = self.conn, None
         if conn is not None:
-            conn._abort()  # noqa: SLF001 - no public way to drop without awaiting
-            conn._writer = conn._reader = None  # noqa: SLF001
+            conn.abort()
 
     def _lost(self, error: EngineError) -> EngineError:
         """A second loss or a failed reopen: an engine error, reported once when primary."""

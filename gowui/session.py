@@ -1125,7 +1125,7 @@ class GameSession:
         if self._connect_pending():
             raise _Refused("a connect is already in progress")
         if self._attempts_full():
-            raise _Refused("the previous connect is still closing")
+            raise _Refused("a previous engine is still closing")
         target = self._resolve_target(message)
         self._start_connect(target)
 
@@ -1175,6 +1175,7 @@ class GameSession:
         task = self._spawn(self._close_engine(engine))
 
         def done(task: asyncio.Task, engine: Engine = engine) -> None:
+            # _close_engine discards it too; this covers a task cancelled before it ever ran
             self._closing.discard(engine)
             if task.cancelled():  # possibly before it ever ran: drop the connection
                 _abort_engine(engine)
@@ -1389,15 +1390,24 @@ class GameSession:
         self._closed = True
         self._lifecycle += 1
         engine, self.engine = self.engine, None
-        if engine is not None:
-            await self._close_engine(engine)
-        tasks = [t for t in self._tasks if not t.done()]
-        if tasks:
-            _, pending = await asyncio.wait(tasks, timeout=2.0)
-            for task in pending:
+        try:
+            if engine is not None:
+                await self._close_engine(engine)
+            tasks = [t for t in self._tasks if not t.done()]
+            if tasks:
+                _, pending = await asyncio.wait(tasks, timeout=2.0)
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+        except BaseException:
+            # aclose itself was cancelled: leave nothing running and no engine still closing
+            for task in list(self._tasks):
                 task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
-        self._tasks.clear()
+            for closing in list(self._closing):
+                _abort_engine(closing)
+            raise
+        finally:
+            self._tasks.clear()
 
     _HANDLERS: dict[str, Callable[["GameSession", dict], Any]] = {
         "play": _msg_play,
