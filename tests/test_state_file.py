@@ -297,6 +297,7 @@ def test_a_file_whose_parsing_runs_out_of_memory_is_set_aside(tmp_path, monkeypa
     with caplog.at_level(logging.WARNING):
         loaded = storage(path).load("owner")
     assert (loaded, len(set_aside_files(tmp_path)), path.exists()) == (None, 1, False)
+    assert "cannot be parsed in the memory available" in caplog.text
 
 
 def maximal_snapshot() -> dict:
