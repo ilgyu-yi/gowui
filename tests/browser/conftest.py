@@ -155,6 +155,37 @@ def start_app(processes, tmp_path):
     return start
 
 
+@pytest.fixture
+def start_server_app(processes, tmp_path):
+    """``start_server_app(engines=[], users={name: password}, **env)`` adds the accounts with
+    ``gowui user add --password-stdin`` and runs ``python -m gowui serve --host 127.0.0.1 --port 0``
+    over a temporary database (§9, §10); ``env`` holds more ``GOWUI_*`` variables."""
+    import json
+
+    def start(engines: list | None = None, users: dict | None = None, **env: str) -> App:
+        variables = {**os.environ, "GOWUI_DB": str(tmp_path / "server" / "gowui.db"),
+                     "GOWUI_ENGINES": json.dumps(engines or [])}
+        variables.update({f"GOWUI_{k.upper()}": v for k, v in env.items()})
+        for name, password in (users or {}).items():
+            subprocess.run([sys.executable, "-m", "gowui", "user", "add", name,
+                            "--password-stdin"], input=password + "\n", text=True, check=True,
+                           cwd=str(REPO), env=variables, capture_output=True, timeout=STARTUP)
+        saved = dict(os.environ)
+        os.environ.update(variables)
+        try:
+            process = Process([sys.executable, "-m", "gowui", "serve", "--host", "127.0.0.1",
+                               "--port", "0", "--log-level", "warning"],
+                              r"^gowui: (http://127\.0\.0\.1:(\d+))$",
+                              tmp_path / f"server-{len(processes)}.log")
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+        processes.append(process)
+        return App(process.match.group(1), int(process.match.group(2)), process)
+
+    return start
+
+
 # -- the browser -------------------------------------------------------------------------------------
 @pytest.fixture(scope="session")
 def playwright_instance():
