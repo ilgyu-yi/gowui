@@ -31,43 +31,43 @@
 | §3 | Session and boards | 426 |
 | &nbsp;&nbsp;§3.1 | Spaces | 428 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 434 |
-| &nbsp;&nbsp;§3.3 | Boards | 451 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 463 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 470 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 475 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 479 |
-| §4 | WebSocket protocol | 484 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 488 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 512 |
-| §5 | HTTP routes | 526 |
-| §6 | Launch modes and policies | 545 |
-| &nbsp;&nbsp;§6.1 | The rule | 547 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 564 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 570 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 584 |
-| §7 | Authentication and security | 590 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 592 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 602 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 610 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 618 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 632 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 639 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 657 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 667 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 673 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 679 |
-| §8 | Persistence | 689 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 691 |
-| &nbsp;&nbsp;§8.2 | Saving | 710 |
-| &nbsp;&nbsp;§8.3 | Local state file | 715 |
-| &nbsp;&nbsp;§8.4 | Server database | 724 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 729 |
-| §9 | Command line | 733 |
-| §10 | Configuration (server) | 748 |
-| §11 | Feature inventory | 768 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 774 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 812 |
-| §12 | Non-goals | 830 |
+| &nbsp;&nbsp;§3.3 | Boards | 474 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 490 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 502 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 512 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 516 |
+| §4 | WebSocket protocol | 521 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 525 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 555 |
+| §5 | HTTP routes | 572 |
+| §6 | Launch modes and policies | 591 |
+| &nbsp;&nbsp;§6.1 | The rule | 593 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 614 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 620 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 635 |
+| §7 | Authentication and security | 641 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 643 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 653 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 661 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 669 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 683 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 690 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 708 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 722 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 728 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 734 |
+| §8 | Persistence | 744 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 746 |
+| &nbsp;&nbsp;§8.2 | Saving | 768 |
+| &nbsp;&nbsp;§8.3 | Local state file | 773 |
+| &nbsp;&nbsp;§8.4 | Server database | 782 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 787 |
+| §9 | Command line | 791 |
+| §10 | Configuration (server) | 806 |
+| §11 | Feature inventory | 826 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 832 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 870 |
+| §12 | Non-goals | 888 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -434,19 +434,42 @@ all of them — the way a desktop GUI shows one window.
 ### 3.2 Engine play and analysis
 
 - Each colour is set to human or engine; both engine is self-play. When it is an engine's turn at
-  the end of the game (cursor at the last move, game not over, no result), the engine moves, and
-  keeps moving while the side to move is an engine. The `genmove` command asks for one move on
-  demand.
+  the end of the game (cursor at the last move, game not over at the cursor, §1.3), the engine
+  moves, and keeps moving while the side to move is an engine. The `genmove` command asks for one
+  move on demand. Game over is judged at the cursor (§1.3), never from a result being set, for
+  engine play and analysis alike: a loaded game with a scored result can be played on and
+  analysed, and a resigned game is analysed at every earlier cursor.
+- **Move limit.** At the game's move limit (§7.6) no move can be played — not even a pass — although
+  the game is not over; engine play stops there as it does at a refused move.
 - All engine work for a space is serialised: an engine move never interleaves with an analysis
   restart.
 - **Stale work is discarded.** If the position changes while the engine searches (the user plays,
-  navigates, undoes, loads, switches boards), the engine's move is not played; the search is not
-  aborted mid-command. Analysis reports for a position no longer on screen are dropped.
+  navigates, undoes, loads, starts a new game, resigns, switches boards), the engine's move is not
+  played; the search is not aborted mid-command. Staleness is judged by a token naming the board's
+  position (changed by every play, undo, navigation, load, new game, resignation and console
+  command), a space-wide move epoch (changed by every board switch, duplicate, delete and change of
+  the players), and the engine connection that did the work — never by the cursor number, so undoing
+  and playing a different move at the same cursor still discards. Analysis reports that do not
+  match the current token are dropped. An automatic move is played only if its side is still set to
+  engine when it arrives; a move asked for with `genmove` is unaffected by the players setting.
 - Continuous analysis, when on, runs for the position under the cursor and restarts on every
-  position change. It stops when switched off, when the game is over, and while the engine is
-  generating a move (except through `kata-genmove_analyze`).
+  position change. It stops when switched off, when the game is over at the cursor, and while the
+  engine is generating a move (except through `kata-genmove_analyze`).
 - Undo never re-arms the engine (replaying the move just taken back is never what the user meant);
   navigating back to the end resumes engine play.
+- **Lost engine.** When the engine connection is lost (§2.1), automatic play stops, the space shows
+  the engine disconnected with a status, and the connection is released; a new `connect` works at
+  once.
+- **Engine work never blocks a caller.** Handling a message never runs an engine command on the
+  caller's own task: engine work runs in tasks the session owns, so a caller that goes away (a tab
+  closed mid-command) cannot cancel it, and an engine call is never cancelled mid-command (§2.1).
+  State changes — board switch, new game, load, resignation — apply and are broadcast at once; the
+  engine stop they need is queued behind the running engine work rather than awaited. An
+  unexpected failure in a session task clears `thinking`, reports an error and stops automatic
+  play. Engine reports (analysis and traffic) are handed off, never answered by calling the engine
+  from inside the report callback.
+- **Latest lifecycle wins.** `connect`, `disconnect` and a restore's reconnect (§8.1) each carry a
+  generation; only the latest takes effect, and an engine connected by a superseded one is closed.
 
 ### 3.3 Boards
 
@@ -454,9 +477,13 @@ all of them — the way a desktop GUI shows one window.
   (default `Board N`), its own game and cursor, and its own handol-mux settings (profile, tuple,
   compare tuple).
 - **Duplicate** copies the active board — position, cursor and human settings — inserts the copy
-  after it and switches to it. **Select** switches boards (also `[` / `]`). **Rename** trims the
-  name, ignores an empty one and truncates it to 40 characters. **Delete** removes a board, switching
-  to a neighbour when it was active; the last board cannot be deleted.
+  after it and switches to it; at the board limit (§7.6) it is refused with an error. **Select**
+  switches boards (also `[` / `]`). **Rename** trims the name, ignores an empty one and truncates it
+  to 40 characters. **Delete** removes a board, switching to a neighbour when it was active; the
+  last board cannot be deleted.
+- Human settings are validated when they change, with the rules of §2.5 (the profile rule, each
+  tuple, and the tuples together with the visits in effect); a refused setting is reported with an
+  error and not stored.
 - Only the board on screen is analysed. A thumbnail keeps its board's last heatmap and Black
   winrate when they still describe its position.
 
@@ -465,12 +492,22 @@ all of them — the way a desktop GUI shows one window.
 Max visits, report interval (≥ 0.1 s), include ownership, handol-mux profile, tuple, compare tuple,
 eval visits, and per-colour move style (`human` / `katago`). Limits are in §7.6. The handol-mux
 client checks its tuples again before each send (§2.5); refusing a bad tuple as soon as it is set
-is the session's job, with the same rules.
+is the session's job, with the same rules (§3.3).
+
+The session always passes an explicit max visits, clamped to §7.6, with every search and engine
+move — never leaving it to the engine's previous setting — and hands a handol-mux engine the
+active board's settings (profile, tuples, eval visits, max visits, move styles) on connect, on
+every settings change and on every board switch.
 
 ### 3.5 Final score and console
 
 `final_score` asks a GTP engine to score the game and records the result. The console sends raw
-commands to a GTP engine only (§2.3); where it is available is a policy decision (§6.3).
+commands to a GTP engine only (§2.3). It is offered when the connected engine accepts raw commands
+and the engine-address policy allows the console for that engine (§6.3); otherwise a `raw` message
+is refused with an error. A command is one line of at most 1,000 characters (§7.6). Streaming
+commands such as `kata-analyze`, `lz-analyze`, `kata-genmove_analyze` and `kata-search_analyze`
+are refused with an error, since the console treats every command as request and reply. Analysis
+restarts after a console command.
 
 ### 3.6 Traffic log
 
@@ -509,19 +546,28 @@ One WebSocket per tab at `/ws`, JSON text frames.
 | `load_sgf` | `sgf` |
 | `state` | — (asks for a fresh `state`) |
 
+`resign` is an action (§1.3), never a vertex of `play`. A field of the wrong type is refused with an
+`error` and changes nothing — a boolean is not a number, and a `komi` that is not a finite number
+gets "komi must be a finite number". Numbers out of range are clamped (§7.6). At most one
+on-demand command of each kind — `genmove`, `raw`, `final_score`, `connect` — is pending per space;
+a further one of the same kind while it runs is refused with an `error`.
+
 ### 4.2 Server → browser
 
 | type | fields |
 |---|---|
-| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, console), `settings`, `status`, `thinking`, `boards` (thumbnails), `activeBoard` |
+| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `status`, `thinking`, `boards` (thumbnails), `activeBoard` |
 | `analysis` | `cursor`, `toPlay`, `analysis` (§2.2) |
 | `log` | `line: {direction, text, at}` |
 | `log_history` | `lines` |
 | `error` | `message` |
 
-On attach the server sends `state`, then `log_history`, then the last `analysis` if one still
-describes the position. A frame that is not a JSON object gets an `error` and the socket stays open;
-an unknown `type` gets an `error`; one failing command never closes the socket.
+On attach the server sends `state`, then `log_history` (the last 100 lines, §3.6), then the last
+`analysis` if one still describes the position. A frame that is not a JSON object gets an `error`
+and the socket stays open; an unknown `type` gets an `error`; one failing command never closes the
+socket. On-demand commands (`genmove`, `raw`, `final_score`, `connect`) finish in the background
+(§3.2): their results and errors arrive later as broadcasts (`state`, `log`, `error`), not as a
+reply to the message. `load_sgf` text is parsed off the event loop, then applied.
 
 ## 5. HTTP routes
 
@@ -561,6 +607,10 @@ identical in both modes; nothing branches on the mode's name. The frontend adapt
 Local mode is a server with exactly one space: the same space registry, session, routes and
 frontend, with policies that always resolve to that one space.
 
+The session receives the engine-address policy as two inputs — a resolver that turns an engine
+request into a protocol, host, port and console flag (or refuses it with a browser-safe message),
+and a flag saying whether engine addresses may be shown — never a mode name.
+
 ### 6.2 Identity policy
 
 Resolves a request or WebSocket handshake to an identity, or to none (→ `401` for `/api/*`, a
@@ -579,7 +629,8 @@ port, and describes itself to the page.
   `"console": true` (§7.7).
 
 The engine request last accepted is what the snapshot stores (§8.1); restoring replays it through
-the same policy, so there is one connect path.
+the same policy, so there is one connect path. `connect`, `disconnect` and that replay carry a
+lifecycle generation: the latest wins, and an engine whose connect was superseded is closed (§3.2).
 
 ### 6.4 Storage policy
 
@@ -659,10 +710,14 @@ an error.
 No catalog host or port appears in anything sent to a browser: `state`, `analysis`, `log`,
 `log_history`, `error` text, status strings, `/api/health` or any HTTP error body. Connection
 failures are reported without the address, and engine traffic lines that would carry it are not
-forwarded. Snapshots store only the `engineId` (§8.1). A catalog entry with `"console": true` gives
-every signed-in user raw GTP access to that engine, including KataGo commands that read or write
-files on the engine host (`loadsgf`, `printsgf`); enable it only for engines whose operator accepts
-that.
+forwarded. When the policy hides addresses, one outbound choke point in the session enforces this
+for everything it sends: a log line containing the engine's host (matched case-insensitively) or
+`host:port` is withheld, and the host or `host:port` is scrubbed from error text, status strings
+and `state.engine.name` / `version` — including text the engine itself supplied, such as
+handol-mux error messages (§2.5). Snapshots store only the `engineId` (§8.1). A catalog entry
+with `"console": true` gives every signed-in user raw GTP access to that engine, including KataGo
+commands that read or write files on the engine host (`loadsgf`, `printsgf`); enable it only for
+engines whose operator accepts that.
 
 ### 7.8 Isolation and idle release (server)
 
@@ -705,7 +760,10 @@ last engine request the policy accepted (§6.3) — `{protocol, host, port}` in 
 than failing the whole restore; unknown or out-of-range settings fall back to defaults; if the
 snapshot says the engine was connected, the request is replayed through the engine-address policy,
 and a request the policy no longer accepts (e.g. an id removed from the catalog) leaves the space
-disconnected.
+disconnected. Restore also enforces the limits of §7.6: only the first 64 boards are kept, a
+duplicate or non-positive board id is replaced by a fresh one, names are truncated, an invalid
+tuple becomes `{}` and an invalid profile the default. A snapshot whose `version` is not 1 is
+refused as a whole, so the storage policy sets it aside (§8.3).
 
 ### 8.2 Saving
 
