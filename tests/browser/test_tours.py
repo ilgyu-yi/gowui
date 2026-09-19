@@ -7,6 +7,8 @@ fence of browser_kit.py.
 
 - ``test_play_tour``: B1, B2, B10, B12, B13, B14, B32, B33.
 - ``test_fast_engines_stop_when_both_players_are_unticked``: B1 against an instant engine (§4.3).
+- ``test_fast_engines_stop_at_once_on_a_slow_page``: the same on a page with a slowed CPU (§4.3
+  "Acknowledgement").
 - ``test_analysis_tour``: B6, B7, B8, B18, B26, B31.
 - ``test_handol_tour``: B3, B19, B21, B22, B23, B24.
 - ``test_log_tour``: B30.
@@ -65,14 +67,15 @@ def open_section(g: Gowui, inner: str) -> None:
         details.locator("> summary").click()
 
 
-def untick_engines(g: Gowui) -> None:
-    """Untick both "KataGo plays" boxes and wait for the server's settings to agree."""
+def untick_engines(g: Gowui, timeout: int = ENGINE) -> None:
+    """Untick both "KataGo plays" boxes and wait (``timeout`` ms after the last is sent) for a
+    ``state`` with the server's settings agreeing to reach the page."""
     for box, key in (("#black-engine", "blackIsEngine"), ("#white-engine", "whiteIsEngine")):
         since = g.mark()
         g.page.locator(box).click()
         g.wait_sent("players", since, {key: False})
     wait_state(g, lambda s: not s["settings"]["blackIsEngine"]
-               and not s["settings"]["whiteIsEngine"], timeout=ENGINE)
+               and not s["settings"]["whiteIsEngine"], timeout=timeout)
 
 
 def counter(g: Gowui, text: str, timeout: int = QUICK) -> None:
@@ -207,6 +210,34 @@ def test_fast_engines_stop_when_both_players_are_unticked(start_engine, start_ap
     g.fence()
     assert (g.state()["game"]["moveCount"], g.closes(0)) == (stopped, [])
     assert stopped < 2000, "the engines stopped well before the move cap"
+
+
+def test_fast_engines_stop_at_once_on_a_slow_page(start_engine, start_app, open_page):
+    """B1 against an instant engine on a page whose CPU is slowed six times, as on a slow CI
+    machine (§4.3 "Acknowledgement", issue #24). The page acknowledges each ``state`` it has
+    applied and is sent nothing more until then, so it never falls behind a backlog of stale
+    frames: from the first click, the unticked boxes are back from the server within ``QUICK``,
+    not after every buffered move has been drawn (before the fix, 14 s or more)."""
+    g = connected(start_engine, start_app, open_page)
+    page = g.page
+    g.throttle(6)
+    page.locator("#white-engine").check()
+    page.locator("#black-engine").check()
+    wait_state(g, lambda s: s["game"]["moveCount"] >= 150 or s["game"]["gameOver"],
+               timeout=ENGINE)
+    clicked = time.monotonic()
+    untick_engines(g)
+    took = time.monotonic() - clicked
+    assert took < QUICK / 1000, f"the page showed the engines stopped {took:.1f} s after the click"
+    expect(page.locator("#black-engine")).not_to_be_checked()
+    expect(page.locator("#white-engine")).not_to_be_checked()
+    stopped = g.state()["game"]["moveCount"]
+    g.fence()
+    g.fence()
+    assert (g.state()["game"]["moveCount"], g.closes(0)) == (stopped, [])
+    expect(page.locator("#move-counter")).to_have_text(f"{stopped} / {stopped}")
+    # Every state the page applied was acknowledged (the newest may still be on its way).
+    assert g.states_received() - g.acks() in (0, 1), (g.states_received(), g.acks())
 
 
 # -- analysis ------------------------------------------------------------------------------------------

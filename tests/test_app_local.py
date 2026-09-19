@@ -222,6 +222,44 @@ async def test_a_state_message_gets_a_fresh_state(local_app, tabs):
     assert await tab.wait_state(start=start) is not None
 
 
+# -- acknowledgement (§4.3) ---------------------------------------------------------------------
+async def test_an_ack_is_taken_by_the_transport_and_never_reaches_the_session(local_app, tabs):
+    """§4.1 ``ack`` belongs to the transport (§4.3 "Acknowledgement"): no reply, no ``error``."""
+    tab = await ready_tab(tabs, local_app)
+    start = tab.mark()
+    await tab.send({"type": "ack"})
+    await tab.send({"type": "state"})
+    assert await tab.wait_state(start=start) is not None
+    await settle(0.1)
+    assert (tab.of("error", start), len(tab.of("state", start))) == ([], 1)
+
+
+async def test_an_acknowledging_tab_gets_the_next_state_only_after_its_ack(local_app, tabs):
+    """§4.3 "Acknowledgement": while a sent ``state`` is unacknowledged nothing more is sent;
+    the ``ack`` brings the newest ``state``, not the ones it superseded meanwhile."""
+    tab = await ready_tab(tabs, local_app)
+    await tab.send({"type": "ack"})               # the attach state is applied
+    start = tab.mark()
+    await tab.send({"type": "play", "color": "black", "vertex": "D4"})
+    assert await tab.wait_state(lambda f: f["game"]["moveCount"] == 1, start) is not None
+    for colour, vertex in (("white", "Q16"), ("black", "D16"), ("white", "Q4")):
+        await tab.send({"type": "play", "color": colour, "vertex": vertex})
+    await settle(0.3)
+    assert [f["game"]["moveCount"] for f in tab.of("state", start)] == [1]
+    await tab.send({"type": "ack"})
+    assert await tab.wait_state(lambda f: f["game"]["moveCount"] == 4, start) is not None
+    assert [f["game"]["moveCount"] for f in tab.of("state", start)] == [1, 4]
+
+
+async def test_a_tab_that_never_acknowledges_is_sent_every_state_as_it_comes(local_app, tabs):
+    """§4.3 "Acknowledgement": a tab that has never sent ``ack`` (an older page, a script) is
+    not held back."""
+    tab = await ready_tab(tabs, local_app)
+    start = tab.mark()
+    await play(tab, "D4", "Q16", "D16")
+    assert [f["game"]["moveCount"] for f in tab.of("state", start)] == [1, 2, 3]
+
+
 # -- /healthz and /api/health (§5) -------------------------------------------------------------
 async def test_healthz_answers_ok(local_app):
     async with local_app.client() as client:

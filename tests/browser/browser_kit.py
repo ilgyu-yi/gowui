@@ -14,6 +14,9 @@ n}`` marker on the page's own socket and waits for the server's ``state`` answer
 and are handled in order (§4.3), so any frame the page sent before the marker is recorded before
 it, and the answer proves the server read everything before it.
 
+The page's ``ack`` frames (§4.3 "Acknowledgement") are recorded too, but ``sent`` and
+``wait_sent`` leave them out, as they leave out the fence; ``acks()`` counts them.
+
 **Draw record.** ``dataset(key)`` reads the board canvas's §3.8 "Test observability" record.
 
 **Waiting.** ``until(js)`` polls a page expression from Python, pausing between tries with
@@ -77,6 +80,7 @@ const matches = (frame, dir, type, since, where) => {
   let parsed;
   try { parsed = JSON.parse(frame.data); } catch (err) { return false; }
   if (parsed.fence !== undefined) return false;
+  if (dir === 'sent' && parsed.type === 'ack') return false;
   if (type !== null && parsed.type !== type) return false;
   return Object.entries(where || {}).every(([k, v]) => JSON.stringify(parsed[k]) === JSON.stringify(v));
 };
@@ -161,6 +165,8 @@ class Gowui:
             parsed = json.loads(frame["data"])
             if isinstance(parsed, dict) and "fence" in parsed:
                 continue
+            if direction == "sent" and isinstance(parsed, dict) and parsed.get("type") == "ack":
+                continue  # the transport's (§4.3 "Acknowledgement"); see ``acks``
             out.append(parsed)
         return out
 
@@ -170,6 +176,26 @@ class Gowui:
     def received(self, since: int = 0, type: str | None = None) -> list[dict]:
         return [f for f in self._parsed("received", since)
                 if type is None or f.get("type") == type]
+
+    def acks(self, since: int = 0) -> int:
+        """How many ``ack`` frames the page sent after ``since`` (§4.3 "Acknowledgement");
+        ``sent`` and ``wait_sent`` leave them out."""
+        return self.page.evaluate(
+            "(since) => window.__gowuiTest.frames.filter((f) => f.seq > since && f.dir === 'sent'"
+            " && /^\\{\"type\": ?\"ack\"\\}$/.test(f.data)).length", since)
+
+    def states_received(self, since: int = 0) -> int:
+        """How many ``state`` frames the page received after ``since``, fence answers included."""
+        return self.page.evaluate(
+            "(since) => window.__gowuiTest.frames.filter((f) => f.seq > since"
+            " && f.dir === 'received' && f.data.startsWith('{\"type\": \"state\"')).length",
+            since)
+
+    def throttle(self, rate: float) -> None:
+        """Slow the page's CPU ``rate`` times (Chromium's DevTools emulation), like a slow
+        machine: a slow page is what §4.3 "Acknowledgement" keeps up to date."""
+        cdp = self.page.context.new_cdp_session(self.page)
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": rate})
 
     def closes(self, since: int = 0) -> list[int]:
         return self.page.evaluate(
