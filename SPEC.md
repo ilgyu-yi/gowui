@@ -41,37 +41,37 @@
 | &nbsp;&nbsp;§4.1 | Browser → server | 839 |
 | &nbsp;&nbsp;§4.2 | Server → browser | 880 |
 | &nbsp;&nbsp;§4.3 | Tabs and delivery | 917 |
-| §5 | HTTP routes | 948 |
-| §6 | Launch modes and policies | 1023 |
-| &nbsp;&nbsp;§6.1 | The rule | 1025 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1061 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1100 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1133 |
-| §7 | Authentication and security | 1152 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1154 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1201 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1219 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1233 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1281 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1298 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1338 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1354 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1368 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1377 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1406 |
-| §8 | Persistence | 1425 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1427 |
-| &nbsp;&nbsp;§8.2 | Saving | 1461 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1490 |
-| &nbsp;&nbsp;§8.4 | Server database | 1532 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1568 |
-| §9 | Command line | 1580 |
-| §10 | Configuration (server) | 1639 |
-| &nbsp;&nbsp;§10.1 | Container | 1677 |
-| §11 | Feature inventory | 1731 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1738 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1776 |
-| §12 | Non-goals | 1794 |
+| §5 | HTTP routes | 959 |
+| §6 | Launch modes and policies | 1034 |
+| &nbsp;&nbsp;§6.1 | The rule | 1036 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1072 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1111 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1144 |
+| §7 | Authentication and security | 1163 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1165 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1212 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1230 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1244 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1292 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1309 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1349 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1365 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1379 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1388 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1417 |
+| §8 | Persistence | 1436 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1438 |
+| &nbsp;&nbsp;§8.2 | Saving | 1472 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1501 |
+| &nbsp;&nbsp;§8.4 | Server database | 1543 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1579 |
+| §9 | Command line | 1591 |
+| §10 | Configuration (server) | 1650 |
+| &nbsp;&nbsp;§10.1 | Container | 1688 |
+| §11 | Feature inventory | 1742 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1749 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1787 |
+| §12 | Non-goals | 1805 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -925,8 +925,19 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   the attach frames and the tab's registration, so none is lost or duplicated.
 - **Broadcast** never awaits. It serialises a frame to JSON text once, then puts that text into
   each tab's bounded queue with `put_nowait`. One sender task per tab drains its queue in order.
-- **Overflow.** A tab whose queue is full is closed with code `1013` and detached; broadcasting to
-  the other tabs goes on. A reopened tab is brought up to date by its attach frames.
+- **Coalescing.** A `state` or an `analysis` frame supersedes an earlier frame of its type: the
+  page needs only the newest `state` and the newest `analysis`. When one is put into a tab's
+  queue while an unsent frame of the same type is still waiting there, the waiting frame is
+  removed and the new one is added at the end. A queue therefore holds at most one `state` and
+  one `analysis`, and they stay in the order they were broadcast, so the page never gets an
+  `analysis` for a position its `state` has not reached yet (the page ignores an `analysis`
+  whose `cursor` is not the current one, §3.8). Every other frame (`error`, `log`,
+  `log_history`, and any other type of §4.2) is never coalesced or dropped and keeps its order.
+  A tab that reads slowly, such as one watching two fast engines play each other, therefore
+  keeps its socket and its messages are still handled.
+- **Overflow.** The queue stays bounded (`256` frames). A tab whose queue is full when a frame
+  that cannot be coalesced arrives is closed with code `1013` and detached; broadcasting to the
+  other tabs goes on. A reopened tab is brought up to date by its attach frames.
 - **Receiving.** Each received frame is parsed (§7.6) and passed to `session.handle`, which is
   awaited inline, so a tab's messages are handled in the order they were sent. A frame that is
   not valid JSON, or is nested too deeply to parse, gets an `error` and the socket stays open.
