@@ -468,6 +468,65 @@ async def test_a_stalled_tab_is_not_closed_by_log_frames_they_fold_into_one_hist
     assert tab.closed == []
 
 
+@pytest.mark.parametrize("kind", ["state", "analysis", "log", "log_history"])
+async def test_a_queue_full_of_log_frames_folds_for_any_foldable_frame(kind):
+    """§4.3 Log folding: a ``state``, ``analysis`` or ``log_history`` with nothing of its type to
+    supersede folds the queued logs first, like a ``log`` does; it is not refused."""
+    from gowui.spaces import TabQueue
+
+    queue = TabQueue(256)
+    history = lambda: json.dumps({"type": "log_history", "lines": []})  # noqa: E731
+    assert all(queue.put("log", json.dumps(note(str(n))), history) for n in range(256))
+    assert queue.put(kind, json.dumps({"type": kind}), history) is True
+    kinds = [queued for queued, _ in queue._items]
+    assert kinds.count("log_history") == 1 and "log" not in kinds
+
+
+def test_a_queue_mostly_of_errors_is_refused_rather_than_folded_on_every_log_line():
+    """§4.3 Overflow: once a fold would leave more than half the queue unfoldable, the tab is
+    closed; folding for it on every log line would tie up the event loop."""
+    from gowui.spaces import TabQueue
+
+    calls = []
+
+    def history() -> str:
+        calls.append(1)
+        return json.dumps({"type": "log_history", "lines": []})
+
+    queue = TabQueue(8)
+    for n in range(7):
+        assert queue.put("error", json.dumps(error(str(n))), history)
+    accepted = [queue.put("log", json.dumps(note(str(n))), history) for n in range(200)]
+    assert False in accepted or len(calls) <= 10, (accepted.count(False), len(calls))
+
+
+async def test_folding_in_many_tabs_encodes_the_history_once_per_log_line(registries,
+                                                                          monkeypatch):
+    """§4.3 Log folding: the history text is encoded once and shared by every tab until the log
+    changes, so many stalled tabs cost one encoding per log line, not one per tab."""
+    registry = registries(queue_size=8)
+    tabs = []
+    for _ in range(20):
+        tab = FakeTab(stuck=True)
+        await registry.attach(owner(), tab.send, tab.close)
+        tabs.append(tab)
+    await settle(0.05)
+    space = registry.live["owner"]
+    session = space.session
+    built = []
+    original = session._log_history
+
+    def counting():
+        built.append(1)
+        return original()
+
+    monkeypatch.setattr(session, "_log_history", counting)
+    for n in range(200):
+        session._record_log("note", f"t{n}")
+    assert [tab.closed for tab in tabs] == [[]] * 20
+    assert 0 < len(built) <= 200, len(built)
+
+
 async def test_the_other_tabs_keep_receiving_after_one_overflows(registries):
     registry = registries(queue_size=4)
     stuck, reading = FakeTab(stuck=True), FakeTab()

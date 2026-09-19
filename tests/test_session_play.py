@@ -140,6 +140,26 @@ async def test_genmove_for_the_wrong_colour_asks_the_engine_nothing(h, gtp_serve
     assert gtp_count(gtp_server, "genmove") == 0
 
 
+async def test_a_genmove_queued_behind_the_automatic_move_does_not_play_the_human_side(
+        h, fake_engine):
+    """§3.2 / §3.8: the page sends ``genmove`` with the side to move it shows. Asked while the
+    engine is already thinking for White, the request waits for the engine; by then White has
+    moved, so the colour is stale and the request is refused instead of playing Black too."""
+    server = await slow_gtp(fake_engine, 0.5)
+    await engine_plays_white(h, server)
+    await h.play("D4")
+    assert await wait_for(lambda: gtp_count(server, "genmove") == 1)
+    await settle(0.1)
+    start = h.rec.mark()
+    await h.send({"type": "genmove", "color": h.rec.state()["game"]["toPlay"]})
+    await h.wait_moves(2)
+    assert await h.rec.wait_error(start) is not None
+    await settle(0.8)
+    state = await h.fresh_state()
+    assert ([m["color"] for m in state["game"]["moves"]], gtp_count(server, "genmove")) == (
+        ["black", "white"], 1)
+
+
 async def test_genmove_without_an_engine_is_an_error(h):
     start = h.rec.mark()
     await h.send({"type": "genmove"})
