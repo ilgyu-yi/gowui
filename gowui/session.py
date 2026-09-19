@@ -491,13 +491,20 @@ class GameSession:
     def attach_frames(self) -> list[dict]:
         """What a newly attached tab receives: ``state``, the last log lines, and the last
         analysis if it still describes the position (§4.2)."""
-        lines = [line.to_dict() for line in self.log][-ATTACH_LOG_LINES:]
-        frames = [self.state_message(), {"type": "log_history", "lines": lines}]
+        frames = [self.state_message(), self._log_history()]
         slot = self._active
         analysis = slot.current_analysis()
         if analysis is not None and self.play_settings["analysisEnabled"]:
             frames.append(self._analysis_frame(slot, analysis))
         return [f for f in (self._redact(frame) for frame in frames) if f is not None]
+
+    def _log_history(self) -> dict:
+        lines = [line.to_dict() for line in self.log][-ATTACH_LOG_LINES:]
+        return {"type": "log_history", "lines": lines}
+
+    def log_history_frame(self) -> dict:
+        """The attach ``log_history`` frame, redacted; synchronous (§4.3 Log folding)."""
+        return self._redact(self._log_history())
 
     # -- the traffic log (§3.6) ----------------------------------------------------------------
     def _record_log(self, direction: str, text: str) -> None:
