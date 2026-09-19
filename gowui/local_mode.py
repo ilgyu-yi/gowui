@@ -169,6 +169,9 @@ class JsonFileStorage:
         except (ValueError, RecursionError):
             self._set_aside("is not valid JSON")
             return None
+        except MemoryError:
+            self._set_aside("cannot be parsed in the memory available")
+            return None
         if not isinstance(value, dict):
             self._set_aside("is not a JSON object")
             return None

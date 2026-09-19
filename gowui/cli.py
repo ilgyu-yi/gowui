@@ -164,5 +164,8 @@ def main(argv: list[str] | None = None) -> int:
         config = build_config(args)
     except StateFileError as exc:
         _parser().error(str(exc))  # a usage error: exits with status 2 (§9)
-    _Server(config, args.host).run()
+    try:
+        _Server(config, args.host).run()
+    except KeyboardInterrupt:  # Ctrl-C after a clean shutdown (§9 "Stopping")
+        return 130
     return 0
