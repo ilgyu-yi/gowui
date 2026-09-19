@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import random
 
 import pytest
@@ -13,6 +14,7 @@ import pytest
 from gowui import coords
 from gowui.engine import PROTOCOLS, EngineError, Position, create_engine
 from gowui.engine.handol import HandolEngine, engine_to_play
+from gowui.engine.types import board_vertex
 from helpers import (HANG, Disconnects, Log, RawClient, Reports, color_of, game_with,
                      position_from, queries, wait_for)
 
@@ -868,3 +870,96 @@ async def test_a_white_move_is_generated_for_white(handol_server, connect):
     engine = await handol(connect, handol_server, move_style={"B": "katago", "W": "human"})
     game = game_with(9, "E5")
     assert legal(game, "W", await genmove(engine, position_from(game), "W"))
+
+
+# -- parsing hardening (SPEC §2.5 "Parsing") -------------------------------------------------------
+def point_index(move: str, size: int) -> int:
+    """Row-major index from the top-left, pass last."""
+    point = coords.from_gtp(move, size)
+    return size * size if point is None else point[1] * size + point[0]
+
+
+async def test_fewer_policies_than_tuples_delivers_no_analysis(fake_engine, connect):
+    # Two tuples go out, the fake answers with one: an engine error, so nothing is shown.
+    server = await fake_engine("handol", short_policies=True)
+    engine = await handol(connect, server, compare={"distance_slope": 1}, eval_visits=0)
+    reports = Reports()
+    await asyncio.wait_for(engine.start_analysis(EMPTY, reports, max_visits=10), HANG)
+    await wait_for(lambda: human_replies(server))
+    await asyncio.sleep(0.3)
+    assert len(reports) == 0
+
+
+async def test_fewer_policies_than_tuples_leaves_a_note(fake_engine, connect):
+    server = await fake_engine("handol", short_policies=True)
+    log = Log()
+    engine = await handol(connect, server, log=log, eval_visits=0)
+    await asyncio.wait_for(engine.start_analysis(EMPTY, Reports(), max_visits=10), HANG)
+    await wait_for(lambda: log.notes)
+    assert log.notes
+
+
+async def test_an_off_board_entry_is_not_a_candidate(fake_engine, connect):
+    # The fake gives its off-board entries the largest p.
+    server = await fake_engine("handol", offboard_move=True)
+    engine = await handol(connect, server, eval_visits=0)
+    reports = await analyse(engine, EMPTY)
+    moves = [m.move for m in reports[0].move_infos]
+    assert moves and all(board_vertex(m, 9) is not None for m in moves)
+
+
+async def test_an_off_board_entry_is_not_a_compare_probability(fake_engine, connect):
+    server = await fake_engine("handol", offboard_move=True)
+    engine = await handol(connect, server, compare={"distance_slope": 1}, eval_visits=0)
+    reports = await analyse(engine, EMPTY)
+    probabilities = reports[0].compare["probabilities"]
+    assert probabilities and all(board_vertex(m, 9) is not None for m in probabilities)
+
+
+async def test_an_off_board_entry_is_never_played(fake_engine, connect):
+    server = await fake_engine("handol", offboard_move=True)
+    engine = await handol(connect, server)
+    moves = []
+    for seed in range(25):
+        engine.rng = random.Random(seed)
+        moves.append(await genmove(engine, EMPTY, "B"))
+    assert all(legal(game_with(9), "B", m) for m in moves)
+
+
+async def bad_p_round(fake_engine, connect):
+    server = await fake_engine("handol", bad_p=True)
+    engine = await handol(connect, server, eval_visits=0)
+    reports = await analyse(engine, EMPTY)
+    answer = await replay(server, human_requests(server)[0])
+    bad = [e["move"] for e in answer["policies"][0]["distribution"]
+           if not (math.isfinite(e["p"]) and e["p"] >= 0)]
+    return engine, reports[0], bad
+
+
+async def test_the_fake_sends_three_bad_ps(fake_engine, connect):
+    _, _, bad = await bad_p_round(fake_engine, connect)
+    assert len(bad) == 3
+
+
+async def test_a_bad_p_is_zero_in_the_policy(fake_engine, connect):
+    _, analysis, bad = await bad_p_round(fake_engine, connect)
+    assert [analysis.policy[point_index(m, 9)] for m in bad] == [0, 0, 0]
+
+
+async def test_the_policy_holds_only_finite_non_negative_numbers(fake_engine, connect):
+    _, analysis, _ = await bad_p_round(fake_engine, connect)
+    assert all(math.isfinite(v) and v >= 0 for v in analysis.policy)
+
+
+async def test_a_bad_p_is_not_a_candidate(fake_engine, connect):
+    _, analysis, bad = await bad_p_round(fake_engine, connect)
+    assert not {key(m.move) for m in analysis.move_infos} & {key(m) for m in bad}
+
+
+async def test_a_bad_p_is_never_played(fake_engine, connect):
+    engine, _, bad = await bad_p_round(fake_engine, connect)
+    moves = []
+    for seed in range(25):
+        engine.rng = random.Random(seed)
+        moves.append(await genmove(engine, EMPTY, "B"))
+    assert not {key(m) for m in moves} & {key(m) for m in bad}

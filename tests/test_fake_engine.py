@@ -956,3 +956,34 @@ async def test_handol_max_in_flight_is_one_for_a_serial_client(fake_engine):
     finally:
         await client.close()
     assert server.max_in_flight == 1
+
+
+# -- handol parsing faults (SPEC §2.5 "Parsing") --------------------------------------------------
+async def test_handol_short_policies_answers_one_policy_fewer(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(policies=[{}, {"distance_slope": 1}]),
+                             short_policies=True)
+    assert len(reply["policies"]) == 1
+
+
+async def test_handol_offboard_move_adds_off_board_entries_with_positive_p(fake_engine):
+    reply = await handol_ask(fake_engine, human_query(), offboard_move=True)
+
+    def on_board(move) -> bool:
+        try:
+            coords.from_gtp(move, 9)
+        except (ValueError, TypeError):
+            return False
+        return True
+
+    assert any(not on_board(e["move"]) and e["p"] > 0 for e in distribution(reply))
+
+
+async def test_handol_bad_p_sends_nan_negative_and_overflowing_p(fake_engine):
+    _, client = await handol_client(fake_engine, bad_p=True)
+    try:
+        await client.json(human_query())
+        line = await client.line()
+    finally:
+        await client.close()
+    ps = [e["p"] for e in json.loads(line)["policies"][0]["distribution"]]
+    assert ("NaN" in line, "1e999" in line, any(p < 0 for p in ps)) == (True, True, True)
