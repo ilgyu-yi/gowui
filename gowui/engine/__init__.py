@@ -1,4 +1,4 @@
-"""Engine clients (SPEC §2): KataGo GTP and the KataGo analysis engine, over TCP."""
+"""Engine clients (SPEC §2): KataGo GTP, the KataGo analysis engine and handol-mux, over TCP."""
 
 from __future__ import annotations
 
@@ -6,10 +6,12 @@ from .analysis import AnalysisEngine
 from .base import Engine
 from .errors import ConnectionClosed, EngineError
 from .gtp import GTPEngine
+from .handol import HandolEngine
 from .types import Analysis, MoveInfo, Position, RootInfo
 
-#: Registered protocols; handol-mux joins with #5.
-PROTOCOLS: dict[str, type[Engine]] = {"gtp": GTPEngine, "analysis": AnalysisEngine}
+#: Registered protocols.
+PROTOCOLS: dict[str, type[Engine]] = {"gtp": GTPEngine, "analysis": AnalysisEngine,
+                                      "handol": HandolEngine}
 
 
 def create_engine(protocol: str, host: str, port: int, log=None) -> Engine:
@@ -23,5 +25,6 @@ def create_engine(protocol: str, host: str, port: int, log=None) -> Engine:
 
 __all__ = [
     "Analysis", "AnalysisEngine", "ConnectionClosed", "Engine", "EngineError", "GTPEngine",
+    "HandolEngine",
     "MoveInfo", "PROTOCOLS", "Position", "RootInfo", "create_engine",
 ]
