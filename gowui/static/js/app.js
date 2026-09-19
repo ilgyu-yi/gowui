@@ -24,6 +24,9 @@
   var wasConnected = null;
   // The page's own engine defaults, replaced by /api/health's typed defaults.
   var formDefaults = { protocol: 'gtp', host: '127.0.0.1', port: 6363 };
+  // The engine catalog from /api/health when the server offers one instead of typed
+  // addresses (engineAddress.kind === 'catalog'); null for typed addresses.
+  var catalog = null;
   var PORTS = { gtp: 6363, analysis: 6364, handol: 11985 };
 
   var board = new GoBoard($('board'), {
@@ -178,10 +181,25 @@
   // The last accepted engine request, else /api/health's defaults, else the page's own.
   function fillEngineForm() {
     var request = state.engine && state.engine.request;
+    if (catalog) {
+      if (request && typeof request.engineId === 'string' &&
+          catalog.some(function (entry) { return entry.id === request.engineId; })) {
+        $('engine-pick').value = request.engineId;
+      }
+      return;
+    }
     var shown = request && request.protocol ? request : formDefaults;
     $('protocol').value = shown.protocol || formDefaults.protocol;
     $('host').value = shown.host || formDefaults.host;
     $('port').value = shown.port || formDefaults.port;
+  }
+
+  // The protocol the form would connect with: the picked catalog entry's, or the typed one.
+  function formProtocol() {
+    if (!catalog) return $('protocol').value;
+    var picked = $('engine-pick').value;
+    var entry = catalog.filter(function (e) { return e.id === picked; })[0];
+    return entry ? entry.protocol : '';
   }
 
   function renderControls() {
@@ -202,7 +220,7 @@
     if (document.activeElement !== $('eval-visits') && state.settings.evalVisits != null) {
       $('eval-visits').value = state.settings.evalVisits;
     }
-    showHumanControls(state.engine.protocol === 'handol' || $('protocol').value === 'handol');
+    showHumanControls(state.engine.protocol === 'handol' || formProtocol() === 'handol');
     // The server owns this one: it decides whether ownership is even requested.
     $('show-ownership').checked = !!state.settings.includeOwnership;
     board.setOptions({ showOwnership: !!state.settings.includeOwnership });
@@ -597,6 +615,8 @@
   $('connect').onclick = function () {
     if (state.engine.connected) {
       send({ type: 'disconnect' });
+    } else if (catalog) {
+      if ($('engine-pick').value) send({ type: 'connect', engineId: $('engine-pick').value });
     } else {
       send({
         type: 'connect',
@@ -605,6 +625,11 @@
         port: parseInt($('port').value, 10)
       });
     }
+  };
+
+  $('engine-pick').onchange = function () {
+    engineFormDirty = true;
+    showHumanControls(formProtocol() === 'handol' || state.engine.protocol === 'handol');
   };
 
   ['protocol', 'host', 'port'].forEach(function (id) {
@@ -728,10 +753,66 @@
         port: address.defaults.port || formDefaults.port
       };
       if (!engineFormDirty) fillEngineForm();
+    } else if (address.kind === 'catalog') {
+      showCatalog(Array.isArray(address.engines) ? address.engines : []);
     }
+    showIdentity(info.me || {});
     // Without a console for any engine the section has nothing to offer.
     if (info.console === false) $('console-section').hidden = true;
   }).catch(function () { /* the fields keep the page's defaults; the console stays */ });
+
+  // Server mode: a picker of catalog entries replaces the protocol, host and port fields.
+  function showCatalog(engines) {
+    catalog = engines;
+    ['protocol', 'host', 'port'].forEach(function (id) { $(id).hidden = true; });
+    var pick = $('engine-pick');
+    while (pick.firstChild) pick.removeChild(pick.firstChild);
+    engines.forEach(function (entry) {
+      var option = document.createElement('option');
+      option.value = entry.id;
+      option.textContent = entry.label;
+      pick.appendChild(option);
+    });
+    if (!engines.length) {
+      // The attribute keeps the hint right after a language change (i18n.apply).
+      pick.setAttribute('data-i18n-title', 'picker.empty');
+      pick.title = t('picker.empty');
+      $('connect').disabled = true;
+    }
+    pick.hidden = false;
+    if (!engineFormDirty) fillEngineForm();
+    if (state.game) renderControls();
+  }
+
+  // The signed-in name and the log-out control follow /api/health's `me`.
+  function showIdentity(me) {
+    var name = $('me-name');
+    if (me.name) {
+      name.textContent = me.name;
+      if (me.source === 'sso') {
+        name.setAttribute('data-i18n-title', 'me.sso');
+        name.title = t('me.sso');
+      } else {
+        name.setAttribute('data-i18n-title', 'me.local');
+        name.title = t('me.local');
+      }
+      name.hidden = false;
+    }
+    // The log-out kind (§5): a form post, the SSO log-out URL, or nothing.
+    switch (me.logout) {
+      case 'local':
+        $('logout-form').hidden = false;
+        break;
+      case 'sso':
+        if (me.logoutUrl) {
+          $('logout-link').href = me.logoutUrl;
+          $('logout-link').hidden = false;
+        }
+        break;
+      default:
+        break;
+    }
+  }
 
   function resetKomi() {
     if ((parseInt($('new-handicap').value, 10) || 0) >= 2) {

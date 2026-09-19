@@ -1675,9 +1675,9 @@ addition to the section in its Behaviour column.
 | B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: pending |
 | B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: pending |
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: pending |
-| B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/test_frontend_static.py` |
+| B15 | GTP console | §3.5 | both (server: per catalog entry) | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/test_frontend_static.py`; server catalog: `tests/test_server_catalog.py` |
 | B16 | Final score | §3.5 | both | engine: `tests/test_gtp.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py` |
-| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/browser/test_smoke.py` |
+| B17 | Connect / disconnect over GTP, analysis engine, handol-mux | §2 | both | GTP/analysis: `tests/test_transport.py`, `tests/test_gtp.py`, `tests/test_analysis.py`; handol: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_protocol.py`, `tests/browser/test_smoke.py`; server catalog: `tests/test_server_catalog.py`, `tests/browser/test_server_ui.py` |
 | B18 | Engine parameters: max visits, report interval, ownership | §3.4 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`; session: `tests/test_session_engine.py`, `tests/test_session_messages.py`; UI: pending |
 | B19 | handol-mux profile picker with explanations | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: pending |
 | B20 | handol-mux tuple knobs, raw fields and JSON kept in step, validated, per-field explanations, live apply after a pause | §2.5 | both | validation: `tests/test_handol_tuple.py`, `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/test_frontend_validator.py` |
@@ -1702,16 +1702,16 @@ addition to the section in its Behaviour column.
 | N1 | Boards restored after restart; `--fresh`, `--state` | §8 | local | session: `tests/test_session_snapshot.py`; app restart, `--fresh`, `--state`: `tests/test_state_file.py`, `tests/test_spaces.py`, `tests/test_cli.py` |
 | N2 | Engine connection restored after restart | §8.1 | both | session: `tests/test_session_snapshot.py`; app: `tests/test_app_local.py`, `tests/test_spaces.py` |
 | N3 | Origin and Host checks | §7.4 | both | app: `tests/test_app_security.py`; CLI warning: `tests/test_cli.py` |
-| N4 | Password sign-in, sessions, throttling | §7.1, §7.2 | server | pending |
-| N5 | SSO header sign-in from trusted proxies | §7.3 | server | pending |
-| N6 | Per-account isolation and idle release | §7.8 | server | pending |
-| N7 | Catalog-only engines, addresses never sent to the browser | §6.3, §7.7 | server | pending |
-| N8 | `gowui user` account management | §9 | server | pending |
+| N4 | Password sign-in, sessions, throttling | §7.1, §7.2 | server | app: `tests/test_server_auth.py`; UI: `tests/browser/test_server_ui.py` |
+| N5 | SSO header sign-in from trusted proxies | §7.3 | server | app: `tests/test_server_auth.py`, `tests/test_server_isolation.py` |
+| N6 | Per-account isolation and idle release | §7.8 | server | app: `tests/test_server_isolation.py`; registry: `tests/test_server_spaces.py` |
+| N7 | Catalog-only engines, addresses never sent to the browser | §6.3, §7.7 | server | app: `tests/test_server_catalog.py`; UI: `tests/test_server_i18n.py`, `tests/browser/test_server_ui.py` |
+| N8 | `gowui user` account management | §9 | server | `tests/test_user_cli.py` |
 | N9 | `/healthz` liveness | §5 | both | app: `tests/test_app_local.py`, `tests/test_app_security.py`, `tests/test_cli.py` |
-| N10 | Fail-closed server configuration | §7.9 | server | pending |
+| N10 | Fail-closed server configuration | §7.9 | server | `tests/test_server_auth.py` |
 | N11 | Request limits and response headers | §7.5, §7.6 | both | session: `tests/test_session_messages.py`; app: `tests/test_app_security.py`, `tests/test_app_local.py`; page: `tests/test_frontend_static.py`, `tests/browser/test_smoke.py` |
 | N12 | Container deployment | §10 | server | pending |
-| N13 | Operation behind a reverse proxy | §7.10 | server | pending |
+| N13 | Operation behind a reverse proxy | §7.10 | server | `tests/test_server_auth.py`, `tests/test_app_security.py` |
 
 ## 12. Non-goals
 

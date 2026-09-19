@@ -300,3 +300,48 @@ async def test_revalidation_waits_for_its_tick(serve, tabs, tmp_path):
     server.store.remove_user("alice")
     await wait_for(lambda: not tab.open, HANG)
     assert tab.ws.close_code == 4401
+
+
+# -- §7.10: forwarded headers from a trusted proxy (carry-over I4) -----------------------------------
+@pytest.mark.parametrize("peer,trusted", [("::ffff:10.1.1.1", True), ("10.1.1.1", True),
+                                          ("::ffff:10.2.0.1", False), ("not-an-ip", False)])
+def test_an_ipv4_mapped_peer_matches_an_ipv4_network(peer, trusted):
+    import ipaddress
+
+    from gowui.guard import trusted_peer
+
+    scope = {"client": (peer, 5000), "headers": []}
+    assert trusted_peer(scope, (ipaddress.ip_network("10.1.0.0/16"),)) is trusted
+
+
+@pytest.mark.parametrize("lines,https", [(["http, https"], True), (["https, http"], False),
+                                         (["http", "HTTPS"], True), (["https", "http"], False)])
+def test_only_the_last_forwarded_proto_element_counts(lines, https):
+    import ipaddress
+
+    from gowui.guard import request_is_https
+
+    scope = {"client": ("10.1.1.1", 5000), "scheme": "http",
+             "headers": [(b"x-forwarded-proto", line.encode()) for line in lines]}
+    assert request_is_https(scope, (ipaddress.ip_network("10.1.0.0/16"),)) is https
+
+
+def test_the_throttle_client_is_the_last_valid_forwarded_for_from_a_trusted_peer():
+    import ipaddress
+
+    from gowui.guard import client_address
+
+    proxies = (ipaddress.ip_network("10.1.0.0/16"),)
+
+    def scope(peer, xff):
+        return {"client": (peer, 5000), "headers": [(b"x-forwarded-for", xff.encode())]}
+
+    assert client_address(scope("10.1.1.1", "1.2.3.4, 5.6.7.8"), proxies) == "5.6.7.8"
+    assert client_address(scope("10.1.1.1", "1.2.3.4, junk"), proxies) == "10.1.1.1"
+    assert client_address(scope("192.0.2.9", "5.6.7.8"), proxies) == "192.0.2.9"
+
+
+async def test_cookie_secure_follows_a_trusted_forwarded_proto(serve, tmp_path):
+    server = await start(serve, tmp_path, trusted_proxies="127.0.0.1/32")
+    response, _ = await login(server.running, "alice", headers={"X-Forwarded-Proto": "https"})
+    assert "secure" in response.headers["set-cookie"].lower()

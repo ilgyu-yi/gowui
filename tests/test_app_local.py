@@ -61,7 +61,9 @@ async def new_game(tab, size: int = 9) -> dict:
 def test_the_app_factory_takes_the_policy_bundle_and_startup_hooks_only():
     from gowui.app import create_app
 
-    assert list(inspect.signature(create_app).parameters) == ["policies", "startup"]
+    # ``revalidate_interval``: how often an open socket's identity is checked again (§4.3).
+    assert list(inspect.signature(create_app).parameters) == ["policies", "startup",
+                                                              "revalidate_interval"]
 
 
 def test_the_policy_bundle_has_the_fields_of_section_6_1():

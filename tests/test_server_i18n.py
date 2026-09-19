@@ -15,7 +15,7 @@ import pytest
 from frontend_helpers import read_static
 from test_frontend_i18n import table, used_keys
 
-SERVER_KEYS = ["engine.pick.title", "engine.pick.empty", "me.local", "me.sso", "logout"]
+SERVER_KEYS = ["picker.title", "picker.empty", "me.local", "me.sso", "logout"]
 
 
 @pytest.mark.parametrize("lang", ["en", "ko"])
