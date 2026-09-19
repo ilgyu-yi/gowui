@@ -39,6 +39,11 @@ async def analysis_server(fake_engine):
 
 
 @pytest.fixture
+async def handol_server(fake_engine):
+    return await fake_engine("handol")
+
+
+@pytest.fixture
 async def connect():
     """``await connect(server, log=None)`` returns a connected client, closed at teardown."""
     from gowui.engine import create_engine
