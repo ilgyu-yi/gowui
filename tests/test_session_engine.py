@@ -996,3 +996,91 @@ async def test_a_final_score_in_the_result_grammar_is_recorded(h, fake_engine, r
     await h.send({"type": "final_score"})
     state = await h.rec.wait_state(lambda f: f["game"]["result"] != "", start)
     assert state is not None and state["game"]["result"] == reply
+
+
+# -- engines still closing count against the connect bound (§3.2, §4.1) ------------------------------
+async def connect_wait_disconnect_flood(h, server, cycles: int, hold: float = 0.0) -> int:
+    """Run ``cycles`` of connect → wait until connected → (hold) → disconnect, sampling the fake's
+    open connections all along; a connect refused because engines are still closing counts as a
+    cycle. Returns the most connections seen open at once."""
+    connect = {"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": server.port}
+    most = 0
+    running = True
+
+    async def sample() -> None:
+        nonlocal most
+        while running:
+            most = max(most, server.open_connections)
+            await asyncio.sleep(0.005)
+
+    sampler = asyncio.create_task(sample())
+    try:
+        for _ in range(cycles):
+            start = h.rec.mark()
+            await h.send(connect)
+            if h.rec.errors(start):
+                await asyncio.sleep(0.02)
+                continue
+            await h.rec.wait_state(lambda f: f["engine"]["connected"], start, timeout=2.0)
+            if hold:
+                await asyncio.sleep(hold)
+            await h.send({"type": "disconnect"})
+        await asyncio.sleep(0.3)
+    finally:
+        running = False
+        await sampler
+    return max(most, server.open_connections)
+
+
+async def test_a_connect_disconnect_loop_against_a_slow_quit_opens_at_most_two_connections(
+        h, fake_engine):
+    """§3.2, §4.1: an engine released by a disconnect is still closing (its quit is slow), and it
+    counts against the bound of two with the connect attempts."""
+    server = await fake_engine("gtp", delay={"quit": 1.9})
+    assert await connect_wait_disconnect_flood(h, server, 200) <= 2
+
+
+async def test_a_connect_disconnect_loop_against_an_engine_that_will_not_stop_analysing(
+        h, fake_engine):
+    """§3.2, §4.1: an engine that ignores the interrupt holds its close for the stop timeout; the
+    engines still closing count against the bound of two."""
+    server = await fake_engine("gtp", ignore_interrupt=True)
+    await h.send({"type": "analysis", "enabled": True})
+    assert await connect_wait_disconnect_flood(h, server, 200, hold=0.03) <= 2
+
+
+async def test_a_connect_that_would_release_the_engine_while_another_closes_is_refused(
+        h, fake_engine):
+    """§3.2, §4.1: a connect counts the current engine it releases as one being closed."""
+    server = await fake_engine("gtp", delay={"quit": 1.9})
+    await h.connect_to(server)
+    await h.send({"type": "disconnect"})
+    await h.connect_to(server)
+    start = h.rec.mark()
+    await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": server.port})
+    error = await h.rec.wait_error(start, timeout=1.0)
+    await settle(0.3)
+    assert (error is not None and "still closing" in error, server.open_connections <= 2) == \
+        (True, True)
+
+
+async def test_a_normal_disconnect_then_connect_still_connects(h, gtp_server):
+    """§3.2: an engine that closes quickly frees its place in the bound at once."""
+    for _ in range(5):
+        await h.connect_to(gtp_server)
+        await h.send({"type": "disconnect"})
+    state = await h.connect_to(gtp_server)
+    assert state["engine"]["connected"] is True
+
+
+async def test_a_close_cut_short_at_shutdown_drops_the_engine_connection(h, fake_engine):
+    """§3.2: aclose cancels a close still running past its grace; the connection is dropped
+    rather than left open."""
+    server = await fake_engine("gtp", ignore_interrupt=True)
+    await h.connect_to(server)
+    start = h.rec.mark()
+    await h.send({"type": "analysis", "enabled": True})
+    assert await h.rec.wait("analysis", start=start) is not None
+    await h.send({"type": "disconnect"})  # the close now waits out the stop timeout (5 s)
+    await h.aclose()
+    assert await wait_for(lambda: server.open_connections == 0, timeout=1.0)
