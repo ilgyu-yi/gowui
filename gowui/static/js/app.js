@@ -888,6 +888,7 @@
       link.download = withSgfExtension(name);
       link.click();
       setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+      setStatus(t('sgf.saved', { name: link.download }));
     }).catch(function (err) {
       if (err && err.name === 'AbortError') return;  // the user closed the dialog
       setStatus(t('sgf.failed', { error: err && err.message ? err.message : String(err) }), true);
