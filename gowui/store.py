@@ -123,7 +123,8 @@ class Store:
     def __init__(self, path: str | os.PathLike, *, hasher: Any = None) -> None:
         self.path = Path(path)
         self.hasher = hasher if hasher is not None else Scrypt()
-        self._dummy: str | None = None
+        # Made now, so the first missing-name sign-in costs what a wrong password costs (§7.1).
+        self._dummy = self.hasher.hash(secrets.token_hex(16))
         _prepare(self.path)
         self._db = sqlite3.connect(str(self.path), check_same_thread=False,
                                    isolation_level=None, timeout=5.0)
@@ -131,6 +132,7 @@ class Store:
         with self._lock:
             self._db.execute("PRAGMA busy_timeout = 5000")
             self._db.execute("PRAGMA journal_mode = WAL")
+            _private_sidecars(self.path)
             self._db.executescript(SCHEMA)
             self._db.execute("DELETE FROM logins WHERE expires < ?", (time.time(),))
 
@@ -197,8 +199,6 @@ class Store:
         rows = self._query("SELECT id, password FROM users WHERE name = ?", (name,))
         row = rows[0] if rows else None
         if row is None:
-            if self._dummy is None:
-                self._dummy = self.hasher.hash(secrets.token_hex(16))
             self.hasher.verify(password, self._dummy)
             return None
         if not self.hasher.verify(password, row[1]):
@@ -260,7 +260,8 @@ class Store:
         return value
 
     def save_state(self, key: str, snapshot: dict) -> None:
-        text = json.dumps(snapshot, ensure_ascii=False)
+        # ASCII: SQLite stores text as UTF-8, which cannot hold a lone surrogate (§8.4).
+        text = json.dumps(snapshot, ensure_ascii=True)
         now = time.time()
         upsert = ("ON CONFLICT(account) DO UPDATE SET snapshot = excluded.snapshot, "
                   "updated = excluded.updated")
@@ -305,3 +306,14 @@ def _prepare(path: Path) -> None:
         except FileExistsError:
             return
         os.close(fd)
+
+
+def _private_sidecars(path: Path) -> None:
+    """Set the ``-wal`` and ``-shm`` files to 0600 once WAL is on (§8.4)."""
+    if os.name == "nt":
+        return
+    for suffix in ("-wal", "-shm"):
+        try:
+            os.chmod(f"{path}{suffix}", 0o600)
+        except FileNotFoundError:
+            pass

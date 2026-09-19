@@ -129,7 +129,7 @@ async def test_twenty_concurrent_wrong_sign_ins_run_scrypt_at_most_five_times(se
     running = server.running
     async with running.client() as client:
         responses = await asyncio.gather(*(
-            login(running, "alice", f"wrong {i}", client=client) for i in range(20)))
+            login(running, "alice", f"wrong password {i}", client=client) for i in range(20)))
     errors = sorted(location_error(r) for r, _ in responses)
     assert hasher.verifications <= 5
     assert errors.count("throttled") >= 15

@@ -18,6 +18,9 @@
   var reconnectDelay = 500;
   // Set by a 4401 / 4403 close: the page stops reconnecting and keeps saying why.
   var closedFor = null;
+  // Set while the page is already leaving (the log-out form was sent): a 4401 then must not
+  // start a second navigation that would cancel the first.
+  var leaving = false;
   // The engine host/port/protocol inputs belong to the user once they touch
   // them; state broadcasts must not type over what someone is filling in.
   var engineFormDirty = false;
@@ -37,6 +40,8 @@
   });
 
   /* -- transport --------------------------------------------------------- */
+  $('logout-form').addEventListener('submit', function () { leaving = true; });
+
   function connect() {
     var scheme = location.protocol === 'https:' ? 'wss' : 'ws';
     socket = new WebSocket(scheme + '://' + location.host + '/ws');
@@ -46,9 +51,16 @@
       setStatus('');
     };
     socket.onclose = function (event) {
-      if (event.code === 4401 || event.code === 4403) {
-        // Not signed in, or refused by the Host and Origin rules: retrying cannot help.
-        closedFor = event.code === 4401 ? 'status.notSignedIn' : 'status.refused';
+      if (event.code === 4401) {
+        // Not signed in: the guard at / picks the sign-in page or the 401 page.
+        closedFor = 'status.notSignedIn';
+        showConnectionProblem();
+        if (!leaving) location.assign('/');
+        return;
+      }
+      if (event.code === 4403) {
+        // Refused by the Host and Origin rules: retrying cannot help.
+        closedFor = 'status.refused';
         showConnectionProblem();
         return;
       }

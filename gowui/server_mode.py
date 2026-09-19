@@ -221,22 +221,41 @@ class SqliteStorage:
 
 
 # -- login throttling (§7.1) --------------------------------------------------------------------------------
+def throttle_client(address: str) -> str:
+    """The throttle's client key: an IPv4 address (or IPv4-mapped IPv6) itself, other IPv6 by
+    its /64 (§7.1). A string that is not an address is its own key."""
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.IPv6Network((ip, 64), strict=False))
+    return str(ip)
+
+
 class LoginThrottle:
-    """Attempts per (client, name) and failures per client in a sliding window.
+    """Attempts per (client, name), failures per client and failures per name in a sliding
+    window (§7.1).
 
     ``reserve`` takes a slot before any password is checked, so concurrent attempts cannot all
-    pass; a failure keeps its slot, a success clears the (client, name) entry.
+    pass; a failure keeps its slot, a success clears the (client, name) entry and releases its
+    own slot from the client's and the name's budgets. Clients are keyed by ``throttle_client``.
     """
 
     def __init__(self, *, clock=time.monotonic, window: float = 600.0, per_name: int = 5,
-                 per_client: int = 30, max_entries: int = 10_000) -> None:
+                 per_client: int = 30, per_account: int = 20,
+                 max_entries: int = 10_000) -> None:
         self.clock = clock
         self.window = window
         self.per_name = per_name
         self.per_client = per_client
+        self.per_account = per_account
         self.max_entries = max_entries
         self._names: dict[tuple[str, str], list[float]] = {}
         self._clients: dict[str, list[float]] = {}
+        self._accounts: dict[str, list[float]] = {}
         self._lock = threading.Lock()
 
     def _live(self, table: dict, key: Any, now: float) -> list[float]:
@@ -248,7 +267,7 @@ class LoginThrottle:
         return stamps
 
     def _purge(self, now: float) -> None:
-        for table in (self._names, self._clients):
+        for table in (self._names, self._clients, self._accounts):
             for key in list(table):
                 self._live(table, key, now)
 
@@ -258,29 +277,39 @@ class LoginThrottle:
         self._purge(now)
         return key in table or len(table) < self.max_entries
 
+    @staticmethod
+    def _keys(client: str, name: str) -> tuple[str, str]:
+        return throttle_client(client), name[:64]
+
     def reserve(self, client: str, name: str) -> float | None:
         """A slot for one attempt, or ``None`` when the attempt is throttled."""
+        client, name = self._keys(client, name)
         with self._lock:
             now = self.clock()
             pair = (client, name)
             if (len(self._live(self._names, pair, now)) >= self.per_name
-                    or len(self._live(self._clients, client, now)) >= self.per_client):
+                    or len(self._live(self._clients, client, now)) >= self.per_client
+                    or len(self._live(self._accounts, name, now)) >= self.per_account):
                 return None
-            if not self._room(self._names, pair, now) or not self._room(self._clients, client,
-                                                                         now):
-                return None  # the table is full of live entries: fail closed
+            if (not self._room(self._names, pair, now)
+                    or not self._room(self._clients, client, now)
+                    or not self._room(self._accounts, name, now)):
+                return None  # a table is full of live entries: fail closed
             self._names.setdefault(pair, []).append(now)
             self._clients.setdefault(client, []).append(now)
+            self._accounts.setdefault(name, []).append(now)
             return now
 
     def succeeded(self, client: str, name: str, slot: float) -> None:
+        client, name = self._keys(client, name)
         with self._lock:
             self._names.pop((client, name), None)
-            stamps = self._clients.get(client)
-            if stamps and slot in stamps:
-                stamps.remove(slot)
-                if not stamps:
-                    del self._clients[client]
+            for table, key in ((self._clients, client), (self._accounts, name)):
+                stamps = table.get(key)
+                if stamps and slot in stamps:
+                    stamps.remove(slot)
+                    if not stamps:
+                        del table[key]
 
 
 # -- the sign-in page (§7.11) ---------------------------------------------------------------------------------
@@ -440,13 +469,13 @@ class ServerIdentity:
         name = (fields or {}).get("name", [""])[0]
         password = (fields or {}).get("password", [None])[0]
         client = client_address(request.scope, self.config.trusted_proxies)
+        if fields is None or not valid_name(name) or not valid_password(password):
+            return refused("wrong")  # malformed: no slot, no scrypt (§7.1)
         if self._waiting >= self.max_waiting:
             return refused("throttled")
         slot = self.throttle.reserve(client, name)
         if slot is None:
             return refused("throttled")
-        if fields is None or not valid_name(name) or not valid_password(password):
-            return refused("wrong")  # a failed attempt: the slot is kept
         self._waiting += 1
         waiting = True
         try:
