@@ -281,6 +281,16 @@ async def test_genmove_in_a_handicap_game_is_for_white(analysis_server, connect)
                                                    HANG))
 
 
+@pytest.mark.parametrize("max_visits", [1, 37, 1_000_000])
+async def test_genmove_searches_with_the_max_visits_it_is_given(analysis_server, connect,
+                                                                max_visits):
+    """§3.4: the session passes an explicit max visits with every engine move."""
+    engine = await connect(analysis_server)
+    await asyncio.wait_for(engine.genmove(position_from(game_with(9)), "B",
+                                          max_visits=max_visits), HANG)
+    assert position_queries(analysis_server)[-1]["maxVisits"] == max_visits
+
+
 # -- perspective -------------------------------------------------------------------------------
 async def white_report(fake_engine, connect, line=None):
     engine = await connect(await fake_engine("analysis", emit_line=line or report_line()))
