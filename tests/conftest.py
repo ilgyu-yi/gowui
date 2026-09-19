@@ -60,3 +60,30 @@ async def connect():
     for engine in engines:
         with contextlib.suppress(Exception):
             await asyncio.wait_for(engine.close(), HANG)
+
+
+@pytest.fixture
+async def make_session(fake_engine):
+    """``make_session(resolver=None, expose_address=True)`` returns a session ``Harness``
+    (tests/session_helpers.py), closed at teardown before the fake engines stop."""
+    from session_helpers import Harness
+
+    made = []
+
+    def make(resolver=None, *, expose_address: bool = True):
+        harness = Harness(resolver, expose_address=expose_address)
+        made.append(harness)
+        return harness
+
+    yield make
+    for harness in made:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(harness.session.aclose(), HANG)
+
+
+@pytest.fixture
+async def h(make_session):
+    """A session under the typed (local) engine-address policy, on a fresh 9x9 game."""
+    harness = make_session()
+    await harness.new_game(9)
+    return harness
