@@ -1314,6 +1314,29 @@ async def test_a_failed_human_request_does_not_wait_for_its_winrate(scripted, co
     assert [r.current_player for r in reports.items] == ["W"]
 
 
+async def test_the_reopen_after_an_abandoned_winrate_names_the_real_cause(scripted, connect):
+    async def answer(request):
+        first = sum(1 for r in server.requests if is_human(r) == is_human(request)) == 1
+        if first and is_human(request):
+            await wait_for(lambda: any(not is_human(r) for r in server.requests))
+            return [json.dumps({"id": request["id"], "error": "refused"})]
+        if first:
+            await asyncio.Event().wait()  # the first winrate answer never comes
+        return [human_answer(request) if is_human(request) else plain_answer(request)]
+
+    server = await scripted(answer)
+    log = Log()
+    engine = await handol(connect, server, log=log)
+    reports = Reports()
+    await asyncio.wait_for(engine.start_analysis(EMPTY, reports, max_visits=10), HANG)
+    await wait_for(lambda: len(server.requests) == 2)
+    await asyncio.wait_for(engine.start_analysis(position_from(game_with(9, "E5")), reports,
+                                                 max_visits=10), HANG)
+    await reports.at_least(1, timeout=1.5)
+    reopened = [n for n in log.notes if "reopened" in n]
+    assert reopened and all("idle" not in n for n in reopened), reopened
+
+
 # L3: blank lines are skipped only up to a limit.
 async def test_endless_blank_lines_are_an_engine_error(scripted, connect):
     async def answer(request):
