@@ -12,7 +12,7 @@ import random
 import pytest
 
 from gowui import coords
-from gowui.engine import PROTOCOLS, EngineError, Position, create_engine
+from gowui.engine import PROTOCOLS, ConnectionClosed, EngineError, Position, create_engine
 from gowui.engine.handol import HandolEngine, engine_to_play
 from gowui.engine.types import board_vertex
 from helpers import (HANG, Disconnects, Log, RawClient, Reports, color_of, game_with,
@@ -1363,3 +1363,17 @@ async def test_endless_blank_lines_are_an_engine_error(scripted, connect):
     engine = await handol(connect, server)
     with pytest.raises(EngineError):
         await genmove(engine, EMPTY, "B")
+
+
+# -- abort: a close cut short drops both connections at once (§3.2) ---------------------------------
+async def test_abort_drops_both_connections_and_fails_what_follows(fake_engine, connect):
+    """With analysis in flight (the human connection answered, the winrate query held on the
+    second connection), abort() drops both sockets at once; the engine is then closed."""
+    server = await fake_engine("handol", query_delay=FirstOnly(0.5, human=False))
+    engine = await handol(connect, server)
+    await asyncio.wait_for(engine.start_analysis(EMPTY, Reports(), max_visits=10), HANG)
+    assert await wait_for(lambda: plain_requests(server) and server.open_connections == 2)
+    engine.abort()
+    with pytest.raises(ConnectionClosed):
+        await genmove(engine, EMPTY, "B")
+    assert await wait_for(lambda: server.open_connections == 0, timeout=2.0)

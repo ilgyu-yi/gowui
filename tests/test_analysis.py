@@ -626,3 +626,16 @@ async def test_a_failing_disconnect_handler_is_noted_by_type_only(fake_engine, c
     await asyncio.wait_for(called.wait(), HANG)
     assert await wait_for(lambda: any("OSError" in n for n in log.notes))
     assert not [n for n in log.notes if "secret-detail" in n or str(server.port) in n]
+
+
+# -- abort: a close cut short drops the connection at once (§3.2) -----------------------------------
+async def test_abort_drops_the_connection_and_fails_a_pending_query(fake_engine, connect):
+    server = await fake_engine("analysis", query_delay=lambda query: 3.0)
+    engine = await connect(server)
+    game = game_with(9)
+    pending = asyncio.create_task(engine.genmove(position_from(game), "B"))
+    assert await wait_for(lambda: position_queries(server))
+    engine.abort()
+    with pytest.raises(ConnectionClosed):
+        await asyncio.wait_for(pending, 1.0)
+    assert await wait_for(lambda: server.open_connections == 0, timeout=1.0)

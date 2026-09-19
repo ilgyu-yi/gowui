@@ -889,7 +889,8 @@ async def test_a_connect_while_two_superseded_attempts_run_is_refused(h, fake_en
     await h.send(connect)
     error = await h.rec.wait_error(start)
     await settle(0.3)
-    assert (error is not None and "still closing" in error, slow.open_connections) == (True, 2)
+    assert error == "a previous engine is still closing"
+    assert slow.open_connections == 2
 
 
 async def test_a_connect_disconnect_flood_opens_at_most_two_engine_connections(h, fake_engine):
@@ -1060,8 +1061,8 @@ async def test_a_connect_that_would_release_the_engine_while_another_closes_is_r
     await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": server.port})
     error = await h.rec.wait_error(start, timeout=1.0)
     await settle(0.3)
-    assert (error is not None and "still closing" in error, server.open_connections <= 2) == \
-        (True, True)
+    assert error == "a previous engine is still closing"
+    assert server.open_connections <= 2
 
 
 async def test_a_normal_disconnect_then_connect_still_connects(h, gtp_server):
@@ -1084,3 +1085,53 @@ async def test_a_close_cut_short_at_shutdown_drops_the_engine_connection(h, fake
     await h.send({"type": "disconnect"})  # the close now waits out the stop timeout (5 s)
     await h.aclose()
     assert await wait_for(lambda: server.open_connections == 0, timeout=1.0)
+
+
+async def test_a_switch_behind_an_engine_still_closing_is_refused_as_such(h, fake_engine):
+    """§4.1: A → B → C while A's close is slow — the connect to C would release B while A still
+    closes, so it is refused, and the refusal says why."""
+    a = await fake_engine("gtp", delay={"quit": 1.9})
+    b = await fake_engine("gtp")
+    c = await fake_engine("gtp")
+    await h.connect_to(a)
+    await h.connect_to(b)
+    start = h.rec.mark()
+    await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": c.port})
+    error = await h.rec.wait_error(start, timeout=1.0)
+    assert error == "a previous engine is still closing"
+    assert c.open_connections == 0
+
+
+async def analysing_engine_that_ignores_the_interrupt(h, fake_engine):
+    server = await fake_engine("gtp", ignore_interrupt=True)
+    await h.connect_to(server)
+    start = h.rec.mark()
+    await h.send({"type": "analysis", "enabled": True})
+    assert await h.rec.wait("analysis", start=start) is not None
+    return server
+
+
+async def cancel_aclose_after(h, seconds: float) -> None:
+    closing = asyncio.ensure_future(h.session.aclose())
+    await asyncio.sleep(seconds)
+    closing.cancel()
+    await asyncio.gather(closing, return_exceptions=True)
+
+
+async def test_a_cancelled_aclose_drops_the_engine_it_was_closing(h, fake_engine):
+    """§3.2: aclose closes the current engine inline; when aclose is itself cancelled mid-close
+    (the engine ignores the interrupt, so the close stalls), the connection is dropped at once."""
+    server = await analysing_engine_that_ignores_the_interrupt(h, fake_engine)
+    await cancel_aclose_after(h, 0.5)
+    await asyncio.sleep(0.5)
+    assert server.open_connections == 0
+
+
+async def test_a_cancelled_aclose_leaves_no_session_task_pending(h, fake_engine):
+    """§3.2: a shutdown that is itself cancelled while a released engine is still closing
+    cancels every session task still running before the cancellation propagates."""
+    await analysing_engine_that_ignores_the_interrupt(h, fake_engine)
+    await h.send({"type": "disconnect"})  # the close now waits out the stop timeout (5 s)
+    await cancel_aclose_after(h, 0.3)
+    await settle(0.1)
+    assert gowui_tasks() == []
