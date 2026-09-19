@@ -395,6 +395,7 @@ async def test_a_raising_broadcast_does_not_stop_the_session(h):
     h.rec.fail = True
     await h.send({"type": "play", "color": "black", "vertex": "D4"})
     h.rec.fail = False
+    await h.fresh_state()  # the lost frames left the recorder a move behind
     state = await h.play("E5")
     assert move_list(state) == ["D4", "E5"]
 
