@@ -112,3 +112,14 @@ def test_arrow_left_steps_back_unless_an_input_has_focus(start_app, open_page):
     g.page.keyboard.press("ArrowLeft")
     assert g.wait_sent("navigate", since)["index"] == 1
     expect(g.page.locator("#move-counter")).to_have_text("1 / 2")
+
+
+def test_a_shortcut_with_ctrl_or_cmd_is_left_to_the_browser(start_app, open_page):
+    """B28 (§3.7): Ctrl/Cmd combinations such as Ctrl+P (print) send no game frame."""
+    g = open_page(start_app()).open()
+    since = g.mark()
+    for combo in ("Control+p", "Control+g", "Meta+p", "Alt+u"):
+        g.page.keyboard.press(combo)
+    g.fence()
+    assert [f["type"] for f in g.sent(since) if f["type"] != "state"] == []  # the fence sends a state
+
