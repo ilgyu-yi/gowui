@@ -45,30 +45,30 @@
 | &nbsp;&nbsp;§6.1 | The rule | 731 |
 | &nbsp;&nbsp;§6.2 | Identity policy | 767 |
 | &nbsp;&nbsp;§6.3 | Engine-address policy | 789 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 814 |
-| §7 | Authentication and security | 831 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 833 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 843 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 851 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 859 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 907 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 915 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 948 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 964 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 972 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 978 |
-| §8 | Persistence | 988 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 990 |
-| &nbsp;&nbsp;§8.2 | Saving | 1024 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1047 |
-| &nbsp;&nbsp;§8.4 | Server database | 1077 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1082 |
-| §9 | Command line | 1086 |
-| §10 | Configuration (server) | 1118 |
-| §11 | Feature inventory | 1138 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1144 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1182 |
-| §12 | Non-goals | 1200 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 816 |
+| §7 | Authentication and security | 833 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 835 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 845 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 853 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 861 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 909 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 917 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 950 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 966 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 974 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 980 |
+| §8 | Persistence | 990 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 992 |
+| &nbsp;&nbsp;§8.2 | Saving | 1026 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1049 |
+| &nbsp;&nbsp;§8.4 | Server database | 1079 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1084 |
+| §9 | Command line | 1088 |
+| §10 | Configuration (server) | 1120 |
+| §11 | Feature inventory | 1140 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1146 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1184 |
+| §12 | Non-goals | 1202 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -791,10 +791,12 @@ owner, and its handlers answer `303 → /` (§5).
 Validates and resolves an **engine request** — the payload of `connect` — to a protocol, host and
 port, and describes itself to the page.
 
-The policy has three parts: `resolve(request)`, which returns an `EngineTarget` (protocol, host,
+The policy has four parts: `resolve(request)`, which returns an `EngineTarget` (protocol, host,
 port, `request_echo`, console flag) or raises `EngineRequestError` with a message a browser may
-see; `describe()`, which returns the `engineAddress` object of `/api/health` (§5); and
-`expose_address`, which says whether engine addresses may be shown.
+see; `describe()`, which returns the `engineAddress` object of `/api/health` (§5);
+`offers_console`, which says whether the console may be offered for any engine (the `console`
+field of `/api/health`; the per-engine flag is `state.engine.console`); and `expose_address`,
+which says whether engine addresses may be shown.
 
 - **Typed** (local): accepts `{protocol, host, port}` with protocol `gtp`, `analysis` or `handol`;
   the console is offered. The host must be non-empty, at most 253 characters, and free of
