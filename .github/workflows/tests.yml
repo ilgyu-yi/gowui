@@ -63,3 +63,15 @@ jobs:
           name: browser-test-artifacts
           path: test-artifacts/
           retention-days: 7
+
+  # The server-mode image (SPEC §10.1): build it, validate the deploy/ examples, run the image.
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gowui:ci .
+      - run: docker compose -f deploy/compose.password.yaml config -q
+      - run: docker compose -f deploy/compose.sso.yaml config -q
+      - run: bash tools/container_smoke.sh gowui:ci
+      - run: docker image ls gowui:ci

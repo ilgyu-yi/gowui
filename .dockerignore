@@ -1,0 +1,6 @@
+# An allowlist (SPEC §10.1): exclude everything, then re-include only what the builder copies.
+*
+!pyproject.toml
+!README.md
+!gowui/
+**/__pycache__
