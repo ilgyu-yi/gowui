@@ -233,6 +233,10 @@ async def test_python_m_gowui_serves_prints_its_url_and_saves_on_sigint(tmp_path
         result = (health.json(), upload.status_code, state.exists(),
                   state.exists() and stat.S_IMODE(state.stat().st_mode))
         assert result == ({"ok": True}, 200, True, 0o600)
+        # §9 "Stopping": Ctrl-C exits with status 130 and prints no traceback.
+        stderr.flush()
+        errors = (tmp_path / "stderr.txt").read_text()
+        assert (proc.returncode, "Traceback" in errors) == (130, False), errors[-2000:]
     finally:
         if proc.returncode is None:
             with contextlib.suppress(ProcessLookupError):

@@ -285,6 +285,20 @@ def test_a_file_whose_first_value_is_not_an_object_is_set_aside_unparsed(tmp_pat
     assert (loaded, parsed, len(set_aside_files(tmp_path))) == (None, [], 1)
 
 
+def test_a_file_whose_parsing_runs_out_of_memory_is_set_aside(tmp_path, monkeypatch, caplog):
+    """§8.3: a file whose parsing runs out of memory is set aside, not a startup crash."""
+    path = tmp_path / "state.json"
+    path.write_text('{"version": 1}')
+
+    def exhausted(*args, **kwargs):
+        raise MemoryError
+
+    monkeypatch.setattr(json, "loads", exhausted)
+    with caplog.at_level(logging.WARNING):
+        loaded = storage(path).load("owner")
+    assert (loaded, len(set_aside_files(tmp_path)), path.exists()) == (None, 1, False)
+
+
 def maximal_snapshot() -> dict:
     """64 boards with every field filled, both tuples full and a 16-entry request (§8.1)."""
     request = {f"key{i}": i for i in range(16)}
