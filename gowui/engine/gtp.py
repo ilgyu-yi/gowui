@@ -251,7 +251,7 @@ class GTPEngine(Engine):
         except Exception as exc:  # noqa: BLE001 - untrusted input must not escape as a bug
             raise self._unusable(f"the engine's reply could not be read "
                                  f"({type(exc).__name__})") from None
-        self.log("recv", f"{'=' if ok else '?'} {payload}".rstrip())
+        self.log("recv", clip(f"{'=' if ok else '?'} {payload}".rstrip()))
         if not ok:
             raise _Rejected(clip(payload, TEXT_LIMIT)
                             or f"the engine rejected {command.split()[0]!r}",

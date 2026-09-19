@@ -48,6 +48,16 @@ MIN_INTERVAL, MAX_INTERVAL = 0.1, 10.0
 MAX_RAW = 1000
 #: A result text the engine gives through ``final_score`` is kept to this many characters.
 MAX_RESULT = 100
+#: The SGF result grammar a ``final_score`` reply must match to be recorded (§3.5).
+RESULT_PATTERN = re.compile(r"0|Draw|Void|\?|[BW]\+(?:\d+(?:\.\d+)?|R|Resign|T|Time|F|Forfeit)?")
+#: A ``play`` vertex and a rule-set name are refused above these lengths before parsing (§4.1).
+MAX_VERTEX = 8
+MAX_RULES_NAME = 40
+#: How much of a refused value an error message quotes (§4.1).
+ECHO = 40
+#: A restored engine request is a flat object of at most this many scalar entries (§8.1).
+MAX_REQUEST_ENTRIES = 16
+MAX_REQUEST_TEXT = 256
 #: A handol-mux profile name (§2.5, §7.6).
 PROFILE_PATTERN = re.compile(r"[A-Za-z0-9_.\-]{1,64}")
 #: Thumbnail heatmaps are rounded to keep ``state`` small.
@@ -63,8 +73,6 @@ DEFAULTS_ENGINE = {"maxVisits": 500, "reportInterval": 0.4, "includeOwnership": 
 DEFAULTS_PLAY = {"blackIsEngine": False, "whiteIsEngine": False, "blackStyle": "human",
                  "whiteStyle": "human", "analysisEnabled": False}
 
-#: The on-demand commands of which at most one of each kind is pending (§4.1).
-ON_DEMAND = ("genmove", "raw", "final_score", "connect")
 
 
 class EngineRequestError(Exception):
@@ -89,7 +97,8 @@ class EngineTarget:
 
 
 Resolver = Callable[[Any], EngineTarget]
-Broadcast = Callable[[dict], Any]
+#: Sync and non-blocking; it may raise, and its failures are contained (§3.2).
+Broadcast = Callable[[dict], None]
 
 
 class _Refused(Exception):
@@ -220,6 +229,27 @@ def _profile_ok(value: Any) -> bool:
     return isinstance(value, str) and PROFILE_PATTERN.fullmatch(value) is not None
 
 
+def _flat_request(value: Any) -> dict | None:
+    """A restored engine request if it is a flat, small object of scalars, else ``None`` (§8.1).
+    Checked without recursion, so a hostile snapshot cannot raise anything but ``ValueError``."""
+    if not isinstance(value, dict) or len(value) > MAX_REQUEST_ENTRIES:
+        return None
+    out: dict[str, Any] = {}
+    for key, item in value.items():
+        if not isinstance(key, str) or len(key) > MAX_REQUEST_TEXT:
+            return None
+        if isinstance(item, str):
+            if len(item) > MAX_REQUEST_TEXT:
+                return None
+        elif isinstance(item, float):
+            if not math.isfinite(item):
+                return None
+        elif item is not None and not isinstance(item, (bool, int)):
+            return None
+        out[key] = item
+    return out
+
+
 def _is_streaming(command: str) -> bool:
     """Console commands that stream reports (``kata-analyze``, ``lz-analyze``,
     ``kata-genmove_analyze``, ``kata-search_analyze`` ...): the console is request and reply."""
@@ -262,6 +292,9 @@ class GameSession:
         #: The engine request last accepted (§6.3, §8.1) and whether the space should be
         #: connected to it (what the snapshot's ``connected`` says).
         self._request: Any = None
+        #: What ``state.engine.request`` shows when addresses are hidden: the policy's echo of a
+        #: request it resolved, else ``None`` (§4.2).
+        self._shown_request: Any = None
         self._want_connected = False
         self.status = ""
         self.thinking = False
@@ -269,14 +302,22 @@ class GameSession:
         #: Every engine address this space resolved: hidden from browsers unless exposed (§7.7).
         self._hidden: set[tuple[str, int]] = set()
         self._lock = asyncio.Lock()
-        #: Changed by every board switch, duplicate, delete and change of the players (§3.2).
+        #: Changed by every board switch, duplicate and delete (§3.2).
         self._epoch = 0
+        #: Changed by every change of the players; only automatic moves check it (§3.2).
+        self._players_epoch = 0
         #: Changed by every connect, disconnect and restore reconnect; the latest wins (§6.3).
         self._lifecycle = 0
-        self._analysis_request = 0
+        #: Analysis refreshes are coalesced: one task, and a flag saying another pass is wanted.
+        self._analysis_wanted = False
+        self._analysis_task: asyncio.Task | None = None
         self._pending: set[str] = set()
+        #: The lifecycle generation of the pending connect; one superseded is no longer pending.
+        self._connecting: int | None = None
         self._tasks: set[asyncio.Task] = set()
         self._auto_task: asyncio.Task | None = None
+        #: Set by an unexpected failure: automatic play asks for no further move until re-armed.
+        self._auto_halted = False
         self._closed = False
 
     # -- the outbound choke point (§4.2, §7.7) --------------------------------------------------
@@ -332,10 +373,10 @@ class GameSession:
             return
         try:
             result = self._broadcast(out)
-            if inspect.isawaitable(result):
-                self._spawn(result)
         except Exception:  # noqa: BLE001 - one broken tab must not break the space
-            pass
+            return
+        if inspect.iscoroutine(result):
+            result.close()  # broadcast is sync (§3.2): an awaitable it returns is never run
 
     def _emit_state(self) -> None:
         self._emit(self.state_message())
@@ -380,7 +421,8 @@ class GameSession:
                 "protocol": engine.protocol if engine is not None else "",
                 "name": engine.name if engine is not None else "",
                 "version": engine.version if engine is not None else "",
-                "request": copy.deepcopy(self._request),
+                "request": copy.deepcopy(self._request if self.expose_address
+                                         else self._shown_request),
                 "supportsGenmove": bool(engine is not None and engine.supports_genmove),
                 "supportsFinalScore": bool(engine is not None and engine.supports_final_score),
                 "console": bool(engine is not None and engine.supports_raw
@@ -465,8 +507,10 @@ class GameSession:
             self._unexpected(exc)
 
     def _unexpected(self, exc: BaseException) -> None:
-        """An unexpected failure in a session task: clear thinking, report, stop auto-play."""
+        """An unexpected failure in a session task: clear thinking, report, stop auto-play.
+        Auto-play is halted with a flag it checks between moves, never cancelled mid-command."""
         self.thinking = False
+        self._auto_halted = True
         self._error(f"internal error ({type(exc).__name__})")
         self._emit_state()
 
@@ -508,6 +552,9 @@ class GameSession:
         if colour is None:
             raise _Refused("color must be black or white")
         vertex = _string(message, "vertex")
+        if len(vertex) > MAX_VERTEX:
+            raise _Refused(f"bad vertex {vertex[:ECHO]!r}: a vertex is at most {MAX_VERTEX} "
+                           "characters")
         if vertex.strip().lower() == "resign":
             raise _Refused("resign is an action, not a vertex: send resign")
         self._play(colour, vertex)
@@ -563,6 +610,9 @@ class GameSession:
         rules = message.get("rules", "japanese")
         if not isinstance(rules, str):
             raise _Refused("rules must be a rule-set name")
+        if len(rules) > MAX_RULES_NAME:
+            raise _Refused(f"unknown rule set {rules[:ECHO]!r}: a rule-set name is at most "
+                           f"{MAX_RULES_NAME} characters")
         handicap = message.get("handicap", 0)
         if handicap is None:
             handicap = 0
@@ -571,7 +621,7 @@ class GameSession:
         try:
             game = Game(size, komi=komi, rules=rules, handicap=handicap)
         except (ValueError, OverflowError) as exc:
-            raise _Refused(str(exc)) from None
+            raise _Refused(str(exc)[:500]) from None
         slot = self._active
         slot.game = game
         slot.last_analysis = None
@@ -628,7 +678,9 @@ class GameSession:
                     raise _Refused(f"{key} must be human or katago")
                 changes[key] = value
         if any(self.play_settings[k] != v for k, v in changes.items()):
-            self._epoch += 1  # a change of the players makes an engine move in flight stale
+            # A change of the players makes an automatic move in flight stale; an explicit
+            # genmove is unaffected by the players setting (§3.2).
+            self._players_epoch += 1
         self.play_settings.update(changes)
         self._configure_engine()
         self._emit_state()
@@ -715,7 +767,7 @@ class GameSession:
     def _msg_board_select(self, message: dict) -> None:
         slot = self._slot(_board_id(message))
         if slot is None:
-            raise _Refused(f"no board {message.get('id')}")
+            raise _Refused(f"no board {str(message.get('id'))[:ECHO]}")
         self._switch_to(slot)
 
     def _msg_board_duplicate(self, message: dict) -> None:
@@ -740,7 +792,7 @@ class GameSession:
     def _msg_board_delete(self, message: dict) -> None:
         slot = self._slot(_board_id(message))
         if slot is None:
-            raise _Refused(f"no board {message.get('id')}")
+            raise _Refused(f"no board {str(message.get('id'))[:ECHO]}")
         if len(self.boards) == 1:
             raise _Refused("the last board cannot be deleted")
         index = self.boards.index(slot)
@@ -756,7 +808,7 @@ class GameSession:
         name = _string(message, "name").strip()[:MAX_NAME]
         slot = self._slot(board_id)
         if slot is None:
-            raise _Refused(f"no board {board_id}")
+            raise _Refused(f"no board {str(board_id)[:ECHO]}")
         if name:
             slot.name = name
         self._emit_state()
@@ -780,12 +832,13 @@ class GameSession:
 
     def _maybe_engine_move(self) -> None:
         if self._engine_should_move() and not self._auto_running():
+            self._auto_halted = False
             self._auto_task = self._spawn(self._auto_play())
 
     async def _auto_play(self) -> None:
         """Play on while the side to move is an engine; a discarded move just looks again."""
         while True:
-            if not self._engine_should_move():
+            if self._auto_halted or not self._engine_should_move():
                 return
             if await self._engine_move(explicit=False) == "failed":
                 return
@@ -849,14 +902,14 @@ class GameSession:
                 return "failed"
             slot = self._active
             game = slot.game
-            if not explicit and not self._engine_should_move():
+            if not explicit and (self._auto_halted or not self._engine_should_move()):
                 return "stale"
             if colour is not None and colour != game.to_play:
                 self._error(f"it is {_colour_name(game.to_play)}'s turn now; the engine move "
                             "was not asked for")
                 return "failed"
             mover = game.to_play
-            token = (slot.id, slot.version, self._epoch, engine)
+            token = (slot.id, slot.version, self._epoch, self._players_epoch)
             sink = self._analysis_sink(slot, engine)
             self.thinking = True
             self._emit_state()
@@ -884,7 +937,8 @@ class GameSession:
         current = self._slot(token[0])
         stale = (current is None or current.id != self.active_board
                  or current.version != token[1] or self._epoch != token[2]
-                 or (not explicit and not self._engine_plays(mover)))
+                 or (not explicit and (self._players_epoch != token[3]
+                                       or not self._engine_plays(mover))))
         if stale:
             self.status = f"Discarded the engine's {vertex}: the position changed"
             self._emit_state()
@@ -896,14 +950,17 @@ class GameSession:
             self._position_changed(current, f"{_colour_name(mover).capitalize()} resigns",
                                    rearm=False)
             return "played"
+        game = current.game
+        note = "" if game.cursor == game.move_count else (
+            f"Branched at move {game.cursor}; the later moves were discarded")
         try:
-            current.game.play(mover, coords.from_gtp(vertex, current.game.size))
+            game.play(mover, coords.from_gtp(vertex, game.size))
         except (IllegalMove, ValueError) as exc:
-            self._error(f"The engine's move {vertex} was refused: {exc}")
+            self._error(f"The engine's move {vertex[:ECHO]} was refused: {str(exc)[:200]}")
             self._emit_state()
             self._request_analysis()
             return "failed"
-        self._position_changed(current, "", rearm=False)
+        self._position_changed(current, note, rearm=False)
         return "played"
 
     # -- analysis (§3.2, §3.3) ---------------------------------------------------------------------
@@ -925,11 +982,14 @@ class GameSession:
         return sink
 
     def _request_analysis(self) -> None:
-        """(Re)start or stop analysis for the position on screen, behind any engine work."""
+        """(Re)start or stop analysis for the position on screen, behind any engine work.
+        Requests are coalesced: one refresh task at most, which reads the latest request."""
         if self.engine is None or self._closed:
             return
-        self._analysis_request += 1
-        self._spawn(self._refresh_analysis(self._analysis_request))
+        self._analysis_wanted = True
+        task = self._analysis_task
+        if task is None or task.done():
+            self._analysis_task = self._spawn(self._refresh_analysis())
 
     def _wants_analysis(self) -> bool:
         if not self.play_settings["analysisEnabled"] or self.game.is_game_over():
@@ -937,24 +997,28 @@ class GameSession:
         # An engine move is coming: it stops analysis anyway (§3.2).
         return not (self._auto_running() and self._engine_should_move())
 
-    async def _refresh_analysis(self, request: int) -> None:
-        async with self._lock:
-            engine = self.engine
-            if request != self._analysis_request or engine is None or self._closed:
-                return  # a newer request does the work
-            slot = self._active
-            try:
-                if self._wants_analysis():
-                    await engine.start_analysis(
-                        position_of(slot.game), self._analysis_sink(slot, engine),
-                        max_visits=self.engine_settings["maxVisits"],
-                        interval=self.engine_settings["reportInterval"],
-                        include_ownership=self.engine_settings["includeOwnership"])
-                else:
-                    await engine.stop_analysis()
-            except EngineError as exc:
-                if engine is self.engine and not isinstance(exc, ConnectionClosed):
-                    self._error(self._engine_failure("Analysis failed", exc))
+    async def _refresh_analysis(self) -> None:
+        while self._analysis_wanted:
+            async with self._lock:
+                if not self._analysis_wanted:
+                    return
+                self._analysis_wanted = False  # this pass reads the latest request
+                engine = self.engine
+                if engine is None or self._closed:
+                    return
+                slot = self._active
+                try:
+                    if self._wants_analysis():
+                        await engine.start_analysis(
+                            position_of(slot.game), self._analysis_sink(slot, engine),
+                            max_visits=self.engine_settings["maxVisits"],
+                            interval=self.engine_settings["reportInterval"],
+                            include_ownership=self.engine_settings["includeOwnership"])
+                    else:
+                        await engine.stop_analysis()
+                except EngineError as exc:
+                    if engine is self.engine and not isinstance(exc, ConnectionClosed):
+                        self._error(self._engine_failure("Analysis failed", exc))
 
     # -- the console and final score (§3.5) ----------------------------------------------------------
     def _msg_raw(self, message: dict) -> None:
@@ -1017,17 +1081,39 @@ class GameSession:
             if not isinstance(failure, ConnectionClosed):
                 self._error(self._engine_failure("final_score failed", failure))
         elif self._slot(slot.id) is slot and slot.version == version:
-            slot.game.result = " ".join(str(score).split())[:MAX_RESULT]
-            self.status = f"The engine scores the game {slot.game.result}"
+            text = " ".join(str(score).split())[:MAX_RESULT]
+            if RESULT_PATTERN.fullmatch(text):
+                slot.game.result = text
+                self.status = f"The engine scores the game {text}"
+            else:
+                # Not an SGF result: recorded nowhere but the (scrubbed) status (§3.5, §7.7).
+                self.status = f"The engine's score is not a game result: {text}"
             self._emit_state()
         self._request_analysis()
 
     # -- the engine connection (§3.2, §6.3) ------------------------------------------------------------
+    def _connect_pending(self) -> bool:
+        """A connect of the live lifecycle is pending; a superseded one no longer is (§4.1)."""
+        return self._connecting is not None and self._connecting == self._lifecycle
+
     def _msg_connect(self, message: dict) -> None:
-        if "connect" in self._pending:
+        if self._connect_pending():
             raise _Refused("a connect is already in progress")
         target = self._resolve_target(message)
-        self._on_demand("connect", self._connect(target, self._begin_lifecycle()))
+        self._start_connect(target)
+
+    def _start_connect(self, target: EngineTarget) -> asyncio.Task:
+        generation = self._begin_lifecycle()
+        self._connecting = generation
+
+        async def run() -> None:
+            try:
+                await self._connect(target, generation)
+            finally:
+                if self._connecting == generation:
+                    self._connecting = None
+
+        return self._spawn(run())
 
     def _resolve_target(self, request: Any) -> EngineTarget:
         try:
@@ -1036,8 +1122,8 @@ class GameSession:
             raise _Refused(exc.message or "the engine request was refused") from None
         except Exception:  # noqa: BLE001 - a policy bug must not leak its text
             raise _Refused("the engine request was refused") from None
-        if not isinstance(target, EngineTarget):
-            raise _Refused("the engine request was refused")
+        if not isinstance(target, EngineTarget) or not str(target.host).strip():
+            raise _Refused("the engine request was refused")  # an empty host names no engine
         self._hidden.add((str(target.host), target.port))
         return target
 
@@ -1088,6 +1174,7 @@ class GameSession:
         self.engine = engine
         self._target = target
         self._request = copy.deepcopy(target.request_echo)
+        self._shown_request = copy.deepcopy(target.request_echo)
         self._want_connected = True
         where = f" at {target.host}:{target.port}" if self.expose_address else ""
         self.status = f"Connected to {engine.description} ({engine.protocol}){where}"
@@ -1096,7 +1183,7 @@ class GameSession:
         self._request_analysis()
 
     def _msg_disconnect(self, message: dict) -> None:
-        had = self.engine is not None or "connect" in self._pending
+        had = self.engine is not None or self._connect_pending()
         self._begin_lifecycle()
         self._want_connected = False
         if had:
@@ -1183,8 +1270,7 @@ class GameSession:
         active = data.get("activeBoard")
         if not any(type(active) is int and s.id == active for s in slots):  # noqa: E721
             active = slots[0].id
-        request = engine_block.get("request")
-        request = copy.deepcopy(request) if isinstance(request, dict) else None
+        request = _flat_request(engine_block.get("request"))
 
         self.boards = slots
         self.active_board = active
@@ -1192,6 +1278,7 @@ class GameSession:
         self.engine_settings = engine_settings
         self.play_settings = play_settings
         self._request = request
+        self._shown_request = None  # until the replay resolves (§4.2)
         self._want_connected = engine_block.get("connected") is True and request is not None
         self._epoch += 1
         self._configure_engine()
@@ -1226,25 +1313,20 @@ class GameSession:
         was connected (§6.3, §8.1); a request the policy refuses leaves it disconnected."""
         if self._closed or not self._want_connected or self.engine is not None:
             return
-        if "connect" in self._pending:
+        if self._connect_pending():
             return
         try:
             target = self._resolve_target(copy.deepcopy(self._request))
         except _Refused as exc:
+            # A refused request is dropped: from the snapshot and from state (§4.2, §8.1).
             self._want_connected = False
+            self._request = None
+            self._shown_request = None
             self.status = f"Engine not reconnected: {exc}"
             self._emit_state()
             return
-        self._pending.add("connect")
-        generation = self._begin_lifecycle()
-
-        async def run() -> None:
-            try:
-                await self._connect(target, generation)
-            finally:
-                self._pending.discard("connect")
-
-        await asyncio.shield(self._spawn(run()))
+        self._shown_request = copy.deepcopy(target.request_echo)
+        await asyncio.shield(self._start_connect(target))
 
     # -- shutdown ------------------------------------------------------------------------------------
     async def aclose(self) -> None:
