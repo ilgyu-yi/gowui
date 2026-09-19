@@ -31,47 +31,47 @@
 | §3 | Session and boards | 438 |
 | &nbsp;&nbsp;§3.1 | Spaces | 440 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 467 |
-| &nbsp;&nbsp;§3.3 | Boards | 531 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 547 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 559 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 574 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 578 |
-| &nbsp;&nbsp;§3.8 | The page | 587 |
-| §4 | WebSocket protocol | 835 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 839 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 880 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 917 |
-| §5 | HTTP routes | 968 |
-| §6 | Launch modes and policies | 1043 |
-| &nbsp;&nbsp;§6.1 | The rule | 1045 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1081 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1120 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1153 |
-| §7 | Authentication and security | 1172 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1174 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1221 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1239 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1253 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1301 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1318 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1358 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1374 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1388 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1397 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1426 |
-| §8 | Persistence | 1445 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1447 |
-| &nbsp;&nbsp;§8.2 | Saving | 1481 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1510 |
-| &nbsp;&nbsp;§8.4 | Server database | 1552 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1588 |
-| §9 | Command line | 1600 |
-| §10 | Configuration (server) | 1659 |
-| &nbsp;&nbsp;§10.1 | Container | 1697 |
-| §11 | Feature inventory | 1751 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1758 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1796 |
-| §12 | Non-goals | 1814 |
+| &nbsp;&nbsp;§3.3 | Boards | 533 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 549 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 561 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 576 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 580 |
+| &nbsp;&nbsp;§3.8 | The page | 589 |
+| §4 | WebSocket protocol | 840 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 844 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 885 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 922 |
+| §5 | HTTP routes | 981 |
+| §6 | Launch modes and policies | 1056 |
+| &nbsp;&nbsp;§6.1 | The rule | 1058 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1094 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1133 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1166 |
+| §7 | Authentication and security | 1185 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1187 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1234 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1252 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1266 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1314 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1331 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1371 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1387 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1401 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1410 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1439 |
+| §8 | Persistence | 1458 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1460 |
+| &nbsp;&nbsp;§8.2 | Saving | 1494 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1523 |
+| &nbsp;&nbsp;§8.4 | Server database | 1565 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1601 |
+| §9 | Command line | 1613 |
+| §10 | Configuration (server) | 1672 |
+| &nbsp;&nbsp;§10.1 | Container | 1710 |
+| §11 | Feature inventory | 1764 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1771 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 1809 |
+| §12 | Non-goals | 1827 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -489,6 +489,8 @@ same key. A space is created in four steps:
   token are dropped. An automatic move is also discarded when the players changed while it searched
   (a players epoch that only automatic moves check), and is played only if its side is still set to
   engine when it arrives; a move asked for with `genmove` is unaffected by the players setting.
+  A `genmove` with a `color` that is no longer the side to move when its turn at the engine comes
+  (an automatic move was played first) is refused with an `error` and asks the engine nothing.
 - Continuous analysis, when on, runs for the position under the cursor and restarts on every
   position change. It stops when switched off, when the game is over at the cursor, and while the
   engine is generating a move (except through `kata-genmove_analyze`). Restart requests are
@@ -619,7 +621,10 @@ too follows the data, never a mode name.
   mode, heatmap and move numbers belong to the page and are not sent.
 - **Players section:** "KataGo plays Black" / "KataGo plays White" checkboxes (`players`), the
   per-colour move style selects `human` / `katago` (handol-mux only), "Engine move now"
-  (`genmove`), "Final score" (`final_score`), and the capture count of each colour.
+  (`genmove`), "Final score" (`final_score`), and the capture count of each colour. "Engine move
+  now" and the `g` key send `genmove` with `color` set to the page's side to move
+  (`state.game.toPlay`), so a request that waits behind an automatic engine move is refused
+  (§3.2) instead of making the engine play the human's side as well.
 - **New game section:** size (9, 13, 19; default 19), handicap (0–9), komi, rules (the rule sets
   of §1.1, default `japanese`), Start, Save SGF and Load SGF. The komi field shows the rule set's
   default from `ruleDefaults`, or `handicapKomi` when the handicap is 2 or more, and is filled
@@ -932,21 +937,29 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   one `analysis`, and they stay in the order they were broadcast, so the page never gets an
   `analysis` for a position its `state` has not reached yet (the page ignores an `analysis`
   whose `cursor` is not the current one, §3.8).
-- **Log folding.** A `log` frame that would overflow a tab's queue is not refused: every `log`
-  frame queued for that tab, and a queued `log_history` if there is one, is removed, and one
-  `log_history` frame carrying the space's current log history is put at the end of the queue.
-  It is the frame the attach frames carry (the last 100 lines, §3.6), taken from the session
-  synchronously, so broadcast still never awaits. The page replaces its log with a
+- **Log folding.** A frame that would overflow a tab's queue — a `state`, `analysis`, `log` or
+  `log_history` with no same-type frame to supersede — is not refused at once: every `log` frame
+  queued for that tab, and a queued `log_history` if there is one, is removed, and one
+  `log_history` frame carrying the space's current log history is put at the end of the queue;
+  the arriving frame then goes in after it (an arriving `log` or `log_history` is itself folded
+  into that `log_history`). The history is the frame the attach frames carry (the last 100 lines,
+  §3.6), taken from the session synchronously, so broadcast still never awaits. Its JSON text is
+  encoded once and shared by every tab until the session's log changes, so folding in many tabs
+  costs one encoding per log line, not one per tab. The page replaces its log with a
   `log_history` (§3.8), and the history already holds the folded lines, so the page's log stays
   correct. A queue therefore holds at most one `log_history`.
 - Every other frame (`error`, and any other type of §4.2) is never coalesced, folded or dropped,
   and all frames keep their order. A tab that reads slowly, such as one watching two fast
   engines play each other, therefore keeps its socket and its messages are still handled.
-- **Overflow.** The queue stays bounded (`256` frames). Together, coalescing and log folding
-  mean `state`, `analysis`, `log` and `log_history` frames never close a tab. Code `1013` is
-  the last resort: a tab whose queue is full when any other frame (such as `error`) arrives is
-  closed with `1013` and detached; broadcasting to the other tabs goes on. A reopened tab is
-  brought up to date by its attach frames.
+- **Overflow.** The queue stays bounded (`256` frames). Code `1013` closes a tab, which is then
+  detached while broadcasting to the other tabs goes on, in two cases: its queue is full when an
+  `error` (or any other frame that cannot be folded) arrives, or a fold would leave more than half
+  the queue (over `128` frames) holding frames that cannot be folded. A queue that is mostly
+  unsent `error` frames belongs to a tab that is misbehaving — typically one provoking its own
+  errors — not one that is merely slow, and folding for it on every log line would tie up the
+  event loop. Short of those cases, coalescing and log folding mean `state`, `analysis`, `log`
+  and `log_history` frames never close a slow tab. A reopened tab is brought up to date by its
+  attach frames.
 - **Receiving.** Each received frame is parsed (§7.6) and passed to `session.handle`, which is
   awaited inline, so a tab's messages are handled in the order they were sent. A frame that is
   not valid JSON, or is nested too deeply to parse, gets an `error` and the socket stays open.
