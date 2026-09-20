@@ -89,7 +89,9 @@ timeout 30 docker run --rm --name "$name-refuse" "${hardening[@]}" -e GOWUI_AUTH
   >/dev/null 2>&1 || status=$?
 case $status in
   0) fail "GOWUI_AUTH=header without GOWUI_TRUSTED_PROXIES started" ;;
+  2) ;;  # the configuration refusal of SPEC §7.9
   124) fail "GOWUI_AUTH=header without GOWUI_TRUSTED_PROXIES ran for 30s instead of refusing" ;;
+  *) fail "GOWUI_AUTH=header without GOWUI_TRUSTED_PROXIES exited $status, not the 2 of §7.9" ;;
 esac
 ok "a malformed configuration refuses to start (status $status)"
 
