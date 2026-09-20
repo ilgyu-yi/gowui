@@ -28,8 +28,10 @@ gowui serve                # serves on 0.0.0.0:8080; users sign in at /login
 ```
 
 `gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` is configured only by the
-environment variables below. Each account gets its own boards, saved in SQLite, and picks engines
-only from the catalog; the engine addresses never reach the browser. `gowui serve` refuses to
+environment variables below. Each account gets its own boards and its own preferences — the UI
+language and the tuple presets — saved in SQLite, so they follow the account to another browser,
+and picks engines only from the catalog; the engine addresses never reach the browser. In local
+mode the language and the presets stay in that browser (`SPEC.md` §8.4, §8.5). `gowui serve` refuses to
 start, with one line naming the variable, on a malformed setting. The sign-in and proxy rules are in
 `SPEC.md` §7 and §9.
 
@@ -65,7 +67,7 @@ server runs.
 ```bash
 gowui user add alice                       # prompts twice; or --password-stdin reads one line
 gowui user passwd alice [--password-stdin] # new password; signs the account out everywhere
-gowui user remove alice                    # deletes the account, its sessions and its boards
+gowui user remove alice                    # deletes the account, its sessions, boards and preferences
 gowui user list                            # one name per line
 ```
 

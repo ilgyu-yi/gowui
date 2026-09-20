@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 585 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 589 |
 | &nbsp;&nbsp;§3.8 | The page | 598 |
-| §4 | WebSocket protocol | 867 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 871 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 913 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 950 |
-| §5 | HTTP routes | 1037 |
-| §6 | Launch modes and policies | 1112 |
-| &nbsp;&nbsp;§6.1 | The rule | 1114 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1150 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1189 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1222 |
-| §7 | Authentication and security | 1241 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1243 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1295 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1313 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1333 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1381 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1402 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1443 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1466 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1480 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1489 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1518 |
-| §8 | Persistence | 1537 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1539 |
-| &nbsp;&nbsp;§8.2 | Saving | 1573 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1602 |
-| &nbsp;&nbsp;§8.4 | Server database | 1644 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1687 |
-| §9 | Command line | 1699 |
-| §10 | Configuration (server) | 1766 |
-| &nbsp;&nbsp;§10.1 | Container | 1804 |
-| §11 | Feature inventory | 1892 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1899 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 1937 |
-| §12 | Non-goals | 1955 |
+| §4 | WebSocket protocol | 882 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 886 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 946 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 987 |
+| §5 | HTTP routes | 1074 |
+| §6 | Launch modes and policies | 1149 |
+| &nbsp;&nbsp;§6.1 | The rule | 1151 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1187 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1226 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1259 |
+| §7 | Authentication and security | 1294 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1296 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1348 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1366 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1386 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1434 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1455 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1500 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1523 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1537 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1546 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1575 |
+| §8 | Persistence | 1594 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1596 |
+| &nbsp;&nbsp;§8.2 | Saving | 1630 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1661 |
+| &nbsp;&nbsp;§8.4 | Server database | 1703 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1758 |
+| §9 | Command line | 1777 |
+| §10 | Configuration (server) | 1844 |
+| &nbsp;&nbsp;§10.1 | Container | 1882 |
+| §11 | Feature inventory | 1970 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1977 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2015 |
+| §12 | Non-goals | 2033 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -711,7 +711,8 @@ protocol is `handol` or the engine form's protocol is `handol`; hidden otherwise
 profile field, suggesting the known profiles (§2.5), with a "?" that explains the profile on
 hover or focus; Winrate visits (`evalVisits`); the "Compare two tuples" checkbox with A / B tabs
 choosing which tuple the controls edit, and the Show select; the preset select (built-in presets
-and this browser's own, §8.5) with Save as…, Delete (own presets only), Export and Import; four
+and the user's own — the account's where the storage policy keeps preferences, else this
+browser's; §8.4, §8.5) with Save as…, Delete (own presets only), Export and Import; four
 knobs (strength, locality, variety, tail cut) and "Apply while dragging"; and, under Raw values,
 the eight tuple fields of §2.5 and the JSON text. Knobs, fields and JSON are kept in step, and
 each knob and field shows a help card on hover. The tuples are checked with the rules of §2.5
@@ -808,10 +809,24 @@ says why until the page is reloaded.
   in red for 8 s; any other failure shows a localised red message naming the HTTP status. The
   page never sends `load_sgf`; the server still accepts it (§4.1).
 
+**Preferences.** Two things the user chooses are the account's where the storage policy keeps
+them and this browser's where it does not (§6.4): the UI language and the user's own tuple
+presets. The page follows the data, never a mode name (§6.1). While a `state` frame carries a
+`preferences` object (§4.2), that object is the source of truth: the page takes the language and
+the preset list from it, and writes neither `localStorage` key (§8.5). Changing the language, and
+saving, deleting or importing a preset, then sends `preferences` (§4.1) carrying what changed;
+the server stores it and broadcasts the new `state` to every tab of that identity, so the same
+account signed in from another browser shows the same language and the same presets. A `lang`
+that names no table is ignored, as a saved one is, and a preset entry the tuple rules refuse is
+dropped from the menu, as a stored one is (§8.5). While `preferences` is `null` the page reads
+and writes the two `localStorage` keys of §8.5, as it does with no server preferences at all.
+
 **Language.** The page has Korean and English tables holding every string it shows. The initial
 language is the saved one (`gowui.lang`, §8.5) when it names a table; otherwise English when
-`navigator.language` starts with `en` (in any case); otherwise Korean. The select switches at
-once, re-renders the page, saves the choice and sets `<html lang>`. Text from the server — status,
+`navigator.language` starts with `en` (in any case); otherwise Korean. The account's language
+replaces that initial choice as soon as a `state` carrying `preferences` arrives (above). The
+select switches at once, re-renders the page, saves the choice — in the browser, or by sending
+`preferences` when the server keeps them — and sets `<html lang>`. Text from the server — status,
 errors, engine output — is shown as it arrives.
 
 **Connection.** One WebSocket per tab to `/ws` (`wss:` under `https:`). Opening it resets the
@@ -889,6 +904,7 @@ One WebSocket per tab at `/ws`, JSON text frames.
 | `board_rename` | `id`, `name` |
 | `raw` | `command` |
 | `final_score` | — |
+| `preferences` | `lang`, `presets` (each optional; absent = unchanged) |
 | `load_sgf` | `sgf` |
 | `state` | — (asks for a fresh `state`) |
 | `ack` | — (the page has applied one `state`; taken by the transport, §4.3 "Acknowledgement") |
@@ -910,11 +926,28 @@ refused before they are read, and a refusal quotes at most 40 characters of the 
 three bytes; text holding one (for example in a move comment) is accepted, saved, and restored
 with the same moves (§7.6, §8.1).
 
+`preferences` changes what the storage policy keeps for the identity (§6.4): `lang`, the UI
+language, and `presets`, the user's tuple presets. A field that is absent is unchanged; both
+absent changes nothing. The message is refused with an `error`, changing nothing, when
+
+- the storage policy keeps no preferences — local mode keeps them in the browser (§8.5);
+- the message is larger than 64 KiB as JSON (§7.6);
+- `lang` is not a string of 1 to 16 characters without spaces or control characters. The server
+  holds no list of languages: a `lang` no table names is ignored by the page, as a saved one is
+  (§8.5);
+- `presets` is not a list of at most 64 entries (§7.6);
+- an entry is not an object with exactly a `name` and a `tuple`, with a `name` of 1 to 40
+  characters once trimmed and a `tuple` the rules of §2.5 accept as if searching (with max visits
+  2, the check the page's Import makes, §3.8).
+
+Stored names are the trimmed ones. What is stored goes to every tab of the identity in the next
+`state` (§4.2) and is written by the same saves as the snapshot (§8.2).
+
 ### 4.2 Server → browser
 
 | type | fields |
 |---|---|
-| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `status`, `thinking`, `boards` (thumbnails), `activeBoard` |
+| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `preferences`, `status`, `thinking`, `boards` (thumbnails), `activeBoard` |
 | `analysis` | `cursor`, `toPlay`, `analysis` (§2.2) |
 | `log` | `line: {direction, text, at}` |
 | `log_history` | `lines` |
@@ -934,6 +967,10 @@ Field names inside `state`:
 - `settings`: `blackIsEngine`, `whiteIsEngine`, `blackStyle`, `whiteStyle`, `analysisEnabled`,
   `maxVisits`, `reportInterval`, `includeOwnership`, `evalVisits`, and the active board's
   `humanProfile`, `humanPolicy`, `humanCompare`.
+- `preferences`: `lang` (the identity's UI language, or `null` when none is stored) and `presets`
+  (`[{name, tuple}]`, in the order they were sent) while the storage policy keeps the identity's
+  preferences (§6.4, §8.4); `null` while it does not, and the page then keeps both in the browser
+  (§3.8 "Preferences", §8.5). It never depends on a mode name (§6.1).
 - each `boards` entry: `id`, `name`, `size`, `stones`, `lastMove`, `cursor`, `moveCount`, `toPlay`,
   `profile`, `policy` (the board's human tuple), `compare` (true while the board has a compare
   tuple), `heat` (the last policy heatmap while it still describes the board's position, else
@@ -1137,7 +1174,7 @@ registry read only the bundle's fields, and none of them receives or compares a 
 |---|---|---|
 | Identity | one fixed identity; no sign-in, no cookie | password accounts (`local:<account id>`) and/or an SSO header (`sso:<name>`) believed only from a trusted proxy (§7) |
 | Engine address | typed: the browser sends `{protocol, host, port}`; the CLI flags give the defaults | catalog: the browser sends `{engineId}` from `GOWUI_ENGINES`; addresses never reach the browser |
-| Storage | a per-user `state.json` (§8.3); `--state FILE` overrides; `--fresh` keeps state in memory only | one snapshot per account in SQLite (`GOWUI_DB`) |
+| Storage | a per-user `state.json` (§8.3); `--state FILE` overrides; `--fresh` keeps state in memory only; no preferences (§8.5) | one snapshot and one set of preferences per account in SQLite (`GOWUI_DB`) |
 | Default bind | `127.0.0.1:8080` | `0.0.0.0:8080` |
 
 Local mode is a server with exactly one space: the same space registry, session, routes and
@@ -1237,6 +1274,22 @@ The interface is synchronous, and the registry always calls it in a worker threa
 
 The memory storage used with `--fresh` keeps snapshots in memory only and never touches a file.
 The SQLite storage keys its rows by the identity key (§6.2) and is described in §8.4.
+
+A storage policy also says whether it keeps the identity's **preferences** — the UI language and
+the user's tuple presets (§4.1) — and, when it does, loads and saves them next to the snapshot:
+
+- `keeps_preferences: bool`. Local mode: false, so `state.preferences` is `null` and the page
+  keeps both in the browser (§8.5). Server mode: true. A storage that does not carry the field
+  keeps none.
+- `load_preferences(key)` returns the stored preferences object, or `None` when nothing is
+  stored. A stored value is read through the rules of §4.1, except that what they refuse is
+  dropped — a `lang` of the wrong shape, an entry past the 64th, an entry without a usable name
+  or with a tuple §2.5 refuses — rather than refusing the whole value, as a browser-stored preset
+  is dropped when the list is read (§8.5).
+- `save_preferences(key, preferences)` stores them.
+
+Preferences are never part of the snapshot (§8.1), so a storage that keeps none writes none, and
+a snapshot carries the same fields in both modes.
 
 ## 7. Authentication and security
 
@@ -1415,6 +1468,10 @@ the served policy and fails on any `securitypolicyviolation` event or console er
 | Raw console command | 1,000 characters, one line |
 | `play` vertex | 8 characters |
 | Rule-set name (`new_game`) | 40 characters |
+| `preferences` message | 64 KiB as JSON |
+| Tuple presets per identity | 64 |
+| Preset name | 40 characters |
+| UI language name (`lang`) | 16 characters |
 | Open WebSockets per identity | 32 (a further handshake is closed with `4429`, §4.3) |
 
 Out-of-range numbers are clamped and board names truncated; other oversize input is refused with
@@ -1578,7 +1635,9 @@ released, and at shutdown.
 - **Change detection.** A save takes the snapshot, serialises it to JSON text, and writes only if
   that text differs from the text last loaded or saved for the space. A space that starts fresh
   (nothing stored, or a stored snapshot set aside) takes its fresh snapshot's text as the
-  baseline, so nothing is written until something changes.
+  baseline, so nothing is written until something changes. The preferences a storage keeps
+  (§6.4) ride the same passes and the same comparison, against the text last loaded or saved for
+  them; a space whose storage keeps none compares nothing and writes none.
 - **Timing.** Every 5 seconds the registry saves each space that changed. It also saves a space
   when its last tab detaches, when it is released, and at shutdown.
 - **Serialised per space.** A space's saves take its save lock and take the snapshot inside it, so
@@ -1643,17 +1702,27 @@ or renames any file, and a file at the default path stays untouched however the 
 
 ### 8.4 Server database
 
-One SQLite file, `GOWUI_DB`, holds four tables:
+One SQLite file, `GOWUI_DB`, holds five tables:
 
 | Table | Columns |
 |---|---|
 | `users` | account id (primary key), name (unique), password hash (§7.1), created |
 | `logins` | token SHA-256 (primary key), identity key, expiry (§7.2) |
 | `states` | identity key (primary key), snapshot JSON, updated |
+| `preferences` | identity key (primary key), preferences JSON, updated |
 | `set_aside` | identity key, snapshot text, reason, time |
 
-- **Keys.** Snapshots and logins are keyed by the identity key (§6.2): `local:<account id>` or
-  `sso:<name>`. The storage policy's `load`, `save` and `set_aside` take that key.
+- **Keys.** Snapshots, preferences and logins are keyed by the identity key (§6.2):
+  `local:<account id>` or `sso:<name>`. The storage policy's `load`, `save`, `set_aside`,
+  `load_preferences` and `save_preferences` take that key.
+- **Preferences.** The `preferences` row holds the identity's UI language and tuple presets
+  (§4.1) as `{"lang": <name or null>, "presets": [{"name", "tuple"}]}` — this is where each of
+  the two lives in server mode, in place of the browser (§8.5). So an account signed in from a
+  second browser, or from a second device, sees the presets and the language it chose in the
+  first. A row over 128 KiB, one that is not valid JSON, and one that is not a JSON object are
+  ignored with a warning and the identity starts with none; a row that reads is taken through
+  the rules of §6.4, which drop what they refuse. A preferences row is never set aside: it holds
+  no game, and its worst case is one bad line the next save replaces.
 - **Opening.** The parent directory is created with mode `0700` when missing, and a missing file
   is created with mode `0600` before SQLite opens it. The connection uses WAL journaling, and the
   `-wal` and `-shm` files next to the database are set to mode `0600` once WAL is on. The dummy
@@ -1669,14 +1738,16 @@ One SQLite file, `GOWUI_DB`, holds four tables:
   or that restore refuses, is moved to `set_aside` with the reason and a warning, and the account
   starts fresh. Rows are never deleted by this; they are kept apart from `states`, so no key can
   collide with a real account's.
-- **Saving** a `local:` key writes only while the account with that id exists, in one statement.
+- **Saving** a `local:` key writes only while the account with that id exists, in one statement,
+  for the snapshot and for the preferences alike.
   A save for a removed account writes nothing and is not an error. The snapshot JSON is written
   with `ensure_ascii=True`, as for the local state file (§8.3): SQLite stores text as UTF-8, which
   cannot hold a lone surrogate, so a board name such as `"x\ud800y"` is saved as an escape and
   restored unchanged after a restart.
 - **Accounts.** `add` relies on the unique name constraint (no check-then-insert), so the server
   and the CLI cannot create the same name twice. `remove` deletes, by account id, the account, its
-  logins, its `states` row and its `set_aside` rows: a name that is reused later starts clean.
+  logins, its `states` row, its `preferences` row and its `set_aside` rows: a name that is reused
+  later starts clean.
   `passwd` replaces the hash and deletes the account's logins. Both look the name up inside their
   own transaction and require the delete or the update to touch exactly one row, so a `remove`
   that lands first makes the other report no such account rather than reporting success while
@@ -1685,6 +1756,13 @@ One SQLite file, `GOWUI_DB`, holds four tables:
   name is there.
 
 ### 8.5 Browser storage
+
+Where a preference lives is the storage policy's choice, not the page's (§6.4). While the policy
+keeps the identity's preferences — server mode does, in the `preferences` table of §8.4 — the
+`state` frame carries them (§4.2), they are the source of truth, and the page reads and writes
+neither key below: the language and the presets follow the account into any browser. While it
+does not — local mode, where the one user is the owner of the machine — `state.preferences` is
+`null` and both live here, in this browser only.
 
 The browser keeps only the UI language and the user's own tuple presets in `localStorage`, under
 exactly two keys:
@@ -1751,8 +1829,8 @@ One command, `gowui`:
     without echo, or with `--password-stdin` read one line from stdin with its trailing `\r\n` or
     `\n` removed.
   - **Effects.** `add` creates the account with a new account id (§7.1); `passwd` replaces the
-    hash and ends every session of the account (§7.2); `remove` deletes the account, its sessions
-    and its saved boards (§8.4). `list` prints one name per line, sorted, and nothing for an empty
+    hash and ends every session of the account (§7.2); `remove` deletes the account, its sessions,
+    its saved boards and its preferences (§8.4). `list` prints one name per line, sorted, and nothing for an empty
     database; a database file that is not there counts as empty and is *not* created, so listing
     never leaves a stray database behind a mistyped `GOWUI_DB`. `add`, `passwd` and `remove` open
     the database, creating it when missing, as the server does (§8.4). `add`, `passwd` and
