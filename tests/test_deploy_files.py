@@ -24,6 +24,13 @@ DOCKERIGNORE = ROOT / ".dockerignore"
 PASSWORD_COMPOSE = ROOT / "deploy" / "compose.password.yaml"
 SSO_COMPOSE = ROOT / "deploy" / "compose.sso.yaml"
 COMPOSE_FILES = [PASSWORD_COMPOSE, SSO_COMPOSE]
+DEPENDABOT = ROOT / ".github" / "dependabot.yml"
+
+#: An image reference carrying a tag *and* a digest (§10.1 "Pinning"). The tag itself is free:
+#: Dependabot bumps the tag as well as the digest, and such a bump must not turn a test red.
+PINNED = re.compile(r"[^\s:@]+:[^\s:@]+@sha256:[0-9a-f]{64}")
+#: What Dependabot watches: the Dockerfile, the Compose examples, the workflow's actions.
+WATCHED = {("docker", "/"), ("docker-compose", "/deploy"), ("github-actions", "/")}
 
 #: The only paths the build context holds and the builder copies (§10.1 "Build context").
 CONTEXT_PATHS = {"pyproject.toml", "README.md", "gowui"}
@@ -168,9 +175,26 @@ def test_builder_copies_exactly_the_allowlisted_paths():
 def test_every_from_is_pinned_by_digest():
     froms = [rest for keyword, rest in instructions() if keyword == "FROM"]
     assert froms
-    for rest in froms:
-        image = [word for word in rest.split() if not word.startswith("--")][0]
-        assert re.fullmatch(r"python:3\.13-slim@sha256:[0-9a-f]{64}", image), image
+    images = {[word for word in rest.split() if not word.startswith("--")][0] for rest in froms}
+    assert len(images) == 1, images  # the builder and the runtime share one pin
+    image = images.pop()
+    assert PINNED.fullmatch(image), image
+    assert image.startswith("python:"), image  # the official Python image, any tag
+
+
+def test_the_examples_pin_every_image_they_name_by_digest():
+    for path in COMPOSE_FILES:
+        for name, service in compose(path)["services"].items():
+            if "build" in service:  # built from this repository: there is no digest to pin
+                continue
+            assert PINNED.fullmatch(service["image"]), f"{path.name}: {name}: {service['image']}"
+
+
+def test_dependabot_watches_the_dockerfile_the_examples_and_the_actions():
+    config = yaml.safe_load(DEPENDABOT.read_text(encoding="utf-8"))
+    updates = config["updates"]
+    assert {(entry["package-ecosystem"], entry["directory"]) for entry in updates} == WATCHED
+    assert all(entry["schedule"]["interval"] for entry in updates)
 
 
 def test_no_secret_or_proxy_setting_in_env_or_arg():

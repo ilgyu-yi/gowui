@@ -211,6 +211,76 @@ def test_the_url_line_brackets_an_ipv6_host():
     assert url_line("::1", 8080) == "gowui: http://[::1]:8080"
 
 
+# -- dying by SIGINT (§9 "Stopping") -------------------------------------------------------------
+def run_main(monkeypatch, run, *argv: str):
+    """``main(argv)`` with the server's ``run`` replaced, and the SIGINT death recorded, not taken.
+
+    Returns ``(status, deaths)``, where ``deaths`` holds one entry per ``_die_by_sigint`` call.
+    """
+    from gowui import cli
+
+    deaths: list[int] = []
+
+    def die() -> int:
+        deaths.append(signal.SIGINT)
+        return 130
+
+    monkeypatch.setattr(cli, "_die_by_sigint", die)
+
+    class Server(cli._Server):
+        def run(self, sockets=None):
+            return run(self)
+
+    monkeypatch.setattr(cli, "_Server", Server)
+    return cli.main(["local", "--fresh", *argv]), deaths
+
+
+def test_a_run_that_ends_by_itself_exits_zero(monkeypatch):
+    assert run_main(monkeypatch, lambda server: None) == (0, [])
+
+
+def test_a_keyboard_interrupt_dies_by_sigint(monkeypatch):
+    def run(server):
+        raise KeyboardInterrupt
+
+    assert run_main(monkeypatch, run) == (130, [signal.SIGINT])
+
+
+def test_a_handled_sigint_dies_by_sigint_even_when_the_run_returns(monkeypatch):
+    # uvicorn re-raises the signal it captured when its run ends, but the handler it restores is
+    # asyncio's runner, which turns that into a cancellation of the main task rather than a
+    # KeyboardInterrupt. A relay swallowed anywhere along the way leaves `run` returning as if
+    # nothing had happened, and the process must still die by SIGINT.
+    def run(server):
+        server.handle_exit(signal.SIGINT, None)
+
+    assert run_main(monkeypatch, run) == (130, [signal.SIGINT])
+
+
+def test_a_handled_sigint_that_arrives_as_a_cancellation_dies_by_sigint(monkeypatch):
+    def run(server):
+        server.handle_exit(signal.SIGINT, None)
+        raise asyncio.CancelledError
+
+    assert run_main(monkeypatch, run) == (130, [signal.SIGINT])
+
+
+def test_a_cancellation_with_no_signal_behind_it_is_not_swallowed(monkeypatch):
+    def run(server):
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        run_main(monkeypatch, run)
+
+
+def test_sigterm_alone_is_not_a_sigint_death(monkeypatch):
+    # `docker stop` sends SIGTERM and the container exits with status 0 (§10.1 "Stopping").
+    def run(server):
+        server.handle_exit(signal.SIGTERM, None)
+
+    assert run_main(monkeypatch, run) == (0, [])
+
+
 # -- a real run: python -m gowui --port 0 --state FILE (§9) --------------------------------------------
 @pytest.mark.skipif(sys.platform == "win32", reason="SIGINT to a child process")
 async def test_python_m_gowui_serves_prints_its_url_and_saves_on_sigint(tmp_path):
