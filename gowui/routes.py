@@ -26,8 +26,9 @@ __all__ = ["MAX_FRAME_BYTES", "MAX_UPLOAD_BYTES", "install", "router"]
 MAX_FRAME_BYTES = 1024 * 1024
 MAX_UPLOAD_BYTES = 1024 * 1024
 CLOSE_TOO_BIG = 1009
-#: A handshake past the identity's socket cap: "try again later" (§4.3, §7.6).
-CLOSE_TOO_MANY = 1013
+#: A handshake past the identity's socket cap (§4.3, §7.6). The cap's own code, not the ``1013``
+#: of queue overflow: no retry can lift it, so the page must be able to stop reconnecting (§3.8).
+CLOSE_TOO_MANY = 4429
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 router = APIRouter()

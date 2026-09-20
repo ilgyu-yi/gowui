@@ -16,7 +16,7 @@
 
   var socket = null;
   var reconnectDelay = 500;
-  // Set by a 4401 / 4403 close: the page stops reconnecting and keeps saying why.
+  // Set by a 4401 / 4403 / 4429 close: the page stops reconnecting and keeps saying why.
   var closedFor = null;
   // Set while the page is already leaving (the log-out form was sent): a 4401 then must not
   // start a second navigation that would cancel the first.
@@ -64,6 +64,13 @@
         showConnectionProblem();
         return;
       }
+      if (event.code === 4429) {
+        // This identity already holds the most sockets it may (SPEC 4.3, 7.6): the cap is
+        // still reached on the next try, so say so instead of reconnecting for ever.
+        closedFor = 'status.tooManySockets';
+        showConnectionProblem();
+        return;
+      }
       showConnectionProblem();
       setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(8000, reconnectDelay * 2);
@@ -88,6 +95,7 @@
   function showConnectionProblem() {
     if (closedFor === 'status.notSignedIn') setStatus(t('status.notSignedIn'), true, true);
     else if (closedFor === 'status.refused') setStatus(t('status.refused'), true, true);
+    else if (closedFor === 'status.tooManySockets') setStatus(t('status.tooManySockets'), true, true);
     else setStatus(t('status.lost'), false, true);
   }
 
@@ -659,8 +667,8 @@
     scrollLater('log');
   }
 
-  // Messages clear after 8 s; a sticky one (the connection is down) stays. Once a 4401 / 4403
-  // close has said why, that reason holds the line until the page is reloaded (§3.8): a later
+  // Messages clear after 8 s; a sticky one (the connection is down) stays. Once a 4401 / 4403 /
+  // 4429 close has said why, that reason holds the line until the page is reloaded (§3.8): a later
   // message neither replaces it nor starts a timer over it.
   var statusTimer = null;
   function setStatus(text, isError, sticky) {

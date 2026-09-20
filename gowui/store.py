@@ -186,22 +186,29 @@ class Store:
         return changed == 1
 
     def remove_user(self, name: str) -> bool:
+        """Delete the account, its logins, its snapshot and its set-aside rows; ``False`` when
+        there is no such account. Like ``set_password`` (§8.4), the lookup runs inside the
+        transaction and the delete must touch one row: a ``remove`` plus an ``add`` of the same
+        name that lands first is answered ``False``, never ``ok`` over an account of that name
+        that is still there."""
         with self._lock:
-            row = self._db.execute("SELECT id FROM users WHERE name = ?", (name,)).fetchone()
-            if row is None:
-                return False
-            key = _local_key(row[0])
             self._db.execute("BEGIN IMMEDIATE")
             try:
-                self._db.execute("DELETE FROM users WHERE id = ?", (row[0],))
-                self._db.execute("DELETE FROM logins WHERE account = ?", (key,))
-                self._db.execute("DELETE FROM states WHERE account = ?", (key,))
-                self._db.execute("DELETE FROM set_aside WHERE account = ?", (key,))
-                self._db.execute("COMMIT")
+                row = self._db.execute("SELECT id FROM users WHERE name = ?", (name,)).fetchone()
+                removed = 0
+                if row is not None:
+                    key = _local_key(row[0])
+                    removed = self._db.execute("DELETE FROM users WHERE id = ?",
+                                               (row[0],)).rowcount
+                    if removed == 1:
+                        self._db.execute("DELETE FROM logins WHERE account = ?", (key,))
+                        self._db.execute("DELETE FROM states WHERE account = ?", (key,))
+                        self._db.execute("DELETE FROM set_aside WHERE account = ?", (key,))
+                self._db.execute("COMMIT" if removed == 1 else "ROLLBACK")
             except BaseException:
                 self._db.execute("ROLLBACK")
                 raise
-        return True
+        return removed == 1
 
     def list_users(self) -> list[str]:
         return [row[0] for row in self._query("SELECT name FROM users ORDER BY name")]
