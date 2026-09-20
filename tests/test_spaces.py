@@ -860,3 +860,56 @@ async def test_shutdown_closes_the_engine_connection(registries, gtp_server):
     await wait_for(lambda: space.session.state_message()["engine"]["connected"])
     await registry.aclose()
     assert await wait_for(lambda: gtp_server.open_connections == 0)
+
+
+# -- the per-key locks (§3.1) -------------------------------------------------------------------------
+async def test_a_key_lock_is_dropped_once_nothing_holds_it(registries):
+    """The lock table must not grow with every key that was ever used (an SSO name needs no
+    account, so the keys are unbounded). ``_locks`` is read directly: it has no other window."""
+    clock = Clock()
+    registry = registries(idle=60.0, clock=clock)
+    for name in ("alice", "bob", "carol"):
+        await registry.get(identity(name))
+    assert registry._locks == {}
+    clock.now += 61
+    await registry.release_idle()
+    assert (dict(registry.live), registry._locks) == ({}, {})
+
+
+async def test_a_lock_held_by_a_waiting_getter_is_not_dropped(registries):
+    """Dropping a lock someone still waits on would let two callers into one key at once."""
+    storage = Storage()
+    registry = registries(storage)
+    first, second = await asyncio.gather(registry.get(identity("alice")),
+                                         registry.get(identity("alice")))
+    assert (first is second, storage.loads) == (True, ["alice"])
+
+
+# -- the socket cap per identity (§4.3) ----------------------------------------------------------------
+async def test_the_default_socket_cap_is_32():
+    from gowui.spaces import MAX_TABS
+
+    assert MAX_TABS == 32
+
+
+async def test_a_tab_past_the_cap_is_refused_and_attaches_nothing(registries):
+    from gowui.spaces import TooManyTabs
+
+    registry = registries(max_tabs=2)
+    for _ in range(2):
+        tab = FakeTab()
+        await registry.attach(owner(), tab.send, tab.close)
+    extra = FakeTab()
+    with pytest.raises(TooManyTabs):
+        await registry.attach(owner(), extra.send, extra.close)
+    assert (len(registry.live["owner"].hub.tabs), extra.texts) == (2, [])
+
+
+async def test_a_detached_tab_frees_its_place_under_the_cap(registries):
+    registry = registries(max_tabs=1)
+    first = FakeTab()
+    attached = await registry.attach(owner(), first.send, first.close)
+    await registry.detach(attached)
+    second = FakeTab()
+    await registry.attach(owner(), second.send, second.close)
+    assert len(registry.live["owner"].hub.tabs) == 1

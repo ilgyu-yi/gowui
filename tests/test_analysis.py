@@ -408,6 +408,15 @@ async def test_an_unreadable_line_is_skipped_with_a_note(fake_engine, connect):
     assert (any(r.complete for r in reports.items), bool(log.notes)) == (True, True)
 
 
+async def test_a_result_without_a_candidate_is_an_engine_error(fake_engine, connect):
+    """§2.4: an answer with no candidate move is an engine error, never an implicit pass — the
+    handol surface refuses the same answer (§2.5)."""
+    line = report_line(isDuringSearch=False, moveInfos=[])
+    engine = await connect(await fake_engine("analysis", emit_line=line))
+    with pytest.raises(EngineError):
+        await asyncio.wait_for(engine.genmove(position_from(game_with(9)), "B"), HANG)
+
+
 async def test_an_overlong_line_is_an_engine_error(fake_engine, connect):
     engine = await connect(await fake_engine("analysis", overlong_line="query"))
     with pytest.raises(EngineError):

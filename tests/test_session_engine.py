@@ -717,6 +717,27 @@ async def test_a_tuple_needing_a_search_is_refused_with_max_visits_1(h):
     assert await h.rec.wait_error(start) is not None
 
 
+async def test_lowering_max_visits_under_a_tuple_that_needs_a_search_is_refused(h):
+    """§3.4: the change is checked against the board's tuples and reported once, at the change,
+    instead of leaving every later query to fail."""
+    await h.send({"type": "human_params",
+                  "policy": {"lambda_utility": 1, "trust_mu": 1, "fill_kappa": 0}})
+    start = h.rec.mark()
+    await h.send({"type": "engine_params", "maxVisits": 1})
+    error = await h.rec.wait_error(start)
+    state = await h.fresh_state()
+    assert error is not None and "lambda_utility" in error
+    assert state["settings"]["maxVisits"] != 1
+
+
+async def test_lowering_max_visits_is_allowed_without_such_a_tuple(h):
+    await h.send({"type": "human_params", "policy": {"temperature": 2}})
+    start = h.rec.mark()
+    await h.send({"type": "engine_params", "maxVisits": 1})
+    state = await h.fresh_state()
+    assert (h.rec.errors(start), state["settings"]["maxVisits"]) == ([], 1)
+
+
 async def test_a_null_compare_clears_the_comparison(h):
     await human(h, compare={"temperature": 2})
     await human(h, compare=None)
@@ -825,6 +846,57 @@ async def test_a_hidden_space_still_reports_the_engine_name(make_session, fake_e
     h, catalog = await hidden_session(make_session, monkeypatch)
     await scenario_identity(h, catalog, fake_engine, monkeypatch)
     assert "FakeKataGo" in (await h.fresh_state())["engine"]["name"]
+
+
+#: A catalog host that is also an ordinary word, the case §7.7 must not over-match.
+WORD_HOST = "katago"
+
+
+def route_word_host(monkeypatch) -> None:
+    """Make :data:`WORD_HOST` resolve to the loopback address (test-only name service)."""
+    import socket
+
+    real = socket.getaddrinfo
+
+    def getaddrinfo(host, *args, **kwargs):
+        name = host.decode() if isinstance(host, bytes) else host
+        if isinstance(name, str) and name.lower() == WORD_HOST:
+            host = LOOPBACK
+        return real(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+
+
+async def word_host_session(make_session, fake_engine, monkeypatch):
+    """A hidden space whose engine lives at :data:`WORD_HOST`, connected and identified."""
+    route_word_host(monkeypatch)
+    h, catalog = await catalog_session(make_session, host=WORD_HOST)
+    server = await fake_engine("gtp")
+    server.options.replies["name"] = "FakeKataGo"
+    server.options.replies["version"] = (f"1.0 from {WORD_HOST}:{server.port}, host {WORD_HOST}, "
+                                         f"built by katagonaut for my-katago.example, "
+                                         f"could not reach {WORD_HOST}.")
+    catalog.add("kata", "gtp", server.port, console=True)
+    return h, await h.connect({"engineId": "kata"}), server
+
+
+async def test_scrubbing_leaves_a_word_that_merely_contains_the_host(make_session, fake_engine,
+                                                                     monkeypatch):
+    """§7.7: the host is matched on host boundaries, so a longer name keeps its letters."""
+    _, state, _ = await word_host_session(make_session, fake_engine, monkeypatch)
+    assert state["engine"]["name"] == "FakeKataGo"
+    assert "katagonaut" in state["engine"]["version"]
+    assert "my-katago.example" in state["engine"]["version"]
+
+
+async def test_scrubbing_still_takes_the_host_and_the_host_port(make_session, fake_engine,
+                                                                monkeypatch):
+    """§7.7: `host:port` and the bare host are replaced, so the address never appears."""
+    h, state, server = await word_host_session(make_session, fake_engine, monkeypatch)
+    version = state["engine"]["version"]
+    assert version == ("1.0 from [engine], host [engine], built by katagonaut "
+                       "for my-katago.example, could not reach [engine].")
+    assert leaks(h.rec.frames + h.session.attach_frames(), f"{WORD_HOST}:", server.port) == []
 
 
 

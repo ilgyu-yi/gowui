@@ -28,12 +28,15 @@ from typing import Any, Awaitable, Callable
 from .policies import Identity, Policies
 from .session import GameSession
 
-__all__ = ["DEFAULT_QUEUE_SIZE", "SAVE_INTERVAL", "Hub", "Space", "SpaceRegistry", "Tab", "TabQueue"]
+__all__ = ["DEFAULT_QUEUE_SIZE", "MAX_TABS", "SAVE_INTERVAL", "Hub", "Space", "SpaceRegistry",
+           "Tab", "TabQueue", "TooManyTabs"]
 
 log = logging.getLogger("gowui")
 
 #: Frames a tab's queue holds before the tab is closed with ``1013`` (§4.3).
 DEFAULT_QUEUE_SIZE = 256
+#: Open sockets one identity may hold at once (§4.3, §7.6).
+MAX_TABS = 32
 #: Seconds between autosave passes (§8.2).
 SAVE_INTERVAL = 5.0
 #: WebSocket close code for a tab that does not keep up (§4.3).
@@ -52,6 +55,10 @@ FOLDING = COALESCED | FOLDED
 
 Send = Callable[[str], Awaitable[None]]
 Close = Callable[[int], Awaitable[None]]
+
+
+class TooManyTabs(Exception):
+    """An identity already holds :data:`MAX_TABS` sockets (§4.3); the route closes the new one."""
 
 
 class TabQueue:
@@ -236,36 +243,59 @@ def _text(snapshot: dict) -> str:
     return json.dumps(snapshot)
 
 
+@dataclass
+class _KeyLock:
+    """One key's lock and how many callers hold or wait for it."""
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    users: int = 0
+
+
 class SpaceRegistry:
     """At most one live space per identity key (§3.1)."""
 
     def __init__(self, policies: Policies, *, save_interval: float = SAVE_INTERVAL,
-                 queue_size: int = DEFAULT_QUEUE_SIZE,
+                 queue_size: int = DEFAULT_QUEUE_SIZE, max_tabs: int = MAX_TABS,
                  clock: Callable[[], float] = time.monotonic) -> None:
         self.policies = policies
         self.save_interval = save_interval
         self.queue_size = queue_size
+        self.max_tabs = max_tabs
         self.clock = clock
         self.live: dict[str, Space] = {}
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks: dict[str, _KeyLock] = {}
         self._task: asyncio.Task | None = None
         self._stop: asyncio.Event | None = None
         self._closed = False
 
-    def _lock(self, key: str) -> asyncio.Lock:
-        lock = self._locks.get(key)
-        if lock is None:
-            lock = self._locks[key] = asyncio.Lock()
-        return lock
+    @contextlib.asynccontextmanager
+    async def _keyed(self, key: str):
+        """Hold that key's lock. The lock is counted while it is held or waited for and dropped
+        once no one is either, so the table does not grow with every key ever used (an SSO name
+        needs no account, §6.2)."""
+        entry = self._locks.get(key)
+        if entry is None:
+            entry = self._locks[key] = _KeyLock()
+        entry.users += 1
+        try:
+            async with entry.lock:
+                yield
+        finally:
+            entry.users -= 1
+            if entry.users == 0 and self._locks.get(key) is entry:
+                del self._locks[key]
 
     # -- getting and attaching (§3.1, §4.3) ------------------------------------------------------
     async def get(self, identity: Identity) -> Space:
-        async with self._lock(identity.key):
+        async with self._keyed(identity.key):
             return await self._space(identity.key)
 
     async def attach(self, identity: Identity, send: Send, close: Close) -> Tab:
-        async with self._lock(identity.key):
+        """Attach one tab, or raise :class:`TooManyTabs` when the identity is at its cap (§4.3)."""
+        async with self._keyed(identity.key):
             space = await self._space(identity.key)
+            if len(space.hub.tabs) >= self.max_tabs:
+                raise TooManyTabs(identity.key)
             tab = Tab(space, send, close, self.queue_size)
             space.hub.add(tab, space.session.attach_frames())
             return tab
@@ -354,7 +384,7 @@ class SpaceRegistry:
         for key, space in list(self.live.items()):
             if not self._idle(space, seconds):
                 continue
-            async with self._lock(key):
+            async with self._keyed(key):
                 if self.live.get(key) is not space or not self._idle(space, seconds):
                     continue
                 if not await self._save(space):
@@ -403,7 +433,7 @@ class SpaceRegistry:
             await self._task
 
         async def shut(key: str, space: Space) -> None:
-            async with self._lock(key):
+            async with self._keyed(key):
                 try:
                     await self._save(space)
                     await self._close_space(space)

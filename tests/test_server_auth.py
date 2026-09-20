@@ -390,3 +390,70 @@ async def test_cookie_secure_follows_a_trusted_forwarded_proto(serve, tmp_path):
     server = await start(serve, tmp_path, trusted_proxies="127.0.0.1/32")
     response, _ = await login(server.running, "alice", headers={"X-Forwarded-Proto": "https"})
     assert "secure" in response.headers["set-cookie"].lower()
+
+
+# -- §7.1: the cost of a password hash ---------------------------------------------------------------
+def test_the_stored_hash_uses_the_owasp_equivalent_cost():
+    from gowui.store import Scrypt
+
+    hasher = Scrypt()
+    assert (hasher.n, hasher.r, hasher.p) == (2 ** 16, 8, 2)
+
+
+def test_a_hash_written_with_an_older_cost_still_verifies():
+    """§7.1: every hash carries its own parameters, so raising the cost keeps old hashes usable."""
+    from gowui.store import Scrypt
+
+    stored = Scrypt(n=2 ** 4, r=1, p=1).hash(PASSWORD)
+    assert stored.startswith("scrypt$16$1$1$")
+    assert Scrypt().verify(PASSWORD, stored) and not Scrypt().verify("wrong", stored)
+
+
+# -- §7.5: a failure inside the guard --------------------------------------------------------------
+async def test_a_failing_identity_policy_answers_500_with_the_headers(serve, tmp_path,
+                                                                      monkeypatch):
+    """§7.5: the guard answers its own failure; a 500 carries the security headers."""
+    import sqlite3
+
+    server = await start(serve, tmp_path)
+    _, token = await login(server.running, "alice")
+
+    def unreachable(_token):
+        raise sqlite3.OperationalError("the database is gone")
+
+    monkeypatch.setattr(server.store, "login_account", unreachable)
+    response = await get(server.running, "/api/health", token)
+    assert response.status_code == 500
+    assert response.headers["content-security-policy"] == \
+        "default-src 'self'; frame-ancestors 'none'"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "the database is gone" not in response.text
+
+
+async def test_a_handshake_whose_identity_check_fails_is_closed_with_1011(serve, tabs, tmp_path,
+                                                                         monkeypatch):
+    import sqlite3
+
+    server = await start(serve, tmp_path)
+    _, token = await login(server.running, "alice")
+
+    def unreachable(_token):
+        raise sqlite3.OperationalError("the database is gone")
+
+    monkeypatch.setattr(server.store, "login_account", unreachable)
+    tab = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
+    assert await tab.close_code() == 1011
+
+
+# -- §4.3: the per-identity socket cap ----------------------------------------------------------------
+async def test_a_socket_past_the_identity_cap_is_closed(serve, tabs, tmp_path):
+    """§4.3: one identity holds at most ``max_tabs`` sockets; the next is closed with 4429 — the
+    cap's own code, not the 1013 of queue overflow, so the page can stop reconnecting (§3.8)."""
+    server = await start(serve, tmp_path)
+    _, token = await login(server.running, "alice")
+    server.running.app.state.registry.max_tabs = 1
+    first = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
+    await first.wait_state()
+    extra = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
+    assert await extra.close_code() == 4429
+    assert first.open

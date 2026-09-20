@@ -12,6 +12,7 @@ import ipaddress
 import logging
 import os
 import signal
+import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
@@ -222,7 +223,13 @@ def user_command(args: argparse.Namespace) -> int:
             return _fail(str(exc), 1)
         if not valid_password(password):
             return _fail("a password has 8 to 256 characters", 1)
-    store = Store(os.environ.get("GOWUI_DB") or DEFAULT_DB)
+    path = Path(os.environ.get("GOWUI_DB") or DEFAULT_DB)
+    if args.action == "list" and not path.exists():
+        return 0  # a database that is not there is an empty one; listing never creates it (§9)
+    try:
+        store = Store(path)
+    except (OSError, sqlite3.Error) as exc:
+        return _fail(f"could not open the database {path}: {exc}", 1)
     try:
         if args.action == "list":
             for name in store.list_users():

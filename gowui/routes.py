@@ -18,7 +18,7 @@ from starlette.staticfiles import StaticFiles
 from .game import Game
 from .guard import IDENTITY_KEY, WS_UNAUTHENTICATED
 from .rules import HANDICAP_KOMI, RULE_SETS
-from .spaces import Space
+from .spaces import Space, TooManyTabs
 
 __all__ = ["MAX_FRAME_BYTES", "MAX_UPLOAD_BYTES", "install", "router"]
 
@@ -26,6 +26,9 @@ __all__ = ["MAX_FRAME_BYTES", "MAX_UPLOAD_BYTES", "install", "router"]
 MAX_FRAME_BYTES = 1024 * 1024
 MAX_UPLOAD_BYTES = 1024 * 1024
 CLOSE_TOO_BIG = 1009
+#: A handshake past the identity's socket cap (§4.3, §7.6). The cap's own code, not the ``1013``
+#: of queue overflow: no retry can lift it, so the page must be able to stop reconnecting (§3.8).
+CLOSE_TOO_MANY = 4429
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 router = APIRouter()
@@ -164,7 +167,12 @@ async def websocket(ws: WebSocket) -> None:
         await ws.close(code)
 
     identity = ws.scope[IDENTITY_KEY]
-    tab = await registry.attach(identity, send, close)
+    try:
+        tab = await registry.attach(identity, send, close)
+    except TooManyTabs:
+        # The identity is at its cap: nothing is attached and no frame is sent (§4.3).
+        await _close_quietly(ws, CLOSE_TOO_MANY)
+        return
     session = tab.space.session
     closing: list[asyncio.Task] = []
 

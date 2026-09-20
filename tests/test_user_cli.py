@@ -97,3 +97,142 @@ def test_the_account_id_is_never_printed(user):
     with sqlite3.connect(user.db) as db:
         (account_id,) = db.execute("SELECT id FROM users").fetchone()
     assert account_id not in out + err + user("list")[1]
+
+
+# -- opening the database (§9, §8.4) --------------------------------------------------------------
+def test_list_does_not_create_the_database(user):
+    """§9: a database that is not there counts as empty; listing leaves no file behind."""
+    assert user("list")[:2] == (0, "")
+    assert not user.db.exists()
+
+
+def test_a_database_that_cannot_be_opened_prints_one_line(user, tmp_path, monkeypatch):
+    """§9: one stderr line and status 1, never a traceback."""
+    blocking = tmp_path / "blocking"
+    blocking.write_text("this is a file, not a directory")
+    monkeypatch.setenv("GOWUI_DB", str(blocking / "gowui.db"))
+    status, out, err = user("add", "alice", "--password-stdin", stdin="password one\n")
+    assert (status, out) == (1, "")
+    assert len(err.strip().splitlines()) == 1 and err.startswith("gowui: ")
+
+
+# -- the accounts, under a race (§8.4) -------------------------------------------------------------
+class _Rows:
+    """A cursor stand-in holding rows already read."""
+
+    def __init__(self, rows: list) -> None:
+        self._rows = rows
+        self.rowcount = len(rows)
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return list(self._rows)
+
+
+class _RemovesAfterLookup:
+    """The store's connection, with a removal landing right after the account id is read.
+
+    That is the window `set_password` has to close: reading the id outside its own transaction
+    lets a `remove` win the race and leaves an update that touches nothing (§8.4).
+
+    The double fires on the text of the lookup, so a reworded statement would leave it watching
+    for something the store no longer says and the test would pass while testing nothing. Every
+    test using it therefore asserts `fired` afterwards.
+    """
+
+    def __init__(self, db, name: str) -> None:
+        self._db = db
+        self._name = name
+        self.fired = False
+
+    def __getattr__(self, attribute):
+        return getattr(self._db, attribute)
+
+    def _intervene(self) -> None:
+        """What lands in the window: the account is removed."""
+        self._db.execute("DELETE FROM users WHERE name = ?", (self._name,))
+
+    def execute(self, sql, args=()):
+        cursor = self._db.execute(sql, args)
+        if not self.fired and sql.strip().upper().startswith("SELECT ID FROM USERS"):
+            self.fired = True
+            rows = cursor.fetchall()
+            self._intervene()
+            return _Rows(rows)
+        return cursor
+
+
+class _ReplacesAfterLookup(_RemovesAfterLookup):
+    """The same window, with the name removed *and added again* under a new account id.
+
+    A plain removal cannot tell a sound `remove` from an unsound one: when the loser reports `ok`
+    over the row it did not delete, the account is gone either way. Re-adding it makes the
+    difference visible — an `ok` would then say the account is gone while one of that name is
+    there (§8.4).
+    """
+
+    def _intervene(self) -> None:
+        self._db.execute("DELETE FROM users WHERE name = ?", (self._name,))
+        self._db.execute("INSERT INTO users (id, name, password, created) VALUES (?, ?, ?, ?)",
+                         ("a different account id", self._name, "not a hash", 0.0))
+
+
+def test_passwd_never_reports_success_when_a_remove_wins_the_race(user):
+    """§8.4: a `passwd` whose account goes away reports no such account and changes nothing."""
+    from server_helpers import CountingHasher
+    from gowui.store import Store
+
+    user("add", "alice", "--password-stdin", stdin="password one\n")
+    store = Store(user.db, hasher=CountingHasher())
+    try:
+        store._db = _RemovesAfterLookup(store._db, "alice")
+        assert store.set_password("alice", "password two") is False
+        assert store._db.fired, "the double never fired: the id lookup it watches for was reworded"
+        store._db = store._db._db
+        assert store.check_password("alice", "password one") is not None
+        assert store.check_password("alice", "password two") is None
+    finally:
+        store.close()
+
+
+def test_remove_never_reports_success_when_the_name_is_added_again_in_the_race(user):
+    """§8.4: `remove` looks the name up inside its own transaction and must delete exactly one
+    row, so a `remove` + `add` that lands first is answered "there is no account" rather than
+    `ok` over an account of that name that is still there."""
+    from server_helpers import CountingHasher
+    from gowui.store import Store
+
+    user("add", "alice", "--password-stdin", stdin="password one\n")
+    store = Store(user.db, hasher=CountingHasher())
+    try:
+        store._db = _ReplacesAfterLookup(store._db, "alice")
+        assert store.remove_user("alice") is False
+        assert store._db.fired, "the double never fired: the id lookup it watches for was reworded"
+        store._db = store._db._db
+        assert "alice" in store.list_users()
+    finally:
+        store.close()
+
+
+# -- sign-in tokens (§7.2, §8.4) --------------------------------------------------------------------
+def test_a_cookie_lookup_leaves_the_purge_to_the_sign_in(user):
+    """§8.4: a lookup only reads; expired rows go when the database is opened or a token is made."""
+    from server_helpers import CountingHasher
+    from gowui.store import Store
+
+    user("add", "alice", "--password-stdin", stdin="password one\n")
+    store = Store(user.db, hasher=CountingHasher())
+    try:
+        verified = store.check_password("alice", "password one")
+        stale = store.open_login(verified, -1.0)
+        assert store.login_account(stale) is None
+        with sqlite3.connect(user.db) as db:
+            assert db.execute("SELECT count(*) FROM logins").fetchone()[0] == 1
+        fresh = store.open_login(verified, 60.0)
+        assert store.login_account(fresh) is not None
+        with sqlite3.connect(user.db) as db:
+            assert db.execute("SELECT count(*) FROM logins").fetchone()[0] == 1
+    finally:
+        store.close()

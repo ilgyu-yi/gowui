@@ -255,6 +255,15 @@ class Game:
         self.cursor = max(0, min(int(index), len(self.moves)))
         return self.cursor
 
+    def branch(self) -> None:
+        """Discard every move after the cursor, as playing at a past cursor does (§3.2).
+
+        The result goes with them (§1.4): it described a game those moves were part of, and no
+        move is played here to clear it the way ``play`` would.
+        """
+        self._truncate(self.cursor)
+        self.result = RESULT_UNKNOWN
+
     def resign(self, color: int) -> None:
         """``color`` resigns: ``W+R`` when Black resigns, ``B+R`` when White does."""
         if color not in (BLACK, WHITE):
