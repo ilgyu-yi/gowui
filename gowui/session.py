@@ -356,7 +356,7 @@ class GameSession:
             for pattern in (rf"\[{quoted}\]:{port}(?!\d)",
                             rf"(?<!{_HOST_EDGE}){quoted}:{port}(?!\d)",
                             rf"\('{quoted}', {port}\)",
-                            rf"(?<!{_HOST_EDGE}){quoted}(?!{_HOST_EDGE})"):
+                            rf"(?<!{_HOST_EDGE}){quoted}(?![0-9A-Za-z_\-]|\.[0-9A-Za-z])"):
                 text = re.sub(pattern, HIDDEN, text, flags=re.IGNORECASE)
         return text
 
