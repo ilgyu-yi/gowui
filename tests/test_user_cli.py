@@ -136,6 +136,10 @@ class _RemovesAfterLookup:
 
     That is the window `set_password` has to close: reading the id outside its own transaction
     lets a `remove` win the race and leaves an update that touches nothing (§8.4).
+
+    The double fires on the text of the lookup, so a reworded statement would leave it watching
+    for something the store no longer says and the test would pass while testing nothing. Every
+    test using it therefore asserts `fired` afterwards.
     """
 
     def __init__(self, db, name: str) -> None:
@@ -146,14 +150,33 @@ class _RemovesAfterLookup:
     def __getattr__(self, attribute):
         return getattr(self._db, attribute)
 
+    def _intervene(self) -> None:
+        """What lands in the window: the account is removed."""
+        self._db.execute("DELETE FROM users WHERE name = ?", (self._name,))
+
     def execute(self, sql, args=()):
         cursor = self._db.execute(sql, args)
         if not self.fired and sql.strip().upper().startswith("SELECT ID FROM USERS"):
             self.fired = True
             rows = cursor.fetchall()
-            self._db.execute("DELETE FROM users WHERE name = ?", (self._name,))
+            self._intervene()
             return _Rows(rows)
         return cursor
+
+
+class _ReplacesAfterLookup(_RemovesAfterLookup):
+    """The same window, with the name removed *and added again* under a new account id.
+
+    A plain removal cannot tell a sound `remove` from an unsound one: when the loser reports `ok`
+    over the row it did not delete, the account is gone either way. Re-adding it makes the
+    difference visible — an `ok` would then say the account is gone while one of that name is
+    there (§8.4).
+    """
+
+    def _intervene(self) -> None:
+        self._db.execute("DELETE FROM users WHERE name = ?", (self._name,))
+        self._db.execute("INSERT INTO users (id, name, password, created) VALUES (?, ?, ?, ?)",
+                         ("a different account id", self._name, "not a hash", 0.0))
 
 
 def test_passwd_never_reports_success_when_a_remove_wins_the_race(user):
@@ -166,9 +189,29 @@ def test_passwd_never_reports_success_when_a_remove_wins_the_race(user):
     try:
         store._db = _RemovesAfterLookup(store._db, "alice")
         assert store.set_password("alice", "password two") is False
+        assert store._db.fired, "the double never fired: the id lookup it watches for was reworded"
         store._db = store._db._db
         assert store.check_password("alice", "password one") is not None
         assert store.check_password("alice", "password two") is None
+    finally:
+        store.close()
+
+
+def test_remove_never_reports_success_when_the_name_is_added_again_in_the_race(user):
+    """§8.4: `remove` looks the name up inside its own transaction and must delete exactly one
+    row, so a `remove` + `add` that lands first is answered "there is no account" rather than
+    `ok` over an account of that name that is still there."""
+    from server_helpers import CountingHasher
+    from gowui.store import Store
+
+    user("add", "alice", "--password-stdin", stdin="password one\n")
+    store = Store(user.db, hasher=CountingHasher())
+    try:
+        store._db = _ReplacesAfterLookup(store._db, "alice")
+        assert store.remove_user("alice") is False
+        assert store._db.fired, "the double never fired: the id lookup it watches for was reworded"
+        store._db = store._db._db
+        assert "alice" in store.list_users()
     finally:
         store.close()
 

@@ -60,6 +60,7 @@ REQUIRED_EN = {
     "status.lost": "Lost the connection to gowui; reconnecting...",
     "status.notSignedIn": None,     # the 4401 close (§3.8 "Connection")
     "status.refused": None,         # the 4403 close
+    "status.tooManySockets": None,  # the 4429 close: the identity's socket cap (§4.3, §7.6)
     "noEngine": "no engine",
     "sgf.saved": "Saved {name}",
     "sgf.tooLarge": None,           # a file over 1 MiB, refused in the page (§3.8 "SGF")

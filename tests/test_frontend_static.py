@@ -151,6 +151,47 @@ def test_no_script_uses_session_storage_or_cookies_or_indexeddb(name):
     assert re.findall(r"\bsessionStorage\b|\bdocument\.cookie\b|\bindexedDB\b", code) == []
 
 
+def block_after(code: str, pattern: str) -> str:
+    """The ``{...}`` block whose opening brace follows the first match of ``pattern``."""
+    match = re.search(pattern, code)
+    assert match, f"app.js has nothing matching {pattern}"
+    start = code.index("{", match.end())
+    depth = 0
+    for i in range(start, len(code)):
+        if code[i] == "{":
+            depth += 1
+        elif code[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return code[start:i + 1]
+    return code[start:]
+
+
+def test_the_page_never_reconnects_after_a_4401_4403_or_4429_close():
+    """§3.8 "Connection": those three closes are the ones no retry can lift — a handshake past the
+    identity's socket cap (§4.3) included — so each returns from ``onclose`` before the reconnect
+    timer, and the status keeps saying why."""
+    code = strip_js_comments(read_js("app.js"))
+    body = block_after(code, r"socket\.onclose\s*=\s*function\s*\([^)]*\)\s*")
+    reconnect = body.find("setTimeout(connect")
+    assert reconnect > 0, "app.js does not reconnect with setTimeout(connect, ...)"
+    final = body[:reconnect]
+    assert sorted(int(c) for c in re.findall(r"event\.code === (\d+)", final)) == [4401, 4403, 4429]
+    assert final.count("return;") == 3
+
+
+def test_the_4429_close_shows_its_own_reason():
+    """§3.8 "Connection": the socket-cap close says why it will not retry, so the page does not
+    sit on the lost-connection text while nothing reconnects."""
+    code = strip_js_comments(read_js("app.js"))
+    branch = block_after(code, r"if\s*\(\s*event\.code === 4429\s*\)")
+    key = re.search(r"closedFor = '([\w.]+)'", branch)
+    assert key, "the 4429 branch sets no closedFor key"
+    shown = block_after(code, r"function\s+showConnectionProblem\s*\(\s*\)\s*")
+    assert f"t('{key.group(1)}')" in shown
+    assert key.group(1) in read_js("i18n.js")
+
+
 def test_a_4401_close_sends_the_page_to_the_root():
     """§3.8 "Connection": on ``4401`` the page goes to ``/`` and lets the guard choose between
     the sign-in page and the 401 page; it never names ``/login`` itself."""

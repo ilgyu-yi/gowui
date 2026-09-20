@@ -372,6 +372,17 @@ def test_a_branch_from_the_past_clears_the_result():
     assert game.result == ""
 
 
+def test_discarding_the_later_moves_clears_the_result_with_no_move_played():
+    """§1.4: `branch()` drops the moves after the cursor without playing one in their place; the
+    result described a game those moves are no longer part of, so it goes too."""
+    game = Game(9)
+    play_all(game, ["E5", "F5"])
+    game.resign(BLACK)
+    game.navigate(1)
+    game.branch()
+    assert (game.result, game.move_count) == ("", 1)
+
+
 def test_undo_clears_the_result():
     game = Game(9)
     play_all(game, ["E5", "F5"])

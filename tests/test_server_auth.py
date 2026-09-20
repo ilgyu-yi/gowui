@@ -447,12 +447,13 @@ async def test_a_handshake_whose_identity_check_fails_is_closed_with_1011(serve,
 
 # -- §4.3: the per-identity socket cap ----------------------------------------------------------------
 async def test_a_socket_past_the_identity_cap_is_closed(serve, tabs, tmp_path):
-    """§4.3: one identity holds at most ``max_tabs`` sockets; the next is closed with 1013."""
+    """§4.3: one identity holds at most ``max_tabs`` sockets; the next is closed with 4429 — the
+    cap's own code, not the 1013 of queue overflow, so the page can stop reconnecting (§3.8)."""
     server = await start(serve, tmp_path)
     _, token = await login(server.running, "alice")
     server.running.app.state.registry.max_tabs = 1
     first = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
     await first.wait_state()
     extra = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
-    assert await extra.close_code() == 1013
+    assert await extra.close_code() == 4429
     assert first.open
