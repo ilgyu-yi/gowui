@@ -4,13 +4,16 @@ Pure ASGI middleware. In order it refuses duplicate ``Host`` / ``Origin`` / ``X-
 headers, applies the Host rule to the effective host, applies the Origin rule to handshakes and to
 every request that is not ``GET`` or ``HEAD``, and resolves the identity (required except on the
 public routes). It reads only the policy bundle's data (§6.1) and adds the §7.5 headers to every
-response. Refusal bodies are fixed text: they never echo a header or the path.
+response. Refusal bodies are fixed text: they never echo a header or the path. A failure inside
+the guard itself — an identity policy that raises — is answered here, ``500`` (WebSocket
+``1011``) with those headers, because nothing outside it would add them (§7.5).
 """
 
 from __future__ import annotations
 
 import ipaddress
 import json
+import logging
 import unicodedata
 from typing import Any
 
@@ -18,8 +21,10 @@ from starlette.requests import HTTPConnection
 
 from .policies import Policies
 
-__all__ = ["Guard", "IDENTITY_KEY", "client_address", "forwarded_last", "is_ip_literal",
-           "normalise_host", "peer_ip", "request_is_https", "trusted_peer"]
+__all__ = ["Guard", "IDENTITY_KEY", "WS_INTERNAL", "client_address", "forwarded_last",
+           "is_ip_literal", "normalise_host", "peer_ip", "request_is_https", "trusted_peer"]
+
+log = logging.getLogger("gowui")
 
 #: The scope key under which the guard hands the resolved identity (or ``None``) to the routes.
 IDENTITY_KEY = "gowui.identity"
@@ -39,6 +44,8 @@ PUBLIC_PREFIX = "/css/"
 
 WS_FORBIDDEN = 4403
 WS_UNAUTHENTICATED = 4401
+#: A failure inside the guard itself: the WebSocket half of the ``500`` (§7.5).
+WS_INTERNAL = 1011
 
 
 def _bad_char(ch: str) -> bool:
@@ -173,6 +180,7 @@ class _Refusal(Exception):
 
 
 _FORBIDDEN = _Refusal(403, WS_FORBIDDEN)
+_INTERNAL = _Refusal(500, WS_INTERNAL)
 
 
 class Guard:
@@ -199,6 +207,11 @@ class Guard:
             scope[IDENTITY_KEY] = self._check(scope)
         except _Refusal as refusal:
             await self._refuse(scope, receive, send_with_headers, refusal)
+            return
+        except Exception:  # noqa: BLE001 - the guard answers its own failure (§7.5)
+            # Outside the server-error handler: nothing else would add the §7.5 headers.
+            log.exception("gowui: the guard failed")
+            await self._refuse(scope, receive, send_with_headers, _INTERNAL)
             return
         await self.app(scope, receive, send_with_headers)
 
@@ -255,6 +268,10 @@ class Guard:
             return
         if refusal.status == 403:
             await _respond(send, 403, b"Forbidden", b"text/plain; charset=utf-8")
+            return
+        if refusal.status == 500:
+            # Fixed text: a refusal body never carries what went wrong (§7.5).
+            await _respond(send, 500, b"Internal Server Error", b"text/plain; charset=utf-8")
             return
         path = scope.get("path", "")
         if path == "/api" or path.startswith("/api/"):

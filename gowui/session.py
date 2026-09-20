@@ -69,6 +69,8 @@ THUMB_DECIMALS = 3
 CLOSE_TIMEOUT = 10.0
 #: What replaces a hidden engine address in text sent to a browser (§7.7).
 HIDDEN = "[engine]"
+#: A character that extends a host name: next to a match, the text names something else (§7.7).
+_HOST_EDGE = r"[0-9A-Za-z._\-]"
 
 DEFAULT_PROFILE = "preaz_1d"
 DEFAULTS_ENGINE = {"maxVisits": 500, "reportInterval": 0.4, "includeOwnership": False,
@@ -341,13 +343,21 @@ class GameSession:
 
     # -- the outbound choke point (§4.2, §7.7) --------------------------------------------------
     def _scrub(self, text: str) -> str:
-        """``text`` with every hidden engine host (any case) and ``host:port`` replaced."""
+        """``text`` with every hidden engine host (any case) and ``host:port`` replaced.
+
+        Matched on host boundaries: a letter, digit, ``.``, ``-`` or ``_`` against a match means
+        the text names something longer, not the engine (§7.7), so a catalog host such as
+        ``katago`` costs the word ``KataGo`` but leaves ``katagonaut`` alone.
+        """
         if self.expose_address or not self._hidden or not isinstance(text, str):
             return text
         for host, port in self._hidden:
-            for form in (f"[{host}]:{port}", f"{host}:{port}", f"('{host}', {port})"):
-                text = re.sub(re.escape(form), HIDDEN, text, flags=re.IGNORECASE)
-            text = re.sub(re.escape(host), HIDDEN, text, flags=re.IGNORECASE)
+            quoted = re.escape(host)
+            for pattern in (rf"\[{quoted}\]:{port}(?!\d)",
+                            rf"(?<!{_HOST_EDGE}){quoted}:{port}(?!\d)",
+                            rf"\('{quoted}', {port}\)",
+                            rf"(?<!{_HOST_EDGE}){quoted}(?!{_HOST_EDGE})"):
+                text = re.sub(pattern, HIDDEN, text, flags=re.IGNORECASE)
         return text
 
     def _withheld(self, text: str) -> bool:
@@ -508,7 +518,12 @@ class GameSession:
 
     def log_history_text(self) -> str | None:
         """The attach ``log_history`` frame, redacted, as JSON text; synchronous and cached until
-        the log or the hidden addresses change, so every tab shares one encoding (§4.3)."""
+        the log or the hidden addresses change, so every tab shares one encoding (§4.3).
+
+        The key counts the hidden addresses, which is enough only because ``_hidden`` never
+        loses one: an address a space resolved stays hidden for the life of the space (§7.7). A
+        removal would need a version counter here instead.
+        """
         key = (self._log_version, len(self._hidden))
         if self._history_cache is None or self._history_cache[0] != key:
             frame = self._redact(self._log_history())
@@ -727,6 +742,15 @@ class GameSession:
                                                      MIN_INTERVAL, MAX_INTERVAL)
         if message.get("includeOwnership") is not None:
             changes["includeOwnership"] = _boolean(message, "includeOwnership")
+        if "maxVisits" in changes:
+            # The board's tuples are checked against the new value, so the refusal arrives once,
+            # here, instead of on every later query (§2.5 "Settings validation", §3.4).
+            slot = self._active
+            tuples = [slot.policy] + ([slot.compare] if slot.compare is not None else [])
+            try:
+                check_policies(tuples, changes["maxVisits"])
+            except EngineError as exc:
+                raise _Refused(exc.message) from None
         self.engine_settings.update(changes)
         self._configure_engine()
         self._emit_state()
@@ -980,14 +1004,18 @@ class GameSession:
             self._request_analysis()
             return "stale"
         assert vertex is not None
-        if vertex == "resign":
-            current.game.resign(mover)
-            self._position_changed(current, f"{_colour_name(mover).capitalize()} resigns",
-                                   rearm=False)
-            return "played"
         game = current.game
         note = "" if game.cursor == game.move_count else (
             f"Branched at move {game.cursor}; the later moves were discarded")
+        if vertex == "resign":
+            # A genmove at a past cursor branches, its `resign` answer included (§3.2): the
+            # resignation ends the game that is on the board, not one with later moves.
+            game.branch()
+            game.resign(mover)
+            resigns = f"{_colour_name(mover).capitalize()} resigns"
+            self._position_changed(current, f"{note}. {resigns}" if note else resigns,
+                                   rearm=False)
+            return "played"
         try:
             game.play(mover, coords.from_gtp(vertex, game.size))
         except (IllegalMove, ValueError) as exc:

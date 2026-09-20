@@ -74,9 +74,15 @@ def valid_password(password: Any) -> bool:
 
 
 class Scrypt:
-    """``scrypt$N$r$p$<salt>$<hash>`` hashes (§7.1)."""
+    """``scrypt$N$r$p$<salt>$<hash>`` hashes (§7.1).
 
-    def __init__(self, n: int = 2 ** 14, r: int = 8, p: int = 1) -> None:
+    The defaults are OWASP's minimum written the cheaper way on memory: N = 2^16, r = 8, p = 2
+    costs the same work as N = 2^17, r = 8, p = 1 at 64 MiB rather than 128 MiB. A stored hash
+    carries the parameters it was made with, so hashes from an older, cheaper setting verify
+    unchanged.
+    """
+
+    def __init__(self, n: int = 2 ** 16, r: int = 8, p: int = 2) -> None:
         self.n, self.r, self.p = n, r, p
 
     def hash(self, password: str) -> str:
@@ -158,20 +164,26 @@ class Store:
             raise UserExists(name) from None
 
     def set_password(self, name: str, password: str) -> bool:
+        """Replace the account's hash and end its sessions; ``False`` when there is no such
+        account. The lookup runs inside the transaction and the update must touch one row, so a
+        ``remove`` that lands first is answered ``False``, never ``ok`` over nothing (§8.4)."""
         hashed = self.hasher.hash(password)
         with self._lock:
-            row = self._db.execute("SELECT id FROM users WHERE name = ?", (name,)).fetchone()
-            if row is None:
-                return False
             self._db.execute("BEGIN IMMEDIATE")
             try:
-                self._db.execute("UPDATE users SET password = ? WHERE id = ?", (hashed, row[0]))
-                self._db.execute("DELETE FROM logins WHERE account = ?", (_local_key(row[0]),))
-                self._db.execute("COMMIT")
+                row = self._db.execute("SELECT id FROM users WHERE name = ?", (name,)).fetchone()
+                changed = 0
+                if row is not None:
+                    changed = self._db.execute("UPDATE users SET password = ? WHERE id = ?",
+                                               (hashed, row[0])).rowcount
+                    if changed == 1:
+                        self._db.execute("DELETE FROM logins WHERE account = ?",
+                                         (_local_key(row[0]),))
+                self._db.execute("COMMIT" if changed == 1 else "ROLLBACK")
             except BaseException:
                 self._db.execute("ROLLBACK")
                 raise
-        return True
+        return changed == 1
 
     def remove_user(self, name: str) -> bool:
         with self._lock:
@@ -222,12 +234,16 @@ class Store:
         return token if stored else None
 
     def login_account(self, token: str) -> tuple[str, str] | None:
-        """``(identity key, name)`` of an unexpired login of an existing account."""
+        """``(identity key, name)`` of an unexpired login of an existing account.
+
+        A read only: an expired row gives no identity here and is purged when the database is
+        opened or a sign-in stores a token (§8.4), so the identity check on the event loop
+        (§6.2) never writes.
+        """
         if not token:
             return None
         now = time.time()
         with self._lock:
-            self._db.execute("DELETE FROM logins WHERE expires < ?", (now,))
             row = self._db.execute(
                 "SELECT logins.account, users.name FROM logins JOIN users "
                 "ON logins.account = 'local:' || users.id "

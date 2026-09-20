@@ -290,7 +290,8 @@ class AnalysisEngine(Engine):
         analysis = parse_result(result, position.black_to_play(), position.size,
                                 len(position.moves))
         if not analysis.move_infos:
-            return "pass"
+            # Never an implicit pass: the handol surface refuses the same answer (§2.4, §2.5).
+            raise self.error("the engine answered without a move")
         return analysis.move_infos[0].move
 
 
