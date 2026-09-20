@@ -10,7 +10,8 @@ The API these tests pin (the implementer builds to it)::
 
     EngineTarget(protocol=, host=, port=, request_echo=, console=)   # what a resolver returns
     EngineRequestError(message)                                       # a resolver's refusal
-    GameSession(resolve_engine, *, expose_address=True, broadcast=callable)
+    GameSession(resolve_engine, *, expose_address=True, broadcast=callable, preferences=None)
+        preferences: dict | None    # None: the storage policy keeps none (SPEC §6.4, §8.5)
         resolve_engine(request: dict) -> EngineTarget   (sync; raises EngineRequestError)
         broadcast(frame: dict) -> None                  (sync, non-blocking; may raise)
         async handle(message)       -> None             (returns quickly; never raises)
@@ -172,11 +173,11 @@ class Harness:
     """A :class:`GameSession` with its recorder and a few conveniences."""
 
     def __init__(self, resolver: Callable[[Any], EngineTarget] | None = None, *,
-                 expose_address: bool = True) -> None:
+                 expose_address: bool = True, preferences: dict | None = None) -> None:
         self.recorder = Recorder()
         self.resolver = resolver or typed_resolver
         self.session = GameSession(self.resolver, expose_address=expose_address,
-                                   broadcast=self.recorder)
+                                   broadcast=self.recorder, preferences=preferences)
 
     @property
     def rec(self) -> Recorder:

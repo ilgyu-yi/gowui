@@ -32,6 +32,9 @@ MAX_NAME = 64
 MIN_PASSWORD, MAX_PASSWORD = 8, 256
 #: The byte cap of a stored snapshot row, as for the local state file (§8.3, §8.4).
 SNAPSHOT_CAP = 64 * 1024 * 1024 * 6 + 1024 * 1024
+#: The byte cap of a stored preferences row (§8.4), above the 64 KiB of the message that writes
+#: it (§7.6) with room for the ASCII escaping of what it holds.
+PREFERENCES_CAP = 128 * 1024
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -48,6 +51,11 @@ CREATE TABLE IF NOT EXISTS logins (
 CREATE TABLE IF NOT EXISTS states (
     account TEXT PRIMARY KEY,
     snapshot TEXT NOT NULL,
+    updated REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS preferences (
+    account TEXT PRIMARY KEY,
+    preferences TEXT NOT NULL,
     updated REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS set_aside (
@@ -186,11 +194,11 @@ class Store:
         return changed == 1
 
     def remove_user(self, name: str) -> bool:
-        """Delete the account, its logins, its snapshot and its set-aside rows; ``False`` when
-        there is no such account. Like ``set_password`` (§8.4), the lookup runs inside the
-        transaction and the delete must touch one row: a ``remove`` plus an ``add`` of the same
-        name that lands first is answered ``False``, never ``ok`` over an account of that name
-        that is still there."""
+        """Delete the account, its logins, its snapshot, its preferences and its set-aside rows;
+        ``False`` when there is no such account. Like ``set_password`` (§8.4), the lookup runs
+        inside the transaction and the delete must touch one row: a ``remove`` plus an ``add`` of
+        the same name that lands first is answered ``False``, never ``ok`` over an account of that
+        name that is still there."""
         with self._lock:
             self._db.execute("BEGIN IMMEDIATE")
             try:
@@ -203,6 +211,7 @@ class Store:
                     if removed == 1:
                         self._db.execute("DELETE FROM logins WHERE account = ?", (key,))
                         self._db.execute("DELETE FROM states WHERE account = ?", (key,))
+                        self._db.execute("DELETE FROM preferences WHERE account = ?", (key,))
                         self._db.execute("DELETE FROM set_aside WHERE account = ?", (key,))
                 self._db.execute("COMMIT" if removed == 1 else "ROLLBACK")
             except BaseException:
@@ -299,6 +308,50 @@ class Store:
 
     def set_aside(self, key: str, reason: str) -> None:
         self._move_aside(key, reason)
+
+    # -- preferences (§6.4, §8.4) -----------------------------------------------------------------------
+    def load_preferences(self, key: str) -> dict | None:
+        """The identity's stored preferences, or ``None`` when there are none.
+
+        A row that is over the cap, is not valid JSON or is not a JSON object is ignored with a
+        warning and the identity starts with none; it is never set aside, as it holds no game
+        (§8.4). The policy takes the value from here through the rules of §4.1 (§6.4).
+        """
+        rows = self._query("SELECT preferences, length(CAST(preferences AS BLOB)) "
+                           "FROM preferences WHERE account = ?", (key,))
+        if not rows:
+            return None
+        text, size = rows[0]
+        if size is not None and size > PREFERENCES_CAP:
+            return self._bad_preferences(f"are larger than {PREFERENCES_CAP} bytes")
+        try:
+            value = json.loads(text)
+        except (ValueError, RecursionError, TypeError):
+            return self._bad_preferences("are not valid JSON")
+        if not isinstance(value, dict):
+            return self._bad_preferences("are not a JSON object")
+        return value
+
+    @staticmethod
+    def _bad_preferences(reason: str) -> None:
+        log.warning("gowui: the stored preferences of an account %s; the account starts with "
+                    "none and the next change replaces them", reason)
+        return None
+
+    def save_preferences(self, key: str, preferences: dict) -> None:
+        # ASCII, as the snapshot is: SQLite text cannot hold a lone surrogate (§8.4).
+        text = json.dumps(preferences, ensure_ascii=True)
+        now = time.time()
+        upsert = ("ON CONFLICT(account) DO UPDATE SET preferences = excluded.preferences, "
+                  "updated = excluded.updated")
+        if key.startswith("local:"):
+            # Written only while that account exists, in one statement (§8.4).
+            self._exec("INSERT INTO preferences (account, preferences, updated) SELECT ?, ?, ? "
+                       "WHERE EXISTS (SELECT 1 FROM users WHERE 'local:' || id = ?) " + upsert,
+                       (key, text, now, key))
+        else:
+            self._exec("INSERT INTO preferences (account, preferences, updated) VALUES (?, ?, ?) "
+                       + upsert, (key, text, now))
 
     def _move_aside(self, key: str, reason: str) -> None:
         with self._lock:

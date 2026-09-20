@@ -64,14 +64,14 @@ async def connect():
 
 @pytest.fixture
 async def make_session(fake_engine):
-    """``make_session(resolver=None, expose_address=True)`` returns a session ``Harness``
-    (tests/session_helpers.py), closed at teardown before the fake engines stop."""
+    """``make_session(resolver=None, expose_address=True, preferences=None)`` returns a session
+    ``Harness`` (tests/session_helpers.py), closed at teardown before the fake engines stop."""
     from session_helpers import Harness
 
     made = []
 
-    def make(resolver=None, *, expose_address: bool = True):
-        harness = Harness(resolver, expose_address=expose_address)
+    def make(resolver=None, *, expose_address: bool = True, preferences: dict | None = None):
+        harness = Harness(resolver, expose_address=expose_address, preferences=preferences)
         made.append(harness)
         return harness
 

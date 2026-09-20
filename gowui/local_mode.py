@@ -119,6 +119,9 @@ def _open_nonblocking(path: str, flags: int) -> int:
 class MemoryStorage:
     """Snapshots in memory only; never touches a file (``--fresh``, §6.4)."""
 
+    #: No preferences: the page keeps the language and the presets in the browser (§6.4, §8.5).
+    keeps_preferences = False
+
     def __init__(self) -> None:
         self._data: dict[str, dict] = {}
 
@@ -136,6 +139,9 @@ class MemoryStorage:
 
 class JsonFileStorage:
     """One JSON state file (§8.3). Local mode has one space, so the key is not part of the path."""
+
+    #: No preferences: the page keeps the language and the presets in the browser (§6.4, §8.5).
+    keeps_preferences = False
 
     def __init__(self, path: str | os.PathLike, *, max_bytes: int = STATE_READ_CAP) -> None:
         self.path = Path(path)

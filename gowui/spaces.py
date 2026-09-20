@@ -235,6 +235,8 @@ class Space:
     hub: Hub
     #: The snapshot text last loaded or saved (§8.2 change detection).
     saved_text: str = ""
+    #: The same for the preferences the storage keeps, ``""`` when it keeps none (§6.4, §8.2).
+    saved_preferences_text: str = ""
     save_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     resume_task: asyncio.Task | None = None
 
@@ -315,18 +317,27 @@ class SpaceRegistry:
             space = await self._create(key)
         return space
 
-    def _new_session(self, hub: Hub) -> GameSession:
+    def _new_session(self, hub: Hub, preferences: dict | None) -> GameSession:
         engines = self.policies.engines
         return GameSession(engines.resolve, expose_address=engines.expose_address,
-                           broadcast=hub.broadcast)
+                           broadcast=hub.broadcast, preferences=preferences)
+
+    async def _preferences(self, key: str) -> dict | None:
+        """What the storage keeps for ``key``, or ``None`` when it keeps none (§6.4)."""
+        storage = self.policies.storage
+        if not getattr(storage, "keeps_preferences", False):
+            return None
+        stored = await asyncio.to_thread(storage.load_preferences, key)
+        return stored if isinstance(stored, dict) else {}
 
     async def _create(self, key: str) -> Space:
         if self._closed:
             raise RuntimeError("the space registry is closed")
         storage = self.policies.storage
         stored = await asyncio.to_thread(storage.load, key)
+        preferences = await self._preferences(key)
         hub = Hub(self.clock)
-        session = self._new_session(hub)
+        session = self._new_session(hub, preferences)
         if stored is not None:
             try:
                 # A fresh session, restored once, off the loop and before it is published.
@@ -334,14 +345,16 @@ class SpaceRegistry:
             except Exception as exc:  # noqa: BLE001 - restore refused the snapshot (§8.1)
                 await asyncio.to_thread(storage.set_aside, key,
                                         f"was refused by restore ({str(exc)[:200]})")
-                session = self._new_session(hub)
+                session = self._new_session(hub, preferences)
         baseline = await asyncio.to_thread(lambda: _text(session.snapshot()))
         if self._closed:
             # Shut down while this space was being created: never publish it (§3.1 step 3).
             await session.aclose()
             raise RuntimeError("the space registry is closed")
         hub.history = session.log_history_text
-        space = Space(key, session, hub, saved_text=baseline)
+        kept = session.preferences
+        space = Space(key, session, hub, saved_text=baseline,
+                      saved_preferences_text="" if kept is None else _text(kept))
         self.live[key] = space
         space.resume_task = asyncio.ensure_future(session.resume())
         space.resume_task.add_done_callback(_report_resume)
@@ -349,23 +362,39 @@ class SpaceRegistry:
 
     # -- saving (§8.2) ----------------------------------------------------------------------------
     async def _save(self, space: Space) -> bool:
-        """Save the space if it changed; whether its current snapshot is stored (§8.2)."""
+        """Save what changed — the snapshot, and the preferences the storage keeps (§6.4) —
+        and report whether all of it is stored, which decides a release (§8.2)."""
         # Shielded: a cancelled caller never leaves a write running outside the save lock.
         return await asyncio.shield(self._save_now(space))
 
     async def _save_now(self, space: Space) -> bool:
         async with space.save_lock:
+            stored = True
             snapshot = space.session.snapshot()
             text = _text(snapshot)
-            if text == space.saved_text:
-                return True
-            try:
-                await asyncio.to_thread(self.policies.storage.save, space.key, snapshot)
-            except Exception as exc:  # noqa: BLE001 - try again on the next pass
-                log.warning("gowui: could not save the space %r: %s", space.key, exc)
-                return False
-            space.saved_text = text
-            return True
+            if text != space.saved_text:
+                try:
+                    await asyncio.to_thread(self.policies.storage.save, space.key, snapshot)
+                except Exception as exc:  # noqa: BLE001 - try again on the next pass
+                    log.warning("gowui: could not save the space %r: %s", space.key, exc)
+                    stored = False
+                else:
+                    space.saved_text = text
+            # The preferences the storage keeps ride the same pass and comparison (§6.4, §8.2).
+            preferences = space.session.preferences
+            if preferences is not None:
+                kept = _text(preferences)
+                if kept != space.saved_preferences_text:
+                    try:
+                        await asyncio.to_thread(self.policies.storage.save_preferences,
+                                                space.key, preferences)
+                    except Exception as exc:  # noqa: BLE001 - try again on the next pass
+                        log.warning("gowui: could not save the preferences of %r: %s",
+                                    space.key, exc)
+                        stored = False
+                    else:
+                        space.saved_preferences_text = kept
+            return stored
 
     async def save_changed(self) -> None:
         """One autosave pass: save every space that changed."""

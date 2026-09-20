@@ -80,6 +80,9 @@
       'preset.saved': 'Saved preset "{name}"',
       'preset.imported': 'Imported {added} preset(s), skipped {skipped}',
       'preset.importBad': 'That file holds no presets',
+      'preset.nameLong': 'A preset name is at most {max} characters',
+      'preset.nameChars': 'A preset name holds no line break and no control character',
+      'preset.full': 'No more than {max} presets are kept; delete one first',
       'analysis.section': 'Analysis',
       'analysis.continuous': 'Continuous analysis',
       'analysis.visits': 'Visits',
@@ -308,6 +311,9 @@
       'preset.saved': '"{name}" 프리셋을 저장했다',
       'preset.imported': '프리셋 {added}개를 가져왔다 (건너뜀 {skipped})',
       'preset.importBad': '이 파일에는 프리셋이 없다',
+      'preset.nameLong': '프리셋 이름은 {max}자까지다',
+      'preset.nameChars': '프리셋 이름에는 줄바꿈이나 제어 문자를 넣을 수 없다',
+      'preset.full': '프리셋은 {max}개까지 보관한다. 하나를 지우고 저장하라',
       'analysis.section': '분석',
       'analysis.continuous': '계속 분석',
       'analysis.visits': '방문',
@@ -504,18 +510,36 @@
     global.document.documentElement.lang = lang;
   }
 
-  function setLang(next) {
-    if (!own(STRINGS, next) || next === lang) return;
+  // Written until the server says it keeps the language for the account (§8.5).
+  var inBrowser = true;
+
+  function switchTo(next) {
+    if (!own(STRINGS, next) || next === lang) return false;
     lang = next;
-    try { global.localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* ignore */ }
     apply();
     listeners.forEach(function (fn) { fn(lang); });
+    return true;
+  }
+
+  function setLang(next) {
+    if (!switchTo(next)) return;
+    if (!inBrowser) return;
+    try { global.localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* ignore */ }
+  }
+
+  // The account keeps the language (§4.2 `preferences`): this browser stops storing it, and the
+  // account's choice — when it names a table — replaces the page's initial one (§3.8).
+  function useAccountLang(saved) {
+    inBrowser = false;
+    switchTo(saved);
   }
 
   global.i18n = {
     t: t,
     apply: apply,
     setLang: setLang,
+    useAccountLang: useAccountLang,
+    keptInBrowser: function () { return inBrowser; },
     lang: function () { return lang; },
     onChange: function (fn) { listeners.push(fn); }
   };

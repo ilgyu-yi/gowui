@@ -55,13 +55,25 @@ class EnginePolicy(Protocol):
 
 
 class StoragePolicy(Protocol):
-    """Loads and saves a space's snapshot by key; synchronous, called in a worker thread (§6.4)."""
+    """Loads and saves a space's snapshot by key; synchronous, called in a worker thread (§6.4).
+
+    ``keeps_preferences`` says whether the policy also keeps the identity's preferences — the UI
+    language and the tuple presets (§4.1). Only a policy that does needs ``load_preferences`` and
+    ``save_preferences``; a storage without the field keeps none, and the page then keeps both in
+    the browser (§8.5).
+    """
+
+    keeps_preferences: bool
 
     def load(self, key: str) -> dict | None: ...
 
     def save(self, key: str, snapshot: dict) -> None: ...
 
     def set_aside(self, key: str, reason: str) -> None: ...
+
+    def load_preferences(self, key: str) -> dict | None: ...
+
+    def save_preferences(self, key: str, preferences: dict) -> None: ...
 
 
 @dataclass(frozen=True)

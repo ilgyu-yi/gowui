@@ -163,11 +163,47 @@
   /* -- presets saved in this browser ----------------------------------- */
   var STORE = 'gowui.userPresets';
 
+  /* The caps of §7.6 and the name rules of §4.1, held here as well as on the server: a
+     `preferences` message is refused whole, so one name the server would refuse would block
+     every later save of the list too (§3.8 "Preferences"). */
+  var MAX_PRESETS = 64;
+  var MAX_PRESET_NAME = 40;
+  // Whitespace other than a plain space, and a C0 or C1 control: a newline would let a name fake
+  // a line of the confirmation dialogs below.
+  var BAD_NAME_CHAR = /[ --]|[^\S ]/;
+
+  // Code points, as the server counts them: a name of 40 emoji is 40 characters, not 80 units.
+  function nameLength(name) { return Array.from(name).length; }
+
+  // A surrogate that is no half of a pair -- text no non-ASCII serialiser can write (§4.1).
+  function loneSurrogate(name) {
+    for (var i = 0; i < name.length; i++) {
+      var unit = name.charCodeAt(i);
+      if (unit >= 0xD800 && unit <= 0xDBFF) {
+        var next = name.charCodeAt(i + 1);
+        if (!(next >= 0xDC00 && next <= 0xDFFF)) return true;
+        i += 1;
+      } else if (unit >= 0xDC00 && unit <= 0xDFFF) return true;
+    }
+    return false;
+  }
+
+  /** Why the account would refuse ``name`` as a preset name (§4.1), as text, or null. */
+  function nameProblem(name) {
+    var t = global.i18n.t;
+    if (nameLength(name) > MAX_PRESET_NAME) {
+      return t('preset.nameLong', { max: MAX_PRESET_NAME });
+    }
+    if (BAD_NAME_CHAR.test(name) || loneSurrogate(name)) return t('preset.nameChars');
+    return null;
+  }
+
   // A stored entry is read with the rules a sent one must pass (§8.5): what the panel offers is
   // always something the mux would take. Checked as if searching, as Import is, so a λ preset is
   // not dropped over Visits.
   function usablePreset(p) {
-    return !!p && typeof p.name === 'string' && !!p.name.trim() && problem(p.tuple, 2) === null;
+    if (!p || typeof p.name !== 'string' || !p.name.trim()) return false;
+    return nameProblem(p.name.trim()) === null && problem(p.tuple, 2) === null;
   }
 
   function loadUserPresets() {
@@ -187,6 +223,10 @@
    * Build the editor. ``opts.onChange({policy, compare})`` fires with a valid
    * pair (compare is null when comparison is off); ``opts.visits()`` gives the
    * current Visits setting, which decides whether λ is usable.
+   *
+   * ``opts.onPresets(list)`` fires instead of a write to browser storage once
+   * ``usePresets`` has said the account keeps the presets (§8.5); the caller
+   * sends them (only app.js sends frames, §3.8).
    */
   function mount(opts) {
     var $ = function (id) { return document.getElementById(id); };
@@ -195,6 +235,8 @@
     var comparing = false;
     var active = 'A';
     var userPresets = loadUserPresets();
+    // Set by usePresets(): the account keeps the presets, so this browser stores none (§8.5).
+    var accountPresets = false;
     var timer = null;
     var fieldInputs = {};
     var knobParts = {};
@@ -338,6 +380,14 @@
       });
       fillPresetMenu();
       render();
+    }
+
+    // Where a saved list goes: to the account through the caller, or to browser storage (§8.5).
+    function saveUserPresets(list) {
+      if (!accountPresets) { storeUserPresets(list); return; }
+      if (opts.onPresets) opts.onPresets(list.map(function (p) {
+        return { name: p.name, tuple: copy(p.tuple) };
+      }));
     }
 
     function fillPresetMenu() {
@@ -496,15 +546,25 @@
       if (name === null) return;
       name = name.trim();
       if (!name) return;
+      // Refused here, before anything is sent, so one bad name never wedges the next save (§3.8).
+      var refusal = nameProblem(name);
+      var known = userPresets.filter(function (p) { return p.name === name; })[0];
+      if (!refusal && !known && userPresets.length >= MAX_PRESETS) {
+        refusal = t('preset.full', { max: MAX_PRESETS });
+      }
+      if (refusal) {
+        if (opts.notify) opts.notify(refusal, true);
+        return;
+      }
       var tuple = copy(tuples[active]);
-      var existing = userPresets.filter(function (p) { return p.name === name; })[0];
+      var existing = known;
       if (existing) {
         if (!global.confirm(t('preset.overwrite', { name: name }))) return;
         existing.tuple = tuple;
       } else {
         userPresets.push({ name: name, tuple: tuple });
       }
-      storeUserPresets(userPresets);
+      saveUserPresets(userPresets);
       fillPresetMenu();
       if (opts.notify) opts.notify(t('preset.saved', { name: name }));
     });
@@ -515,7 +575,7 @@
       var name = value.slice(5);
       if (!global.confirm(t('preset.confirmDelete', { name: name }))) return;
       userPresets = userPresets.filter(function (p) { return p.name !== name; });
-      storeUserPresets(userPresets);
+      saveUserPresets(userPresets);
       fillPresetMenu();
     });
 
@@ -544,16 +604,23 @@
         }
         var added = 0, skipped = 0;
         list.forEach(function (p) {
+          // An entry the account would refuse, and one past the 64 presets of §7.6, are skipped
+          // rather than sent: the whole list would otherwise be refused with them (§3.8).
           if (!usablePreset(p)) {
             skipped += 1;
             return;
           }
           var name = p.name.trim();
-          userPresets = userPresets.filter(function (q) { return q.name !== name; });
+          var without = userPresets.filter(function (q) { return q.name !== name; });
+          if (without.length >= MAX_PRESETS) {
+            skipped += 1;
+            return;
+          }
+          userPresets = without;
           userPresets.push({ name: name, tuple: copy(p.tuple) });
           added += 1;
         });
-        storeUserPresets(userPresets);
+        saveUserPresets(userPresets);
         fillPresetMenu();
         if (opts.notify) opts.notify(t('preset.imported', { added: added, skipped: skipped }), skipped > 0);
       });
@@ -574,6 +641,17 @@
         if (comparing) tuples.B = copy(compare);
         if (!comparing) active = 'A';
         render();
+      },
+      /**
+       * The account keeps the presets (§4.2 `preferences`): show these instead of this
+       * browser's, and store none here from now on (§8.5).
+       */
+      usePresets: function (list) {
+        accountPresets = true;
+        userPresets = (Array.isArray(list) ? list : []).filter(usablePreset).map(function (p) {
+          return { name: p.name.trim(), tuple: copy(p.tuple) };
+        });
+        fillPresetMenu();
       },
       /** Re-check after something the verdict depends on (Visits) changed. */
       recheck: check,
