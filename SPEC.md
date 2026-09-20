@@ -1664,9 +1664,12 @@ One command, `gowui`:
   - **Stopping.** Ctrl-C (SIGINT) runs the lifespan shutdown, which saves (§8.2). The process
     then dies by SIGINT without printing a traceback: the shell shows status 130, and an
     enclosing shell loop or script stops as it would for any program killed by Ctrl-C. (On
-    Windows, which has no such signal death, it exits with status 130.) A second Ctrl-C while the
-    server is still waiting to shut down forces the quit: the lifespan shutdown is skipped, so
-    nothing is saved.
+    Windows, which has no such signal death, it exits with status 130.) The death follows from
+    the signal itself, not from the way the server loop ended: a run that handled a SIGINT dies by
+    SIGINT even when the loop returns normally, or ends in the cancellation asyncio's runner
+    raises in place of `KeyboardInterrupt`, so the exit status never rides on that relay. A second
+    Ctrl-C while the server is still waiting to shut down forces the quit: the lifespan shutdown
+    is skipped, so nothing is saved.
 - `gowui serve [--host 0.0.0.0] [--port 8080] [--log-level info]` — server mode, configured only
   by the environment variables of §10; there is no flag for them.
   - **Startup.** The configuration is read and checked first (§7.9): a refusal exits with status 2
@@ -1736,9 +1739,11 @@ The repository's `Dockerfile` builds the server-mode image, and `deploy/` holds 
 examples. Publishing the image to a registry, signing, an SBOM and multi-arch builds are out of
 scope.
 
-- **Base.** Every `FROM` names the official `python:3.13-slim` image pinned by digest
-  (`python:3.13-slim@sha256:…`), never by tag alone; Dependabot's `docker` ecosystem proposes
-  digest bumps. A builder stage installs the package into a virtual environment (`pip install .`),
+- **Base.** Every `FROM` names the same official Python slim image pinned by digest
+  (`python:<tag>@sha256:…`), never by tag alone. Dependabot proposes the bumps, of the digest and
+  in time of the tag, so what is fixed is the shape — one image, one tag, one digest, the same in
+  both stages — not the tag itself. A builder stage installs the package into a virtual
+  environment (`pip install .`),
   and the runtime stage copies only that environment, so no source tree, build tool or pip cache
   ships.
 - **Build context.** `.dockerignore` is an allowlist: it excludes everything (`*`), re-includes
@@ -1757,7 +1762,20 @@ scope.
   and receives the signals. `serve` binds `0.0.0.0:8080` by default (§9) and port 8080 is exposed;
   arguments after the image name replace `serve` (`IMAGE serve --log-level debug`).
 - **Health.** `HEALTHCHECK` fetches `http://127.0.0.1:8080/healthz` with Python inside the
-  container (the image has no curl); a `200` is healthy (§5).
+  container (the image has no curl); a `200` is healthy (§5). The port in it is fixed at 8080,
+  the default of `CMD ["serve"]`, and no `GOWUI_*` variable moves it (§10): a run that moves the
+  listener instead (`IMAGE serve --port 9000`) keeps the check knocking on 8080, so the container
+  reads `unhealthy` while it serves. Publish a different host port (`-p 9000:8080`) rather than
+  change the container's port, or give that run its own `--health-cmd`.
+- **Pinning.** Every image this repository names by hand is pinned by digest: both `FROM` lines
+  and the traefik image of `deploy/compose.sso.yaml` (`traefik:<tag>@sha256:…`, the tag kept
+  beside the digest so a reader still sees the version). A service built from this repository
+  (`build: ..`) has no digest to pin. Dependabot watches three places: `docker` in `/` for the
+  Dockerfile, `docker-compose` in `/deploy` for the examples, and `github-actions` in `/` for the
+  workflow. The workflow's actions stay pinned by major tag (`actions/checkout@v4`), not by
+  commit SHA: it holds no secret, runs with `contents: read` over public code, and readable
+  Dependabot bumps are worth more here than SHA pinning, which is left for the day a privileged
+  step arrives.
 - **Configuration.** Only the variables of §10. The image sets no other application or uvicorn
   setting — no `UVICORN_*` and no `FORWARDED_ALLOW_IPS`, since forwarded headers are read only as
   §7.10 says — holds no secret in an `ENV` or `ARG`, and bundles no engine (§12).
@@ -1770,7 +1788,12 @@ scope.
   with a read-only root filesystem, a tmpfs at `/tmp`, every capability dropped and
   `no-new-privileges`. `deploy/compose.password.yaml` uses `GOWUI_AUTH=local` and publishes the
   port on loopback only (`127.0.0.1:8080:8080`); the sign-in form sends the password as typed, so
-  exposing it beyond the host needs a TLS proxy (§7.10). `deploy/compose.sso.yaml` puts traefik
+  exposing it beyond the host needs a TLS proxy (§7.10). Of the two ways to pair with one, the
+  example prefers `GOWUI_COOKIE_SECURE=1` with no trusted proxy, or a proxy in its own container
+  with its own address in `GOWUI_TRUSTED_PROXIES`, over trusting a proxy that runs on the host: a
+  host proxy reaches the published port through the gateway address, which every process on the
+  host shares, so trusting it lets any of them forge `X-Forwarded-For` and pick its own bucket in
+  the per-client login throttle (§7.1, §7.10). `deploy/compose.sso.yaml` puts traefik
   with Authentik forward auth in front, uses `GOWUI_AUTH=header`, publishes no gowui port, and
   follows these rules:
   - **Header strip first.** The router's middleware chain starts with a traefik `headers`
@@ -1780,9 +1803,23 @@ scope.
     none, gowui sees no identity and answers `401`, failing closed.
   - **Dedicated edge network.** gowui reaches traefik over its own network, `gowui-edge`, with a
     small fixed subnet (a `/29`) that no other container joins. traefik has a fixed address in it
-    and is told to reach gowui over this network.
+    and is told to reach gowui over this network. The name and the subnet are example values in
+    the host's own namespace: the operator picks a subnet no other network on the host uses, and
+    renames the network if that name is taken. The name appears twice — the network's `name:` and
+    gowui's `traefik.docker.network` label — and the two must agree, which is why the example
+    fixes it rather than letting Compose derive `<project>_gowui-edge`.
   - **Trusted proxy.** `GOWUI_TRUSTED_PROXIES` is traefik's fixed address as a `/32`, not the
     subnet, so the network's gateway (processes on the host) and any other peer are not trusted.
+  - **Forward-auth headers.** `forwardauth.trustForwardHeader: "true"` hands Authentik the
+    request's `X-Forwarded-*`, which it needs to build its redirect. That is safe only while the
+    entrypoint sets no `forwardedHeaders.trustedIPs`: with none, traefik writes those headers
+    from the connection itself and a client-sent value never survives, so what Authentik reads is
+    traefik's. Adding trusted IPs to the entrypoint makes the setting a way in and must be
+    weighed together with this one.
+  - **Docker socket.** traefik reads the labels through `/var/run/docker.sock`, mounted
+    read-only. Read-only is not a sandbox — that socket is root on the host — so the example
+    names a socket proxy (a small filtering container that exposes only the container and event
+    reads traefik needs) as the safer arrangement wherever the host is not a single owner's.
 
 ## 11. Feature inventory
 

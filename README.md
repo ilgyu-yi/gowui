@@ -51,8 +51,11 @@ Unset or empty means the default. The exact rules for each value are in `SPEC.md
 
 For SSO behind a reverse proxy, set `GOWUI_AUTH=header` (or `local,header`) and
 `GOWUI_TRUSTED_PROXIES` to the proxy's own address, and have the proxy remove any client-sent
-`GOWUI_AUTH_HEADER` before its forward auth sets it. A TLS proxy in front of password sign-in must
-be listed in `GOWUI_TRUSTED_PROXIES` too, or set `GOWUI_COOKIE_SECURE=1`.
+`GOWUI_AUTH_HEADER` before its forward auth sets it. For a TLS proxy in front of password sign-in,
+prefer `GOWUI_COOKIE_SECURE=1` with no trusted proxy, or a proxy in its own container whose own
+address goes in `GOWUI_TRUSTED_PROXIES`: trusting a proxy that runs on the host means trusting the
+gateway address every process on the host shares, and with it any `X-Forwarded-For` they forge to
+dodge the per-client login throttle (`SPEC.md` §7.1, §7.10).
 
 ### Accounts
 
@@ -82,10 +85,16 @@ docker exec -it gowui gowui user add alice                                  # pr
 printf '%s\n' "$PASSWORD" | docker exec -i gowui gowui user add bob --password-stdin
 ```
 
-A bind mount on `/data` must be writable by uid 10001. `deploy/compose.password.yaml` runs it with
-password sign-in on a loopback port; `deploy/compose.sso.yaml` puts it behind traefik with
-Authentik forward auth, strips the client-sent user header first and trusts only traefik's fixed
-address. Replace the example values before use.
+A bind mount on `/data` must be writable by uid 10001. The health check is fixed on port 8080, so
+publish a different host port (`-p 9000:8080`) rather than move the container's own
+(`gowui serve --port 9000` would leave the check on 8080 and the container `unhealthy`).
+
+`deploy/compose.password.yaml` runs it with password sign-in on a loopback port;
+`deploy/compose.sso.yaml` puts it behind traefik with Authentik forward auth, strips the
+client-sent user header first and trusts only traefik's fixed address. Replace the example values
+before use — the SSO example's network name and subnet must be free on your host. The base image
+and the example's traefik image are pinned by digest, and Dependabot proposes the bumps for the
+`Dockerfile`, `deploy/` and the workflow's actions (`SPEC.md` §10.1).
 
 ## Development
 
