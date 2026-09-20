@@ -328,6 +328,34 @@ async def test_genmove_at_a_past_cursor_branches_like_a_human_move(h, gtp_server
     assert state is not None and "branched at move 1" in state["status"].lower()
 
 
+async def test_an_engine_resignation_at_a_past_cursor_branches(h, fake_engine):
+    """§3.2: at a past cursor genmove branches, and a `resign` answer is no exception: the later
+    moves go, so the resignation ends the game that is actually on the board."""
+    server = await fake_engine("gtp", replies={"genmove": "resign"})
+    await h.connect_to(server)
+    await h.play("D4", "E5", "F6")
+    start = h.rec.mark()
+    await h.send({"type": "navigate", "index": 1})
+    await h.send({"type": "genmove"})
+    state = await h.rec.wait_state(lambda f: f["game"]["result"] != "", start)
+    assert state is not None
+    game = state["game"]
+    assert (game["moveCount"], game["cursor"], game["result"], game["gameOver"]) == \
+        (1, 1, "B+R", True)
+    assert "branched at move 1" in state["status"].lower()
+
+
+async def test_an_engine_resignation_at_the_end_keeps_the_moves(h, fake_engine):
+    server = await fake_engine("gtp", replies={"genmove": "resign"})
+    await h.connect_to(server)
+    await h.play("D4", "E5")
+    start = h.rec.mark()
+    await h.send({"type": "genmove"})
+    state = await h.rec.wait_state(lambda f: f["game"]["result"] != "", start)
+    assert state is not None and (state["game"]["moveCount"], state["game"]["result"]) == \
+        (2, "W+R")
+
+
 async def test_genmove_after_a_resignation_plays_and_clears_the_result(h, gtp_server):
     """§3.2: on-demand genmove is not refused when the game is over at the cursor."""
     await h.connect_to(gtp_server)

@@ -97,3 +97,99 @@ def test_the_account_id_is_never_printed(user):
     with sqlite3.connect(user.db) as db:
         (account_id,) = db.execute("SELECT id FROM users").fetchone()
     assert account_id not in out + err + user("list")[1]
+
+
+# -- opening the database (§9, §8.4) --------------------------------------------------------------
+def test_list_does_not_create_the_database(user):
+    """§9: a database that is not there counts as empty; listing leaves no file behind."""
+    assert user("list")[:2] == (0, "")
+    assert not user.db.exists()
+
+
+def test_a_database_that_cannot_be_opened_prints_one_line(user, tmp_path, monkeypatch):
+    """§9: one stderr line and status 1, never a traceback."""
+    blocking = tmp_path / "blocking"
+    blocking.write_text("this is a file, not a directory")
+    monkeypatch.setenv("GOWUI_DB", str(blocking / "gowui.db"))
+    status, out, err = user("add", "alice", "--password-stdin", stdin="password one\n")
+    assert (status, out) == (1, "")
+    assert len(err.strip().splitlines()) == 1 and err.startswith("gowui: ")
+
+
+# -- the accounts, under a race (§8.4) -------------------------------------------------------------
+class _Rows:
+    """A cursor stand-in holding rows already read."""
+
+    def __init__(self, rows: list) -> None:
+        self._rows = rows
+        self.rowcount = len(rows)
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return list(self._rows)
+
+
+class _RemovesAfterLookup:
+    """The store's connection, with a removal landing right after the account id is read.
+
+    That is the window `set_password` has to close: reading the id outside its own transaction
+    lets a `remove` win the race and leaves an update that touches nothing (§8.4).
+    """
+
+    def __init__(self, db, name: str) -> None:
+        self._db = db
+        self._name = name
+        self.fired = False
+
+    def __getattr__(self, attribute):
+        return getattr(self._db, attribute)
+
+    def execute(self, sql, args=()):
+        cursor = self._db.execute(sql, args)
+        if not self.fired and sql.strip().upper().startswith("SELECT ID FROM USERS"):
+            self.fired = True
+            rows = cursor.fetchall()
+            self._db.execute("DELETE FROM users WHERE name = ?", (self._name,))
+            return _Rows(rows)
+        return cursor
+
+
+def test_passwd_never_reports_success_when_a_remove_wins_the_race(user):
+    """§8.4: a `passwd` whose account goes away reports no such account and changes nothing."""
+    from server_helpers import CountingHasher
+    from gowui.store import Store
+
+    user("add", "alice", "--password-stdin", stdin="password one\n")
+    store = Store(user.db, hasher=CountingHasher())
+    try:
+        store._db = _RemovesAfterLookup(store._db, "alice")
+        assert store.set_password("alice", "password two") is False
+        store._db = store._db._db
+        assert store.check_password("alice", "password one") is not None
+        assert store.check_password("alice", "password two") is None
+    finally:
+        store.close()
+
+
+# -- sign-in tokens (§7.2, §8.4) --------------------------------------------------------------------
+def test_a_cookie_lookup_leaves_the_purge_to_the_sign_in(user):
+    """§8.4: a lookup only reads; expired rows go when the database is opened or a token is made."""
+    from server_helpers import CountingHasher
+    from gowui.store import Store
+
+    user("add", "alice", "--password-stdin", stdin="password one\n")
+    store = Store(user.db, hasher=CountingHasher())
+    try:
+        verified = store.check_password("alice", "password one")
+        stale = store.open_login(verified, -1.0)
+        assert store.login_account(stale) is None
+        with sqlite3.connect(user.db) as db:
+            assert db.execute("SELECT count(*) FROM logins").fetchone()[0] == 1
+        fresh = store.open_login(verified, 60.0)
+        assert store.login_account(fresh) is not None
+        with sqlite3.connect(user.db) as db:
+            assert db.execute("SELECT count(*) FROM logins").fetchone()[0] == 1
+    finally:
+        store.close()
