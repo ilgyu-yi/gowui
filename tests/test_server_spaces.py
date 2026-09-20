@@ -1,7 +1,8 @@
 """The space registry's server-mode guards (SPEC §3.1 step 3, §8.2; carry-over F5 and F11 of #9).
 
 - A release whose save fails keeps the space live, so the next attach never reloads an older
-  snapshot (§8.2 "A failed save stops the release").
+  snapshot (§8.2 "A failed save stops the release") — for the snapshot, and for the preferences
+  that ride the same pass (§6.4).
 - A space whose creation was in flight when shutdown took its list is closed and never published
   (§3.1 step 3).
 """
@@ -60,6 +61,49 @@ async def test_a_release_whose_save_fails_keeps_the_space_live():
         await registry.release_idle()
         assert "local:a1" not in registry.live
         assert storage.saved is not None
+    finally:
+        await registry.aclose()
+
+
+class FailingPreferences(FailingStorage):
+    """A storage that keeps preferences (§6.4) and cannot write them."""
+
+    keeps_preferences = True
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail = False          # the snapshot writes; only the preferences do not
+        self.fail_preferences = True
+        self.preferences: dict | None = None
+
+    def load_preferences(self, key):
+        return None
+
+    def save_preferences(self, key, preferences):
+        if self.fail_preferences:
+            raise OSError("disk full")
+        self.preferences = preferences
+
+
+async def test_a_release_whose_preferences_save_fails_keeps_the_space_live():
+    """§8.2: the preferences ride the same pass, so a failed write blocks the release too."""
+    from gowui.spaces import SpaceRegistry
+
+    storage = FailingPreferences()
+    registry = SpaceRegistry(dataclasses.replace(local_bundle(storage), idle_release_seconds=0.0))
+    try:
+        tab = await registry.attach(alice(), _noop, _noop)
+        space = tab.space
+        await space.session.handle({"type": "preferences", "lang": "ko"})
+        await registry.detach(tab)
+        await registry.release_idle()
+        assert registry.live.get("local:a1") is space
+        assert storage.preferences is None
+
+        storage.fail_preferences = False
+        await registry.release_idle()
+        assert "local:a1" not in registry.live
+        assert storage.preferences == {"lang": "ko", "presets": []}
     finally:
         await registry.aclose()
 

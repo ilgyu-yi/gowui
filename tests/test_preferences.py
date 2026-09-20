@@ -82,6 +82,20 @@ def test_the_spec_bounds_the_preferences_message():
     assert rows.get("`preferences` message") == "64 KiB as JSON"
     assert rows.get("Tuple presets per identity") == "64"
     assert rows.get("Preset name") == "40 characters"
+    assert rows.get("UI language name (`lang`)") == "16 characters"
+
+
+def test_the_spec_says_the_page_holds_the_same_bounds():
+    """§3.8: the page refuses what the server would, since `preferences` is refused whole."""
+    section = spec_section("### 3.8")
+    assert "refused whole" in section
+    assert "over 40 characters" in section and "65th preset" in section
+
+
+def test_the_spec_says_a_refusal_puts_the_menu_back():
+    """§3.8: after an `error` the page shows what the account holds, not a phantom entry."""
+    section = spec_section("### 3.8")
+    assert "back to what the last `state` carried" in section
 
 
 # -- the storage policies' capability (§6.4) --------------------------------------------------------
@@ -120,7 +134,7 @@ def test_a_stored_preferences_value_is_read_with_what_it_refuses_dropped(tmp_pat
             "lang": 7,
             "presets": [preset("keeps"), preset("out of range", {"min_p": 2}),
                         {"name": "  ", "tuple": {}}, "not an entry",
-                        preset("lambda", LAMBDA)]}))
+                        preset("a\nfaked dialog line"), preset("lambda", LAMBDA)]}))
         assert storage.load_preferences("sso:alice") == {
             "lang": None, "presets": [preset("keeps"), preset("lambda", LAMBDA)]}
     finally:
@@ -230,6 +244,22 @@ async def test_an_absent_field_is_unchanged(make_session):
     assert harness.session.preferences == {"lang": "ko", "presets": []}
 
 
+async def test_an_explicit_null_lang_clears_the_stored_language(make_session):
+    """§4.1: `lang` is present, not absent, when it is `null` — the one way back to `null`."""
+    harness = make_session(preferences={})
+    await harness.send({"type": "preferences", "lang": "ko", "presets": [preset("mine")]})
+    await harness.send({"type": "preferences", "lang": None})
+    assert harness.session.preferences == {"lang": None, "presets": [preset("mine")]}
+    assert (await harness.fresh_state())["preferences"]["lang"] is None
+
+
+async def test_a_preset_name_may_hold_a_space(make_session):
+    """§4.1: only whitespace *other* than a plain space is refused inside a name."""
+    harness = make_session(preferences={})
+    await harness.send({"type": "preferences", "presets": [preset("my sharp one")]})
+    assert harness.session.preferences["presets"] == [preset("my sharp one")]
+
+
 async def test_a_preset_name_is_stored_trimmed(make_session):
     harness = make_session(preferences={})
     await harness.send({"type": "preferences", "presets": [preset("  mine  ")]})
@@ -250,6 +280,8 @@ REFUSED = [
     ("lang is too long", {"lang": "x" * 17}),
     ("lang has a space", {"lang": "e n"}),
     ("lang has a control character", {"lang": "e" + chr(0) + "n"}),
+    ("lang has a lone surrogate", {"lang": "e\ud800n"}),
+    ("presets is null", {"presets": None}),
     ("presets is not a list", {"presets": {"name": "mine", "tuple": {}}}),
     ("presets is a string", {"presets": "mine"}),
     ("too many presets", {"presets": [preset(f"n{i}") for i in range(65)]}),
@@ -257,6 +289,9 @@ REFUSED = [
     ("an entry has no name", {"presets": [{"tuple": {}}]}),
     ("an entry has a blank name", {"presets": [preset("   ")]}),
     ("an entry name is too long", {"presets": [preset("x" * 41)]}),
+    ("an entry name has a newline", {"presets": [preset("mine\nDelete everything?")]}),
+    ("an entry name has a control character", {"presets": [preset("mi" + chr(7) + "ne")]}),
+    ("an entry name has a lone surrogate", {"presets": [preset("mi\udc00ne")]}),
     ("an entry name is not a string", {"presets": [{"name": 7, "tuple": {}}]}),
     ("an entry has an extra key", {"presets": [{"name": "mine", "tuple": {}, "extra": 1}]}),
     ("an entry has no tuple", {"presets": [{"name": "mine"}]}),
