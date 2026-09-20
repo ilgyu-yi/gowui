@@ -1,7 +1,18 @@
-# Base-image digest bumps for the Dockerfile's pinned python:3.13-slim (SPEC §10.1).
+# The images and actions this repository names by hand (SPEC §10.1 "Pinning"): the Dockerfile's
+# pinned python base, the traefik image of the deploy/ examples, and the workflow's actions.
 version: 2
 updates:
   - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker-compose
+    directory: "/deploy"
+    schedule:
+      interval: weekly
+  # The actions stay pinned by major tag, not by commit SHA: the workflow holds no secret and
+  # runs with contents: read, so readable bumps are worth more here than SHA pinning.
+  - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly

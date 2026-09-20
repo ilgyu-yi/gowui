@@ -12,11 +12,19 @@
 #   3. GOWUI_TRUSTED_PROXIES is that one address (/32), not the subnet, so the network gateway
 #      (processes on the host) is not trusted.
 # gowui publishes no port. Replace the example host names, the Authentik address and the engine.
+#
+# Before the first `up`, pick values that are free on this host: gowui-edge and 172.30.52.0/29 are
+# examples, and both the network name and the subnet live in the host's namespace, where another
+# stack may already hold them. `docker network ls` and `docker network inspect` show what is taken.
+# The name is fixed here on purpose: it appears again in gowui's traefik.docker.network label and
+# the two must agree, so change both together (SPEC §10.1 "Dedicated edge network").
 name: gowui
 
 services:
   traefik:
-    image: traefik:v3.5
+    # Pinned by digest, the tag kept beside it so the version stays readable; Dependabot's
+    # docker-compose entry for /deploy proposes the bumps (SPEC §10.1 "Pinning").
+    image: traefik:v3.5@sha256:16acb89c6db341182970d6fdafece31303b0a380a8ed7aa51682e225229bf1d2
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -25,6 +33,10 @@ services:
     ports:
       - "443:443"
     volumes:
+      # Read-only is not a sandbox: this socket is root on the host, and traefik only needs to
+      # read containers and events. On any host that is not a single owner's, put a Docker socket
+      # proxy container in between (it exposes that narrow read surface over its own network) and
+      # point traefik at it with --providers.docker.endpoint=tcp://socket-proxy:2375 instead.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       default: {}
@@ -66,6 +78,10 @@ services:
       traefik.http.routers.gowui.middlewares: "gowui-strip-sso@docker,gowui-authentik@docker"
       traefik.http.middlewares.gowui-strip-sso.headers.customrequestheaders.X-authentik-username: ""
       traefik.http.middlewares.gowui-authentik.forwardauth.address: "http://authentik.example.internal:9000/outpost.goauthentik.io/auth/traefik"
+      # Passes the request's X-Forwarded-* on to Authentik, which needs them for its redirect.
+      # Safe only while the entrypoint sets no forwardedHeaders.trustedIPs, as above: with none,
+      # traefik writes those headers from the connection itself, so a client-sent value never
+      # survives and Authentik reads traefik's. Adding trustedIPs turns this into a way in.
       traefik.http.middlewares.gowui-authentik.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.gowui-authentik.forwardauth.authResponseHeaders: "X-authentik-username"
       traefik.http.services.gowui.loadbalancer.server.port: "8080"
