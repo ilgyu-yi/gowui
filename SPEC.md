@@ -615,7 +615,10 @@ too follows the data, never a mode name.
   cursor 0; +1, +10 and last at the end. Pass, Undo and Resign send `pass`, `undo` and `resign`.
   A click on a board point sends `play` for the side to move.
 - **Analysis section:** a "Continuous analysis" checkbox (`analysis`); Visits and Every (seconds)
-  fields, sent as `engine_params` when changed; the Label select (below); Ownership, Raw policy
+  fields, sent as `engine_params` when changed — an empty Visits field, or one that is not a
+  whole number of at least 1, sends no visit change (the frame's other fields still go), so the
+  setting keeps the value it had and the field is filled again from the next `state`; the Label
+  select (below); Ownership, Raw policy
   heatmap and Move numbers checkboxes; the candidate table. Ownership is the server's setting
   (`includeOwnership`): ticking it sends `engine_params`, and its tick follows `state`. The label
   mode, heatmap and move numbers belong to the page and are not sent.
@@ -668,7 +671,8 @@ finally either the PV preview or the candidates.
   `handol`) the columns are Move, Win, Score and Prob; while comparing they are Move, Win, Score,
   A, B and Δ (the move's probability under each tuple, and B − A signed). The first row is marked
   as the best. Hovering a row previews its PV; clicking it plays the move for the side to move.
-- **PV preview.** Hovering a candidate on the board, or its table row, draws the first 20 moves
+- **PV preview.** Hovering a drawn candidate on the board (a `moveInfos` entry past the drawn
+  ones is not on the board and previews nothing), or its table row, draws the first 20 moves
   of its `pv` as numbered stones, alternating colours from the side searched for and numbered
   from the cursor + 1, so the numbers continue the game's move numbers. A pass in the PV takes its
   number and draws nothing; a point that recurs is drawn once, with its first number. The
@@ -767,7 +771,8 @@ while a compare tuple is set), and a × button, hidden when only one board is le
   40 characters). Enter or leaving the field saves; Escape cancels. An empty or unchanged name
   sends nothing; any other sends `board_rename`. Keys typed in the field never reach the
   shortcuts (§3.7). An open rename field survives `state` and `analysis` frames: its text and
-  focus are untouched.
+  focus are untouched. Only Enter or the user leaving the field saves: a frame that moves its
+  tile (the board order changed) or removes it saves nothing, however the field loses focus.
 - **Default names.** A name that is exactly `Board` followed by a space and digits
   (`^Board \d+$`, the server's default, §3.3) is shown localised (`Board 3` in English, `보드 3`
   in Korean); any other name, `Board 3a` or `board 3` included, is shown as it is. Renaming a
@@ -777,7 +782,9 @@ while a compare tuple is set), and a × button, hidden when only one board is le
 **Status line.** A non-empty `state.status` is shown in the muted colour when it differs from the
 last `state.status` shown (a repeat in later `state` frames is not shown again), and an `error` frame's
 `message` in red; either clears after 8 s, and a new message restarts the timer. The colour is
-set by a CSS class.
+set by a CSS class. The reason a `4401` or `4403` close puts in the status line (below) is the
+exception: while it stands, a later message neither replaces it nor starts a timer over it, so it
+says why until the page is reloaded.
 
 **SGF.**
 
@@ -1628,8 +1635,8 @@ exactly two keys:
 
 | Key | Value |
 |---|---|
-| `gowui.lang` | `ko` or `en` (§3.8) |
-| `gowui.userPresets` | JSON list of `{"name": <str>, "tuple": <object>}` (§3.8); an unreadable value counts as an empty list |
+| `gowui.lang` | `ko` or `en` (§3.8); any other saved value is ignored, as if none were saved |
+| `gowui.userPresets` | JSON list of `{"name": <str>, "tuple": <object>}` (§3.8); an unreadable value counts as an empty list, and an entry without a name or with a tuple §2.5 refuses (checked as if searching, as Import does) is dropped when the list is read |
 
 Nothing else — no board, setting, engine address or identity — is stored in the browser.
 

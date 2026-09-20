@@ -461,10 +461,16 @@
   var STORAGE_KEY = 'gowui.lang';
   var listeners = [];
 
+  // Own entries only: a saved language or a key such as "constructor" or "toString" names an
+  // inherited property, never a table or a text (§8.5).
+  function own(table, name) {
+    return table && Object.prototype.hasOwnProperty.call(table, name) ? table[name] : null;
+  }
+
   function initial() {
     try {
       var saved = global.localStorage.getItem(STORAGE_KEY);
-      if (saved && STRINGS[saved]) return saved;
+      if (saved && own(STRINGS, saved)) return saved;
     } catch (err) { /* storage can be unavailable */ }
     var nav = (global.navigator && global.navigator.language) || '';
     return nav.toLowerCase().indexOf('en') === 0 ? 'en' : 'ko';
@@ -473,7 +479,7 @@
   var lang = initial();
 
   function t(key, vars) {
-    var text = (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+    var text = own(own(STRINGS, lang), key) || own(STRINGS.en, key) || key;
     if (vars) {
       text = text.replace(/\{(\w+)\}/g, function (m, name) {
         return vars[name] === undefined ? m : String(vars[name]);
@@ -497,7 +503,7 @@
   }
 
   function setLang(next) {
-    if (!STRINGS[next] || next === lang) return;
+    if (!own(STRINGS, next) || next === lang) return;
     lang = next;
     try { global.localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* ignore */ }
     apply();

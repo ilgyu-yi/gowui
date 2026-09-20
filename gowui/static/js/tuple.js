@@ -163,12 +163,17 @@
   /* -- presets saved in this browser ----------------------------------- */
   var STORE = 'gowui.userPresets';
 
+  // A stored entry is read with the rules a sent one must pass (§8.5): what the panel offers is
+  // always something the mux would take. Checked as if searching, as Import is, so a λ preset is
+  // not dropped over Visits.
+  function usablePreset(p) {
+    return !!p && typeof p.name === 'string' && !!p.name.trim() && problem(p.tuple, 2) === null;
+  }
+
   function loadUserPresets() {
     try {
       var raw = JSON.parse(global.localStorage.getItem(STORE) || '[]');
-      return Array.isArray(raw) ? raw.filter(function (p) {
-        return p && typeof p.name === 'string' && p.tuple && typeof p.tuple === 'object';
-      }) : [];
+      return Array.isArray(raw) ? raw.filter(usablePreset) : [];
     } catch (err) {
       return [];
     }
@@ -539,8 +544,7 @@
         }
         var added = 0, skipped = 0;
         list.forEach(function (p) {
-          // Checked as if searching, so a λ preset is not refused over Visits.
-          if (!p || typeof p.name !== 'string' || !p.name.trim() || problem(p.tuple, 2)) {
+          if (!usablePreset(p)) {
             skipped += 1;
             return;
           }

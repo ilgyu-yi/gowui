@@ -389,13 +389,34 @@
     return entry.profile + ' · ' + text + (entry.compare ? ' · A/B' : '');
   }
 
+  // Moving or removing a tile blurs an open rename field inside it. That blur is the page's own
+  // doing, not the user leaving the field, so it saves nothing (§3.8 "Rename in place").
+  var rearranging = 0;
+  function rearrange(change) {
+    rearranging += 1;
+    try { change(); } finally { rearranging -= 1; }
+  }
+
+  // Put the tile at its board's position, giving an open rename field its focus and caret back.
+  function moveTile(list, node, index) {
+    var field = node.querySelector('.thumb-rename');
+    var focused = !!field && document.activeElement === field;
+    var caret = focused ? [field.selectionStart, field.selectionEnd] : null;
+    rearrange(function () { list.insertBefore(node, list.children[index] || null); });
+    if (!focused) return;
+    field.focus();
+    field.setSelectionRange(caret[0], caret[1]);
+  }
+
   function renderBoards() {
     var list = $('board-list');
     var entries = state.boards || [];
     var ids = entries.map(function (e) { return String(e.id); });
     // Drop tiles for boards that no longer exist.
-    Array.prototype.slice.call(list.children).forEach(function (node) {
-      if (ids.indexOf(node.dataset.id) < 0) { list.removeChild(node); delete thumbSignatures[node.dataset.id]; }
+    rearrange(function () {
+      Array.prototype.slice.call(list.children).forEach(function (node) {
+        if (ids.indexOf(node.dataset.id) < 0) { list.removeChild(node); delete thumbSignatures[node.dataset.id]; }
+      });
     });
     entries.forEach(function (entry, index) {
       var node = list.querySelector('.thumb[data-id="' + entry.id + '"]');
@@ -418,7 +439,7 @@
           }
         };
       }
-      if (list.children[index] !== node) list.insertBefore(node, list.children[index] || null);
+      if (list.children[index] !== node) moveTile(list, node, index);
       node.classList.toggle('active', entry.id === state.activeBoard);
       node.querySelector('.thumb-close').hidden = entries.length < 2;
       node.querySelector('.thumb-close').title = t('boards.delete');
@@ -499,7 +520,9 @@
       if (event.key === 'Enter') finish(true);
       else if (event.key === 'Escape') finish(false);
     };
-    field.onblur = function () { finish(true); };
+    // Leaving the field saves -- unless the page moved or dropped the tile under it, which is
+    // not the user leaving anything (§3.8).
+    field.onblur = function () { if (!rearranging) finish(true); };
   }
 
   $('board-duplicate').onclick = function () { send({ type: 'board_duplicate' }); };
@@ -514,11 +537,6 @@
   /* -- handol-mux comparison views --------------------------------------- */
   // The analysis as the board should draw it: tuple A (the default), tuple B,
   // or B − A. Winrates exist only for A's candidates' moves, so B's reuse them.
-  function compareView() {
-    var analysis = state.analysis;
-    return analysis && analysis.compare ? $('compare-view').value : 'A';
-  }
-
   function viewOf(analysis) {
     if (!analysis || !analysis.compare) return analysis;
     var view = $('compare-view').value;
@@ -641,9 +659,12 @@
     scrollLater('log');
   }
 
-  // Messages clear after 8 s; a sticky one (the connection is down) stays.
+  // Messages clear after 8 s; a sticky one (the connection is down) stays. Once a 4401 / 4403
+  // close has said why, that reason holds the line until the page is reloaded (§3.8): a later
+  // message neither replaces it nor starts a timer over it.
   var statusTimer = null;
   function setStatus(text, isError, sticky) {
+    if (closedFor && !sticky) return;
     var node = $('status');
     node.textContent = text || '';
     node.classList.toggle('error', !!isError);
@@ -705,9 +726,14 @@
   $('white-style').onchange = function () { send({ type: 'players', whiteStyle: this.value }); };
 
   function pushEngineParams() {
+    // An empty Visits field, or one that is not a whole number of at least 1, names no setting.
+    // Undefined is left out of the JSON, so the frame carries no maxVisits (each field is
+    // optional, §4.1): the server keeps the value it has and the next state fills the field
+    // again (§3.8).
+    var visits = parseInt($('max-visits').value, 10);
     send({
       type: 'engine_params',
-      maxVisits: parseInt($('max-visits').value, 10) || 500,
+      maxVisits: !isNaN(visits) && visits >= 1 ? visits : undefined,
       reportInterval: parseFloat($('interval').value) || 0.4,
       includeOwnership: $('show-ownership').checked
     });

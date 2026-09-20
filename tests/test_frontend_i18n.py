@@ -10,12 +10,13 @@ dynamic call site is registered here together with the keys it can produce.
 
 from __future__ import annotations
 
+import json
 import re
 
 import pytest
 
-from frontend_helpers import (SCRIPTS, all_js, parse_tables, read_js, read_static,
-                              strip_js_comments)
+from frontend_helpers import (SCRIPTS, all_js, node_or_skip, parse_tables, read_js, read_static,
+                              run_node, static_file, strip_js_comments)
 
 KEY_SHAPE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+$")
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
@@ -276,3 +277,74 @@ def test_the_two_close_reasons_read_differently():
                                  "sgf.tooLarge", "sgf.loadFailed"])
 def test_a_status_key_is_used_by_the_scripts(key):
     assert key in used_keys()
+
+
+# -- the saved language (§3.8 "Language"; §8.5) --------------------------------------------------
+#: Runs ``i18n.js`` under ``node`` with a saved ``gowui.lang`` and a ``navigator.language``, and
+#: reports the language it picked, what a ``setLang`` of the saved value left, and two lookups.
+LANG_RUNNER = r"""
+const vm = require('vm');
+const fs = require('fs');
+const source = fs.readFileSync(process.argv[1], 'utf8');
+const [saved, language, next] = JSON.parse(fs.readFileSync(0, 'utf8'));
+const stored = {};
+const context = {
+  localStorage: {
+    getItem: (k) => (saved === null ? null : (k === 'gowui.lang' ? saved : null)),
+    setItem: (k, v) => { stored[k] = v; }
+  },
+  navigator: { language: language },
+  document: { documentElement: {}, querySelectorAll: () => [] }
+};
+context.window = context;
+vm.createContext(context);
+vm.runInContext(source, context, { filename: 'i18n.js' });
+const initial = context.i18n.lang();
+const text = (key) => {
+  const value = context.i18n.t(key);
+  return typeof value === 'string' ? value : typeof value;   // a function would be an inherited one
+};
+const looked = { inherited: text('constructor'), known: text('status.refused') };
+context.i18n.setLang(next);
+process.stdout.write(JSON.stringify({
+  initial: initial,
+  after: context.i18n.lang(),
+  stored: stored['gowui.lang'] === undefined ? null : stored['gowui.lang'],
+  inherited: looked.inherited,
+  known: looked.known
+}));
+"""
+
+
+def pick(saved, language: str = "en-US", next_lang: str = "ko") -> dict:
+    """What ``i18n.js`` makes of ``saved`` in ``localStorage`` with ``navigator.language``."""
+    node_or_skip()
+    result = run_node(["-e", LANG_RUNNER, str(static_file("js/i18n.js"))],
+                      stdin=json.dumps([saved, language, next_lang]))
+    assert result.returncode == 0, result.stderr[-1500:]
+    return json.loads(result.stdout)
+
+
+@pytest.mark.parametrize("saved", ["constructor", "toString", "__proto__", "hasOwnProperty",
+                                   "fr", ""])
+def test_a_saved_language_outside_the_tables_is_ignored(saved):
+    """§8.5: only ``ko`` and ``en`` name a table, so any other saved value is treated as none
+    and ``navigator.language`` decides (§3.8 "Language")."""
+    assert (pick(saved, "en-US")["initial"], pick(saved, "ko-KR")["initial"]) == ("en", "ko")
+
+
+@pytest.mark.parametrize("saved,expected", [("ko", "ko"), ("en", "en")])
+def test_a_saved_language_that_names_a_table_is_kept(saved, expected):
+    assert pick(saved, "en-US" if expected == "ko" else "ko-KR")["initial"] == expected
+
+
+def test_switching_to_a_language_outside_the_tables_changes_nothing():
+    picked = pick(None, "en-US", next_lang="constructor")
+    assert (picked["after"], picked["stored"]) == ("en", None)
+
+
+def test_a_key_outside_the_tables_falls_back_to_the_key_itself():
+    """A key an inherited property would answer (``constructor``) must read as text, not as the
+    inherited value, or the status line would show an object."""
+    picked = pick(None, "en-US")
+    assert (picked["inherited"], picked["known"]) == ("constructor", table("en")["status.refused"])

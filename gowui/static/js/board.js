@@ -3,6 +3,9 @@
   'use strict';
 
   var GTP_COLUMNS = 'ABCDEFGHJKLMNOPQRSTUVWXYZ';
+  // At most this many moveInfos are drawn as candidates (SPEC §3.8); a later entry is nowhere on
+  // the board, so the pointer never finds it.
+  var DRAWN = 12;
 
   function vertexToPoint(vertex, size) {
     if (!vertex || vertex.toLowerCase() === 'pass' || vertex.toLowerCase() === 'resign') return null;
@@ -398,7 +401,7 @@
     var self = this;
     var drawn = 0;
 
-    infos.slice(0, 12).forEach(function (info, index) {
+    infos.slice(0, DRAWN).forEach(function (info, index) {
       var point = vertexToPoint(info.move, m.size);
       if (!point) return;   // a pass candidate has nowhere to draw
       drawn += 1;
@@ -436,19 +439,23 @@
     if (!this.hover) return false;
     var infos = (this.analysis && this.analysis.moveInfos) || [];
     var vertex = pointToVertex(this.hover.x, this.hover.y, m.size);
-    return infos.slice(0, 12).some(function (info) { return info.move === vertex; });
+    return infos.slice(0, DRAWN).some(function (info) { return info.move === vertex; });
   };
 
   GoBoard.prototype._previewCandidate = function () {
     var infos = (this.analysis && this.analysis.moveInfos) || [];
     if (!infos.length) return null;
     var wanted = this.pinnedPv;
+    // A table row names its own move; the pointer on the board only finds a drawn candidate,
+    // so a point whose entry was not drawn previews nothing (§3.8 "PV preview").
+    var searched = infos;
     if (!wanted && this.hover && this.state) {
       wanted = pointToVertex(this.hover.x, this.hover.y, this.state.size);
+      searched = infos.slice(0, DRAWN);
     }
     if (!wanted) return null;
-    for (var i = 0; i < infos.length; i++) {
-      if (infos[i].move === wanted && infos[i].pv && infos[i].pv.length) return infos[i];
+    for (var i = 0; i < searched.length; i++) {
+      if (searched[i].move === wanted && searched[i].pv && searched[i].pv.length) return searched[i];
     }
     return null;
   };
