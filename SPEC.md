@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 585 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 589 |
 | &nbsp;&nbsp;§3.8 | The page | 598 |
-| §4 | WebSocket protocol | 882 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 886 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 946 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 987 |
-| §5 | HTTP routes | 1074 |
-| §6 | Launch modes and policies | 1149 |
-| &nbsp;&nbsp;§6.1 | The rule | 1151 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1187 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1226 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1259 |
-| §7 | Authentication and security | 1294 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1296 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1348 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1366 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1386 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1434 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1455 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1500 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1523 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1537 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1546 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1575 |
-| §8 | Persistence | 1594 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1596 |
-| &nbsp;&nbsp;§8.2 | Saving | 1630 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1661 |
-| &nbsp;&nbsp;§8.4 | Server database | 1703 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1758 |
-| §9 | Command line | 1777 |
-| §10 | Configuration (server) | 1844 |
-| &nbsp;&nbsp;§10.1 | Container | 1882 |
-| §11 | Feature inventory | 1970 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1977 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2015 |
-| §12 | Non-goals | 2033 |
+| §4 | WebSocket protocol | 892 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 896 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 964 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1006 |
+| §5 | HTTP routes | 1093 |
+| §6 | Launch modes and policies | 1168 |
+| &nbsp;&nbsp;§6.1 | The rule | 1170 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1206 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1245 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1278 |
+| §7 | Authentication and security | 1313 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1315 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1367 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1385 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1405 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1453 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1474 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1519 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1542 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1556 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1565 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1594 |
+| §8 | Persistence | 1613 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1615 |
+| &nbsp;&nbsp;§8.2 | Saving | 1649 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1680 |
+| &nbsp;&nbsp;§8.4 | Server database | 1722 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1777 |
+| §9 | Command line | 1796 |
+| §10 | Configuration (server) | 1863 |
+| &nbsp;&nbsp;§10.1 | Container | 1901 |
+| §11 | Feature inventory | 1989 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 1996 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2034 |
+| §12 | Non-goals | 2052 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -720,10 +720,11 @@ and the Visits field before anything is sent: the first problem is shown as text
 and nothing is sent. A valid pair is sent as `human_params` (`policy`, and `compare`, which is
 null while comparing is off) 300 ms after the last knob or field change, or at once when a
 change is committed. Export downloads `gowui-presets.json`, `{"gowuiPresets": 1, "presets":
-[{"name", "tuple"}]}`; Import accepts that shape or a bare list, skips an entry without a name or
-with a tuple §2.5 refuses (checked as if searching), and reports a file it cannot read. Saving
-over an existing name and deleting ask for confirmation. The side-to-move refusal (§2.5) is shown
-as status text.
+[{"name", "tuple"}]}`; Import accepts that shape or a bare list, skips an entry without a name,
+with a name §4.1 refuses or with a tuple §2.5 refuses (checked as if searching), skips one past
+the 64 presets of §7.6, counts every skipped entry in what it reports, and reports a file it
+cannot read. Saving over an existing name and deleting ask for confirmation. The side-to-move
+refusal (§2.5) is shown as status text.
 
 **Engine form.** A protocol select (`gtp`, `analysis`, `handol`), host, port, a Connect /
 Disconnect button and a badge ("thinking" while `thinking`, else the engine's name and version
@@ -820,6 +821,15 @@ account signed in from another browser shows the same language and the same pres
 that names no table is ignored, as a saved one is, and a preset entry the tuple rules refuse is
 dropped from the menu, as a stored one is (§8.5). While `preferences` is `null` the page reads
 and writes the two `localStorage` keys of §8.5, as it does with no server preferences at all.
+
+The page holds the bounds of §4.1 and §7.6 itself, before it sends, because `preferences` is
+refused whole: one entry the server would refuse would otherwise block every later save too.
+Saving a preset whose name is over 40 characters, or holds a character §4.1 refuses, is refused
+with that reason as red status text and nothing is sent; so is saving a 65th preset. Import skips
+such an entry instead, counting it in the number it reports skipped. A refusal the server makes
+all the same arrives as an `error` (§4.1), shown as red status text; the page then puts the
+language and the preset menu back to what the last `state` carried, so nothing the account does
+not hold is left showing.
 
 **Language.** The page has Korean and English tables holding every string it shows. The initial
 language is the saved one (`gowui.lang`, §8.5) when it names a table; otherwise English when
@@ -928,20 +938,28 @@ with the same moves (§7.6, §8.1).
 
 `preferences` changes what the storage policy keeps for the identity (§6.4): `lang`, the UI
 language, and `presets`, the user's tuple presets. A field that is absent is unchanged; both
-absent changes nothing. The message is refused with an `error`, changing nothing, when
+absent changes nothing. A `lang` of `null` is present, not absent: it clears the stored language,
+the one way `state.preferences.lang` goes back to `null` (§4.2). The message is refused with an
+`error`, changing nothing, when
 
 - the storage policy keeps no preferences — local mode keeps them in the browser (§8.5);
 - the message is larger than 64 KiB as JSON (§7.6);
-- `lang` is not a string of 1 to 16 characters without spaces or control characters. The server
+- `lang` is neither `null` nor a name of 1 to 16 characters holding no space. The server
   holds no list of languages: a `lang` no table names is ignored by the page, as a saved one is
   (§8.5);
-- `presets` is not a list of at most 64 entries (§7.6);
+- `presets` is anything but a list of at most 64 entries (§7.6) — a `presets` of `null` is
+  refused, not read as absent, since an empty list already says "no presets";
 - an entry is not an object with exactly a `name` and a `tuple`, with a `name` of 1 to 40
   characters once trimmed and a `tuple` the rules of §2.5 accept as if searching (with max visits
   2, the check the page's Import makes, §3.8).
 
-Stored names are the trimmed ones. What is stored goes to every tab of the identity in the next
-`state` (§4.2) and is written by the same saves as the snapshot (§8.2).
+A **name** — a `lang`, and a preset `name` once trimmed — holds no control character (C0 or C1),
+no lone surrogate, and no whitespace other than the plain space a preset name may hold inside it.
+A newline would let a preset name fake a line of the page's confirmation dialogs (§3.8), and a
+lone surrogate is text no non-ASCII serialiser can write. Stored names are the trimmed ones.
+
+What is stored goes to every tab of the identity in the next `state` (§4.2) and is written by the
+same saves as the snapshot (§8.2).
 
 ### 4.2 Server → browser
 
@@ -967,7 +985,8 @@ Field names inside `state`:
 - `settings`: `blackIsEngine`, `whiteIsEngine`, `blackStyle`, `whiteStyle`, `analysisEnabled`,
   `maxVisits`, `reportInterval`, `includeOwnership`, `evalVisits`, and the active board's
   `humanProfile`, `humanPolicy`, `humanCompare`.
-- `preferences`: `lang` (the identity's UI language, or `null` when none is stored) and `presets`
+- `preferences`: `lang` (the identity's UI language, or `null` when none is stored — a `lang` of
+  `null` in a `preferences` message puts it back there, §4.1) and `presets`
   (`[{name, tuple}]`, in the order they were sent) while the storage policy keeps the identity's
   preferences (§6.4, §8.4); `null` while it does not, and the page then keeps both in the browser
   (§3.8 "Preferences", §8.5). It never depends on a mode name (§6.1).
@@ -1770,7 +1789,7 @@ exactly two keys:
 | Key | Value |
 |---|---|
 | `gowui.lang` | `ko` or `en` (§3.8); any other saved value is ignored, as if none were saved |
-| `gowui.userPresets` | JSON list of `{"name": <str>, "tuple": <object>}` (§3.8); an unreadable value counts as an empty list, and an entry without a name or with a tuple §2.5 refuses (checked as if searching, as Import does) is dropped when the list is read |
+| `gowui.userPresets` | JSON list of `{"name": <str>, "tuple": <object>}` (§3.8); an unreadable value counts as an empty list, and an entry without a name, with a name §4.1 refuses, or with a tuple §2.5 refuses (checked as if searching, as Import does) is dropped when the list is read |
 
 Nothing else — no board, setting, engine address or identity — is stored in the browser.
 
