@@ -316,7 +316,8 @@ query carries the whole position (`initialStones`, `initialPlayer`, `moves`, `an
 last turn, `includePolicy`, `maxVisits`, optional `includeOwnership` and
 `reportDuringSearchEvery`). Restarting analysis terminates the previous query. There is no native
 genmove: an engine move is a bounded search whose top-ranked move is played, and only the side to
-move can be asked for. There is no final score.
+move can be asked for. A result with no candidate move is an engine error, never an implicit
+`pass`, as for the handol-mux surface (§2.5). There is no final score.
 
 On connect the client sends a `query_version` query; a reply that is not JSON (for example a GTP
 `=` reply) is refused with an engine error suggesting the other protocol, as the GTP client does
@@ -551,7 +552,13 @@ same key. A space is created in four steps:
 Max visits, report interval (≥ 0.1 s), include ownership, handol-mux profile, tuple, compare tuple,
 eval visits, and per-colour move style (`human` / `katago`). Limits are in §7.6. The handol-mux
 client checks its tuples again before each send (§2.5); refusing a bad tuple as soon as it is set
-is the session's job, with the same rules (§3.3).
+is the session's job, with the same rules (§3.3). Max visits is checked the same way from the
+other side: a change of max visits is refused with an `error`, and nothing is changed, when the
+active board's tuples would not pass §2.5 under the new value — lowering max visits to 1 while a
+tuple carries `lambda_utility` is the case that matters, since every later query would otherwise
+fail. Only the active board's tuples are checked, the ones the change is made against; a board
+left behind with tuples the new value refuses reports it through its own failed analysis when it
+is switched to.
 
 The session always passes an explicit max visits, clamped to §7.6, with every search and engine
 move — never leaving it to the engine's previous setting — and hands a handol-mux engine the
@@ -943,15 +950,21 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   between, the hub registers the tab's queue and enqueues `attach_frames()` (`state`,
   `log_history`, and the last `analysis`, as described in §4.2). No broadcast can land between
   the attach frames and the tab's registration, so none is lost or duplicated.
+- **Socket cap.** One identity holds at most 32 sockets at once (§7.6). A handshake past the cap
+  is accepted, attached to nothing and closed with `1013` ("try again later"), so a signed-in
+  client that reconnects in a loop cannot spend the server's memory on attach frames; 32 is well
+  past what a person's tabs need, and a closed socket frees its place at once.
 - **Broadcast** never awaits. It serialises a frame to JSON text once, then puts that text into
   each tab's bounded queue with `put_nowait`. One sender task per tab drains its queue in order.
 - **Coalescing.** A `state` or an `analysis` frame supersedes an earlier frame of its type: the
   page needs only the newest `state` and the newest `analysis`. When one is put into a tab's
   queue while an unsent frame of the same type is still waiting there, the waiting frame is
   removed and the new one is added at the end. A queue therefore holds at most one `state` and
-  one `analysis`, and they stay in the order they were broadcast, so the page never gets an
-  `analysis` for a position its `state` has not reached yet (the page ignores an `analysis`
-  whose `cursor` is not the current one, §3.8).
+  one `analysis`. Going to the end can put an `analysis` before the `state` for its position
+  (`[state1, analysis1]` with `state2` arriving leaves `[analysis1, state2]`), so the page can
+  get an `analysis` for a position its `state` has not reached; it ignores an `analysis` whose
+  `cursor` is not the current one (§3.8), so the cost is a dropped frame, never a board drawn
+  for the wrong position.
 - **Log folding.** A frame that would overflow a tab's queue — a `state`, `analysis`, `log` or
   `log_history` with no same-type frame to supersede — is not refused at once: every `log` frame
   queued for that tab, and a queued `log_history` if there is one, is removed, and one
@@ -978,9 +991,13 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   frames fold. The page thus gets the newest `state` as soon as it has applied the previous one,
   and every frame still arrives in broadcast order. A tab that has never sent `ack` (an older
   page, a script) is sent frames as they come. An `ack` beyond the `state` frames sent changes
-  nothing. `ack` belongs to the transport: it is not passed to `session.handle`, gets no reply,
-  and changes nothing in the space. A page that stops acknowledging holds only its own tab back;
-  the queue's bound still applies (Overflow below).
+  no count; like any `ack` it still marks the tab as acknowledging, which the first one does
+  whenever it arrives. `ack` belongs to the transport: it is not passed to `session.handle`, gets
+  no reply, and changes nothing in the space. A page that stops acknowledging holds only its own
+  tab back; the queue's bound still applies (Overflow below). A tab whose page stalls writes
+  nothing at all, `ack` included, so a peer that went away without a close is noticed only by
+  uvicorn's own WebSocket pings; until they fail, the space counts that tab as attached and its
+  idle release (§7.8) waits.
 - **Overflow.** The queue stays bounded (`256` frames). Code `1013` closes a tab, which is then
   detached while broadcasting to the other tabs goes on, in two cases: its queue is full when an
   `error` (or any other frame that cannot be folded) arrives, or a fold would leave more than half
@@ -1223,8 +1240,13 @@ printable characters without surrounding spaces; passwords have 8–256 characte
   hex). A password account's identity key is `local:<account id>` (§6.2); the name is only what
   is shown, and the id never reaches a browser. A removed account's id is never reused, so a new
   account with the same name starts with no boards and no sessions (§7.8).
-- **Hashes.** A password is stored as `scrypt$N$r$p$<salt>$<hash>` with N = 2^14, r = 8, p = 1 and
-  a 16-byte random salt. Checking a missing name runs scrypt against a fixed dummy hash, so it
+- **Hashes.** A password is stored as `scrypt$N$r$p$<salt>$<hash>` with N = 2^16, r = 8, p = 2 and
+  a 16-byte random salt — one of the configurations OWASP gives as equivalent to its minimum
+  (N = 2^17, r = 8, p = 1), at 64 MiB and roughly 0.2 s per hash rather than 128 MiB. With at most
+  2 verifications at a time (below) that is at most 128 MiB of hashing memory, inside the 256 MiB
+  cap each call sets. Every hash carries the parameters it was made with, so hashes written by an
+  older, cheaper setting still verify and are left alone until the password is set again.
+  Checking a missing name runs scrypt against a fixed dummy hash, so it
   takes the same time as a wrong password, and both give the same answer.
 - **The form.** `POST /login` takes `name`, `password` and an optional `lang` as
   `application/x-www-form-urlencoded`. The body is read as a stream and cut off with `413` past
@@ -1284,7 +1306,13 @@ the token, so a leaked database does not yield usable sessions; expired logins a
 With `header` auth the name in `GOWUI_AUTH_HEADER` is believed **only** when the TCP peer address
 is inside `GOWUI_TRUSTED_PROXIES`; from any other peer the header is ignored. The peer is the real
 socket address: forwarded headers never decide who is trusted. `gowui serve` refuses to start
-with `header` auth and no trusted proxy (§7.9). The trusted proxy **must strip or overwrite** any
+with `header` auth and no trusted proxy (§7.9). An SSO identity is decided by the handshake
+headers alone, and those never change while a socket is open, so the revalidation of §4.3 always
+passes for an SSO socket: ending the session at the identity provider closes no socket gowui
+already holds. Such a socket lives until the tab closes, the page reloads or the server
+stops; a deployment that must cut SSO users off at once takes the socket down at the proxy.
+
+The trusted proxy **must strip or overwrite** any
 `GOWUI_AUTH_HEADER` the client sent: gowui cannot tell a header the proxy set from one it passed
 through. The header must appear exactly once, as valid UTF-8, and satisfy the name rule of §7.1;
 otherwise it gives no identity (§6.2). An SSO account needs no `gowui user add`, has no password
@@ -1347,7 +1375,11 @@ Every response carries `Content-Security-Policy: default-src 'self'; frame-ances
 `X-Content-Type-Options: nosniff` — refusals, errors (a `500` included), `404`, `413`, static files
 and `/healthz` included — and the page therefore uses no inline scripts or styles. Every response
 also carries `Cache-Control: no-cache`, so a browser revalidates the page and its scripts instead of
-reusing a cached copy (a page sent to `/` after a `4401` always reaches the guard). Text
+reusing a cached copy (a page sent to `/` after a `4401` always reaches the guard). A failure
+inside the guard itself — an identity policy that raises, say, because its database is
+unreachable — is caught there and answered `500` with these headers, with the fixed body
+`Internal Server Error`; a WebSocket handshake is accepted and closed with `1011`. No such
+failure escapes the guard unanswered. Text
 that came from users, SGF files or engines (comments, board names, player names, engine output,
 error messages) is inserted as text, never as HTML. The page's rules are in §3.8 ("Rendering
 safety"); the icon is the file `/favicon.svg`, never a `data:` URL.
@@ -1374,6 +1406,7 @@ the served policy and fails on any `securitypolicyviolation` event or console er
 | Raw console command | 1,000 characters, one line |
 | `play` vertex | 8 characters |
 | Rule-set name (`new_game`) | 40 characters |
+| Open WebSockets per identity | 32 (a further handshake is closed with `1013`, §4.3) |
 
 Out-of-range numbers are clamped and board names truncated; other oversize input is refused with
 an error.
@@ -1406,7 +1439,14 @@ failures are reported without the address, and engine traffic lines that would c
 forwarded. When the policy hides addresses, one outbound choke point in the session enforces this
 for everything it sends: a log line containing the engine's host (matched case-insensitively) or
 `host:port` is withheld, and the host or `host:port` is scrubbed from error text, status strings
-and `state.engine.name` / `version` — including text the engine itself supplied, such as
+and `state.engine.name` / `version`. Scrubbing matches `host:port` and the bare host on host
+boundaries: a neighbouring letter, digit, `.`, `-` or `_` means the text names something else
+(`katagonaut` or `my-katago.example` is left alone when the catalog host is `katago`), while
+`katago:6363`, `[::1]:6363` and the host standing alone are replaced. A host that is also an
+ordinary word therefore still costs that word — `KataGo` becomes `[engine]` for a catalog host
+named `katago` — because the address must never appear. Withholding a whole log line stays a
+plain case-insensitive containment test, so no log line can carry the address through a form the
+scrubber does not know. This covers text the engine itself supplied, such as
 handol-mux error messages (§2.5). `state.engine.request` carries only the policy's echo (§4.2),
 and engine text that is not an SGF result never becomes the game's result (§3.5), so it cannot
 reach `state.game`, the snapshot's SGF or a saved SGF. Snapshots store only the `engineId` (§8.1). A catalog entry
@@ -1610,7 +1650,9 @@ One SQLite file, `GOWUI_DB`, holds four tables:
   `-wal` and `-shm` files next to the database are set to mode `0600` once WAL is on. The dummy
   hash for a missing name (§7.1) is made when the database is opened. The connection uses a
   `busy_timeout` of 5 seconds, so the server and a `gowui user` command can write the same file.
-  Expired logins are purged on open and on lookup.
+  Expired logins are purged when the database is opened and when a sign-in stores a new token. A
+  cookie lookup never purges: it only reads the unexpired row, so the identity check on the event
+  loop (§6.2) writes nothing.
 - **Restore on start.** Nothing is loaded when the server starts: an account's space is created
   from its row on its first request after the start (§3.1), so a restarted server gives every
   account its boards back, and a connected engine reconnects through the catalog (§8.1).
@@ -1626,7 +1668,9 @@ One SQLite file, `GOWUI_DB`, holds four tables:
 - **Accounts.** `add` relies on the unique name constraint (no check-then-insert), so the server
   and the CLI cannot create the same name twice. `remove` deletes, by account id, the account, its
   logins, its `states` row and its `set_aside` rows: a name that is reused later starts clean.
-  `passwd` replaces the hash and deletes the account's logins.
+  `passwd` replaces the hash and deletes the account's logins; it looks the name up inside its own
+  transaction and requires the update to touch exactly one row, so a `remove` that lands first
+  makes it report no such account rather than reporting success while changing nothing.
 
 ### 8.5 Browser storage
 
@@ -1697,10 +1741,15 @@ One command, `gowui`:
   - **Effects.** `add` creates the account with a new account id (§7.1); `passwd` replaces the
     hash and ends every session of the account (§7.2); `remove` deletes the account, its sessions
     and its saved boards (§8.4). `list` prints one name per line, sorted, and nothing for an empty
-    database. `add`, `passwd` and `remove` print `ok` on success. The account id is never printed.
+    database; a database file that is not there counts as empty and is *not* created, so listing
+    never leaves a stray database behind a mistyped `GOWUI_DB`. `add`, `passwd` and `remove` open
+    the database, creating it when missing, as the server does (§8.4). `add`, `passwd` and
+    `remove` print `ok` on success. The account id is never printed.
   - **Refusals.** An invalid name, a password outside 8–256 characters, mismatched prompts, an
     existing name on `add`, or a missing name on `passwd`/`remove` prints one line to stderr and
-    exits with status 1, changing nothing. A usage error exits with status 2.
+    exits with status 1, changing nothing. A database that cannot be opened — a path that is not
+    reachable, a file that is not a database — prints one line to stderr naming it and exits with
+    status 1, never a traceback. A usage error exits with status 2.
 
 ## 10. Configuration (server)
 
