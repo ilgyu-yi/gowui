@@ -874,7 +874,8 @@ async def word_host_session(make_session, fake_engine, monkeypatch):
     server = await fake_engine("gtp")
     server.options.replies["name"] = "FakeKataGo"
     server.options.replies["version"] = (f"1.0 from {WORD_HOST}:{server.port}, host {WORD_HOST}, "
-                                         f"built by katagonaut for my-katago.example")
+                                         f"built by katagonaut for my-katago.example, "
+                                         f"could not reach {WORD_HOST}.")
     catalog.add("kata", "gtp", server.port, console=True)
     return h, await h.connect({"engineId": "kata"}), server
 
@@ -894,7 +895,7 @@ async def test_scrubbing_still_takes_the_host_and_the_host_port(make_session, fa
     h, state, server = await word_host_session(make_session, fake_engine, monkeypatch)
     version = state["engine"]["version"]
     assert version == ("1.0 from [engine], host [engine], built by katagonaut "
-                       "for my-katago.example")
+                       "for my-katago.example, could not reach [engine].")
     assert leaks(h.rec.frames + h.session.attach_frames(), f"{WORD_HOST}:", server.port) == []
 
 
