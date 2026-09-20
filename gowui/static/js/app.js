@@ -35,6 +35,9 @@
   var preferences = null;
   // The JSON of the preferences last applied, so a state that repeats them rebuilds nothing.
   var preferencesShown = null;
+  // Set while a `preferences` this page sent has had no answering `state`: an `error` then means
+  // the account holds none of it (§3.8 "Preferences").
+  var preferencesSent = false;
   var PORTS = { gtp: 6363, analysis: 6364, handol: 11985 };
 
   var board = new GoBoard($('board'), {
@@ -139,6 +142,7 @@
         break;
       case 'error':
         setStatus(message.message, true);
+        reconcilePreferences();
         break;
     }
   }
@@ -162,8 +166,31 @@
     var text = JSON.stringify(preferences);
     if (text === preferencesShown) return;
     preferencesShown = text;
+    preferencesSent = false;
     i18n.useAccountLang(preferences.lang);
     tupleEditor.usePresets(preferences.presets);
+  }
+
+  // A `preferences` (§4.1) is refused whole, and a refusal brings no new `state`: the page would
+  // otherwise go on showing an entry the account does not hold. So an `error` after one was sent
+  // puts the language and the menu back to what the last `state` carried (§3.8 "Preferences").
+  function reconcilePreferences() {
+    if (!preferences || !preferencesSent) return;
+    preferencesSent = false;
+    preferencesShown = null;
+    applyPreferences(preferences);
+  }
+
+  // The two `preferences` sends of §4.1. Each marks the send unanswered, so the `error` a
+  // refusal brings can put the page back to what the account holds.
+  function sendLang(lang) {
+    preferencesSent = true;
+    send({ type: 'preferences', lang: lang });
+  }
+
+  function sendPresets(list) {
+    preferencesSent = true;
+    send({ type: 'preferences', presets: list });
   }
 
   function applyState(message) {
@@ -795,7 +822,7 @@
       redrawView();
     },
     // The account keeps the presets: they are saved by being sent (§4.1, §8.5).
-    onPresets: function (list) { send({ type: 'preferences', presets: list }); },
+    onPresets: function (list) { sendPresets(list); },
     notify: function (text, isError) { setStatus(text, isError); }
   });
 
@@ -1031,7 +1058,7 @@
   $('lang').onchange = function () {
     i18n.setLang(this.value);
     // Saved in this browser, or by being sent when the account keeps it (§3.8, §8.5).
-    if (preferences) send({ type: 'preferences', lang: i18n.lang() });
+    if (preferences) sendLang(i18n.lang());
   };
   // A language the account carries arrives with a state, so the select follows it too.
   i18n.onChange(function () { $('lang').value = i18n.lang(); });

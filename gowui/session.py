@@ -71,9 +71,12 @@ MAX_LANG_NAME = 16
 #: A preset tuple is checked as if searching, as the page's Import checks one (§3.8, §4.1), so a
 #: λ preset is not refused over the session's own Visits setting.
 PRESET_VISITS = 2
-#: A language name is a token: no space, no control character (§4.1). The server holds no list of
-#: languages; a name no table of the page knows is ignored there, as a saved one is (§8.5).
-LANG_PATTERN = re.compile(r"[^\s\x00-\x1f\x7f-\x9f]{1,%d}" % MAX_LANG_NAME)
+#: What no name a browser sends may hold (§4.1): a control character (C0 or C1), a lone surrogate
+#: — text no non-ASCII serialiser can write — or whitespace other than the plain space a preset
+#: name may hold inside it. A newline in a preset name would let it fake a line of the page's
+#: confirmation dialogs (§3.8). A language name is a token and holds no space at all; the server
+#: holds no list of languages, and a name no table of the page knows is ignored there (§8.5).
+BAD_NAME_CHAR = re.compile(r"[\x00-\x1f\x7f-\x9f\ud800-\udfff]|[^\S ]")
 #: Thumbnail heatmaps are rounded to keep ``state`` small.
 THUMB_DECIMALS = 3
 #: How long closing an engine may take before the session stops waiting for it.
@@ -245,9 +248,18 @@ def _profile_ok(value: Any) -> bool:
     return isinstance(value, str) and PROFILE_PATTERN.fullmatch(value) is not None
 
 
+def _name_ok(value: Any, limit: int, *, spaces: bool = False) -> bool:
+    """A name as §4.1 takes one: 1 to ``limit`` characters, none of them refused."""
+    if not isinstance(value, str) or not 1 <= len(value) <= limit:
+        return False
+    if not spaces and " " in value:
+        return False
+    return BAD_NAME_CHAR.search(value) is None
+
+
 def _lang_ok(value: Any) -> bool:
     """A UI language name as §4.1 takes it; the page ignores one no table of its own names."""
-    return isinstance(value, str) and LANG_PATTERN.fullmatch(value) is not None
+    return _name_ok(value, MAX_LANG_NAME)
 
 
 def _preset_problem(entry: Any) -> str | None:
@@ -259,6 +271,9 @@ def _preset_problem(entry: Any) -> str | None:
         return "a preset needs a name"
     if len(name.strip()) > MAX_PRESET_NAME:
         return f"a preset name is at most {MAX_PRESET_NAME} characters"
+    if not _name_ok(name.strip(), MAX_PRESET_NAME, spaces=True):
+        return ("a preset name holds no control character, no lone surrogate and no whitespace "
+                "beyond a plain space")
     problem = tuple_problem(entry["tuple"], PRESET_VISITS)
     if problem is not None:
         return f"refused the preset {name.strip()[:ECHO]!r}: {problem}"
@@ -855,6 +870,10 @@ class GameSession:
     def _msg_preferences(self, message: dict) -> None:
         """Change the identity's language and tuple presets (§4.1); every field is optional.
 
+        A field that is absent is unchanged. ``lang`` is present, not absent, when it is
+        ``null``: that clears the stored language, the one way ``state.preferences.lang`` goes
+        back to ``null`` (§4.2).
+
         Refused whole, changing nothing, when the storage policy keeps no preferences or when
         anything in the message is outside the bounds of §7.6 — unlike a stored value, which is
         read with what the same rules refuse dropped (§6.4).
@@ -864,12 +883,12 @@ class GameSession:
         if len(json.dumps(message)) > MAX_PREFERENCES_BYTES:
             raise _Refused(f"the preferences are larger than {MAX_PREFERENCES_BYTES} bytes")
         preferences = copy.deepcopy(self._preferences)
-        if message.get("lang") is not None:
-            if not _lang_ok(message["lang"]):
-                raise _Refused(f"the language must be a name of 1 to {MAX_LANG_NAME} characters "
-                               "without spaces or control characters")
+        if "lang" in message:
+            if message["lang"] is not None and not _lang_ok(message["lang"]):
+                raise _Refused(f"the language must be null or a name of 1 to {MAX_LANG_NAME} "
+                               "characters without spaces, control characters or lone surrogates")
             preferences["lang"] = message["lang"]
-        if message.get("presets") is not None:
+        if "presets" in message:
             presets = message["presets"]
             if not isinstance(presets, list):
                 raise _Refused("the presets must be a list")

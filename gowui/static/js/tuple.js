@@ -163,11 +163,47 @@
   /* -- presets saved in this browser ----------------------------------- */
   var STORE = 'gowui.userPresets';
 
+  /* The caps of §7.6 and the name rules of §4.1, held here as well as on the server: a
+     `preferences` message is refused whole, so one name the server would refuse would block
+     every later save of the list too (§3.8 "Preferences"). */
+  var MAX_PRESETS = 64;
+  var MAX_PRESET_NAME = 40;
+  // Whitespace other than a plain space, and a C0 or C1 control: a newline would let a name fake
+  // a line of the confirmation dialogs below.
+  var BAD_NAME_CHAR = /[ --]|[^\S ]/;
+
+  // Code points, as the server counts them: a name of 40 emoji is 40 characters, not 80 units.
+  function nameLength(name) { return Array.from(name).length; }
+
+  // A surrogate that is no half of a pair -- text no non-ASCII serialiser can write (§4.1).
+  function loneSurrogate(name) {
+    for (var i = 0; i < name.length; i++) {
+      var unit = name.charCodeAt(i);
+      if (unit >= 0xD800 && unit <= 0xDBFF) {
+        var next = name.charCodeAt(i + 1);
+        if (!(next >= 0xDC00 && next <= 0xDFFF)) return true;
+        i += 1;
+      } else if (unit >= 0xDC00 && unit <= 0xDFFF) return true;
+    }
+    return false;
+  }
+
+  /** Why the account would refuse ``name`` as a preset name (§4.1), as text, or null. */
+  function nameProblem(name) {
+    var t = global.i18n.t;
+    if (nameLength(name) > MAX_PRESET_NAME) {
+      return t('preset.nameLong', { max: MAX_PRESET_NAME });
+    }
+    if (BAD_NAME_CHAR.test(name) || loneSurrogate(name)) return t('preset.nameChars');
+    return null;
+  }
+
   // A stored entry is read with the rules a sent one must pass (§8.5): what the panel offers is
   // always something the mux would take. Checked as if searching, as Import is, so a λ preset is
   // not dropped over Visits.
   function usablePreset(p) {
-    return !!p && typeof p.name === 'string' && !!p.name.trim() && problem(p.tuple, 2) === null;
+    if (!p || typeof p.name !== 'string' || !p.name.trim()) return false;
+    return nameProblem(p.name.trim()) === null && problem(p.tuple, 2) === null;
   }
 
   function loadUserPresets() {
@@ -510,8 +546,18 @@
       if (name === null) return;
       name = name.trim();
       if (!name) return;
+      // Refused here, before anything is sent, so one bad name never wedges the next save (§3.8).
+      var refusal = nameProblem(name);
+      var known = userPresets.filter(function (p) { return p.name === name; })[0];
+      if (!refusal && !known && userPresets.length >= MAX_PRESETS) {
+        refusal = t('preset.full', { max: MAX_PRESETS });
+      }
+      if (refusal) {
+        if (opts.notify) opts.notify(refusal, true);
+        return;
+      }
       var tuple = copy(tuples[active]);
-      var existing = userPresets.filter(function (p) { return p.name === name; })[0];
+      var existing = known;
       if (existing) {
         if (!global.confirm(t('preset.overwrite', { name: name }))) return;
         existing.tuple = tuple;
@@ -558,12 +604,19 @@
         }
         var added = 0, skipped = 0;
         list.forEach(function (p) {
+          // An entry the account would refuse, and one past the 64 presets of §7.6, are skipped
+          // rather than sent: the whole list would otherwise be refused with them (§3.8).
           if (!usablePreset(p)) {
             skipped += 1;
             return;
           }
           var name = p.name.trim();
-          userPresets = userPresets.filter(function (q) { return q.name !== name; });
+          var without = userPresets.filter(function (q) { return q.name !== name; });
+          if (without.length >= MAX_PRESETS) {
+            skipped += 1;
+            return;
+          }
+          userPresets = without;
           userPresets.push({ name: name, tuple: copy(p.tuple) });
           added += 1;
         });

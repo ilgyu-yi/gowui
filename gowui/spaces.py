@@ -362,7 +362,8 @@ class SpaceRegistry:
 
     # -- saving (§8.2) ----------------------------------------------------------------------------
     async def _save(self, space: Space) -> bool:
-        """Save the space if it changed; whether its current snapshot is stored (§8.2)."""
+        """Save what changed — the snapshot, and the preferences the storage keeps (§6.4) —
+        and report whether all of it is stored, which decides a release (§8.2)."""
         # Shielded: a cancelled caller never leaves a write running outside the save lock.
         return await asyncio.shield(self._save_now(space))
 

@@ -195,11 +195,10 @@ class Store:
 
     def remove_user(self, name: str) -> bool:
         """Delete the account, its logins, its snapshot, its preferences and its set-aside rows;
-        ``False`` when
-        there is no such account. Like ``set_password`` (§8.4), the lookup runs inside the
-        transaction and the delete must touch one row: a ``remove`` plus an ``add`` of the same
-        name that lands first is answered ``False``, never ``ok`` over an account of that name
-        that is still there."""
+        ``False`` when there is no such account. Like ``set_password`` (§8.4), the lookup runs
+        inside the transaction and the delete must touch one row: a ``remove`` plus an ``add`` of
+        the same name that lands first is answered ``False``, never ``ok`` over an account of that
+        name that is still there."""
         with self._lock:
             self._db.execute("BEGIN IMMEDIATE")
             try:
