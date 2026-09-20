@@ -504,18 +504,36 @@
     global.document.documentElement.lang = lang;
   }
 
-  function setLang(next) {
-    if (!own(STRINGS, next) || next === lang) return;
+  // Written until the server says it keeps the language for the account (§8.5).
+  var inBrowser = true;
+
+  function switchTo(next) {
+    if (!own(STRINGS, next) || next === lang) return false;
     lang = next;
-    try { global.localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* ignore */ }
     apply();
     listeners.forEach(function (fn) { fn(lang); });
+    return true;
+  }
+
+  function setLang(next) {
+    if (!switchTo(next)) return;
+    if (!inBrowser) return;
+    try { global.localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* ignore */ }
+  }
+
+  // The account keeps the language (§4.2 `preferences`): this browser stops storing it, and the
+  // account's choice — when it names a table — replaces the page's initial one (§3.8).
+  function useAccountLang(saved) {
+    inBrowser = false;
+    switchTo(saved);
   }
 
   global.i18n = {
     t: t,
     apply: apply,
     setLang: setLang,
+    useAccountLang: useAccountLang,
+    keptInBrowser: function () { return inBrowser; },
     lang: function () { return lang; },
     onChange: function (fn) { listeners.push(fn); }
   };

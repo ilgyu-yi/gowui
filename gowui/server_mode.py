@@ -27,7 +27,7 @@ from starlette.responses import HTMLResponse, PlainTextResponse, RedirectRespons
 from .engine import PROTOCOLS
 from .guard import client_address, request_is_https, trusted_peer
 from .policies import Identity, Policies
-from .session import EngineRequestError, EngineTarget
+from .session import EngineRequestError, EngineTarget, clean_preferences
 from .store import Store, valid_name, valid_password
 
 __all__ = ["CatalogAddresses", "CatalogEntry", "ConfigError", "LoginThrottle", "SIGN_IN_TEXT",
@@ -207,6 +207,11 @@ class CatalogAddresses:
 
 # -- storage (§6.4, §8.4) ---------------------------------------------------------------------------------
 class SqliteStorage:
+    """The server storage (§6.4): one snapshot and one set of preferences per identity key."""
+
+    #: Server mode keeps the identity's language and tuple presets (§6.4, §8.4).
+    keeps_preferences = True
+
     def __init__(self, store: Store) -> None:
         self.store = store
 
@@ -218,6 +223,14 @@ class SqliteStorage:
 
     def set_aside(self, key: str, reason: str) -> None:
         self.store.set_aside(key, reason)
+
+    def load_preferences(self, key: str) -> dict | None:
+        """The stored preferences, read with what the rules of §4.1 refuse dropped (§6.4)."""
+        stored = self.store.load_preferences(key)
+        return None if stored is None else clean_preferences(stored)
+
+    def save_preferences(self, key: str, preferences: dict) -> None:
+        self.store.save_preferences(key, preferences)
 
 
 # -- login throttling (§7.1) --------------------------------------------------------------------------------

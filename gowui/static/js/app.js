@@ -30,6 +30,11 @@
   // The engine catalog from /api/health when the server offers one instead of typed
   // addresses (engineAddress.kind === 'catalog'); null for typed addresses.
   var catalog = null;
+  // The account's preferences while the server keeps them (state.preferences, SPEC §4.2); null
+  // while it does not, and the language and the presets then live in this browser (§8.5).
+  var preferences = null;
+  // The JSON of the preferences last applied, so a state that repeats them rebuilds nothing.
+  var preferencesShown = null;
   var PORTS = { gtp: 6363, analysis: 6364, handol: 11985 };
 
   var board = new GoBoard($('board'), {
@@ -149,8 +154,21 @@
             }).join('')].join(':');
   }
 
+  // The account's language and presets are the source of truth while the server keeps them
+  // (§3.8 "Preferences"); this browser then stores neither (§8.5).
+  function applyPreferences(kept) {
+    preferences = kept && typeof kept === 'object' ? kept : null;
+    if (!preferences) return;
+    var text = JSON.stringify(preferences);
+    if (text === preferencesShown) return;
+    preferencesShown = text;
+    i18n.useAccountLang(preferences.lang);
+    tupleEditor.usePresets(preferences.presets);
+  }
+
   function applyState(message) {
     var previousKey = state.game ? positionKey(state.game) : null;
+    applyPreferences(message.preferences);
     state.game = message.game;
     state.engine = message.engine;
     state.settings = message.settings;
@@ -776,6 +794,8 @@
       if (on) $('compare-view').value = 'diff';
       redrawView();
     },
+    // The account keeps the presets: they are saved by being sent (§4.1, §8.5).
+    onPresets: function (list) { send({ type: 'preferences', presets: list }); },
     notify: function (text, isError) { setStatus(text, isError); }
   });
 
@@ -1008,7 +1028,13 @@
   });
 
   $('lang').value = i18n.lang();
-  $('lang').onchange = function () { i18n.setLang(this.value); };
+  $('lang').onchange = function () {
+    i18n.setLang(this.value);
+    // Saved in this browser, or by being sent when the account keeps it (§3.8, §8.5).
+    if (preferences) send({ type: 'preferences', lang: i18n.lang() });
+  };
+  // A language the account carries arrives with a state, so the select follows it too.
+  i18n.onChange(function () { $('lang').value = i18n.lang(); });
   i18n.onChange(function () {
     if (!state.game) return;
     renderBoards();

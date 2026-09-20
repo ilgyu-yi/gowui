@@ -33,7 +33,7 @@ from .engine import Analysis, ConnectionClosed, Engine, EngineError, Position, c
 from .engine.human import MOVE_STYLES, check_policies, tuple_problem
 from .game import MAX_MOVES, Game
 
-__all__ = ["EngineRequestError", "EngineTarget", "GameSession"]
+__all__ = ["EngineRequestError", "EngineTarget", "GameSession", "clean_preferences"]
 
 #: Lines of traffic log a space keeps, and how many a newly attached tab receives (§3.6).
 MAX_LOG_LINES = 400
@@ -63,6 +63,17 @@ MAX_REQUEST_ENTRIES = 16
 MAX_REQUEST_TEXT = 256
 #: A handol-mux profile name (§2.5, §7.6).
 PROFILE_PATTERN = re.compile(r"[A-Za-z0-9_.\-]{1,64}")
+#: The preferences a storage policy may keep (§4.1, §6.4, §8.5): the caps of §7.6.
+MAX_PREFERENCES_BYTES = 64 * 1024
+MAX_PRESETS = 64
+MAX_PRESET_NAME = 40
+MAX_LANG_NAME = 16
+#: A preset tuple is checked as if searching, as the page's Import checks one (§3.8, §4.1), so a
+#: λ preset is not refused over the session's own Visits setting.
+PRESET_VISITS = 2
+#: A language name is a token: no space, no control character (§4.1). The server holds no list of
+#: languages; a name no table of the page knows is ignored there, as a saved one is (§8.5).
+LANG_PATTERN = re.compile(r"[^\s\x00-\x1f\x7f-\x9f]{1,%d}" % MAX_LANG_NAME)
 #: Thumbnail heatmaps are rounded to keep ``state`` small.
 THUMB_DECIMALS = 3
 #: How long closing an engine may take before the session stops waiting for it.
@@ -234,6 +245,46 @@ def _profile_ok(value: Any) -> bool:
     return isinstance(value, str) and PROFILE_PATTERN.fullmatch(value) is not None
 
 
+def _lang_ok(value: Any) -> bool:
+    """A UI language name as §4.1 takes it; the page ignores one no table of its own names."""
+    return isinstance(value, str) and LANG_PATTERN.fullmatch(value) is not None
+
+
+def _preset_problem(entry: Any) -> str | None:
+    """The first problem with one tuple preset (§4.1), or ``None``."""
+    if not isinstance(entry, dict) or set(entry) != {"name", "tuple"}:
+        return "a preset is an object with a name and a tuple only"
+    name = entry["name"]
+    if not isinstance(name, str) or not name.strip():
+        return "a preset needs a name"
+    if len(name.strip()) > MAX_PRESET_NAME:
+        return f"a preset name is at most {MAX_PRESET_NAME} characters"
+    problem = tuple_problem(entry["tuple"], PRESET_VISITS)
+    if problem is not None:
+        return f"refused the preset {name.strip()[:ECHO]!r}: {problem}"
+    return None
+
+
+def _stored_preset(entry: dict) -> dict:
+    """One preset as it is stored: the trimmed name and a copy of its tuple."""
+    return {"name": entry["name"].strip(), "tuple": copy.deepcopy(entry["tuple"])}
+
+
+def clean_preferences(value: Any) -> dict:
+    """``value`` as preferences (§4.2), with whatever the rules of §4.1 refuse dropped.
+
+    What a storage policy reads back is taken this way, not refused as a whole (§6.4): a
+    hand-edited row loses the entries the rules refuse, as a browser-stored preset does when the
+    page reads its list (§8.5).
+    """
+    source = value if isinstance(value, dict) else {}
+    lang = source.get("lang")
+    raw = source.get("presets")
+    presets = raw[:MAX_PRESETS] if isinstance(raw, list) else []
+    return {"lang": lang if _lang_ok(lang) else None,
+            "presets": [_stored_preset(p) for p in presets if _preset_problem(p) is None]}
+
+
 def _flat_request(value: Any) -> dict | None:
     """A restored engine request if it is a flat, small object of scalars, else ``None`` (§8.1).
     Checked without recursion, so a hostile snapshot cannot raise anything but ``ValueError``."""
@@ -291,10 +342,14 @@ class GameSession:
     """The state a space's browser tabs talk to (SPEC §3)."""
 
     def __init__(self, resolve_engine: Resolver, *, expose_address: bool = True,
-                 broadcast: Broadcast | None = None) -> None:
+                 broadcast: Broadcast | None = None,
+                 preferences: dict | None = None) -> None:
         self._resolve = resolve_engine
         self.expose_address = bool(expose_address)
         self._broadcast = broadcast
+        #: The identity's preferences when the storage policy keeps them, else ``None`` — the
+        #: page then keeps the language and the presets in the browser (§6.4, §8.5).
+        self._preferences = None if preferences is None else clean_preferences(preferences)
         self.boards: list[BoardSlot] = [BoardSlot(1, "Board 1", Game(19))]
         self.active_board = 1
         self._board_ids = itertools.count(2)
@@ -431,6 +486,11 @@ class GameSession:
         return next(s for s in self.boards if s.id == self.active_board)
 
     @property
+    def preferences(self) -> dict | None:
+        """What a save would store for this identity, or ``None`` when none are kept (§6.4)."""
+        return None if self._preferences is None else copy.deepcopy(self._preferences)
+
+    @property
     def game(self) -> Game:
         return self._active.game
 
@@ -467,6 +527,7 @@ class GameSession:
                 "humanPolicy": copy.deepcopy(slot.policy),
                 "humanCompare": copy.deepcopy(slot.compare),
             },
+            "preferences": copy.deepcopy(self._preferences),
             "status": self.status,
             "thinking": self.thinking,
             "boards": [self._thumbnail(s) for s in self.boards],
@@ -790,6 +851,37 @@ class GameSession:
         self._configure_engine()
         self._emit_state()
         self._request_analysis()
+
+    def _msg_preferences(self, message: dict) -> None:
+        """Change the identity's language and tuple presets (§4.1); every field is optional.
+
+        Refused whole, changing nothing, when the storage policy keeps no preferences or when
+        anything in the message is outside the bounds of §7.6 — unlike a stored value, which is
+        read with what the same rules refuse dropped (§6.4).
+        """
+        if self._preferences is None:
+            raise _Refused("preferences are kept in this browser, not for the account")
+        if len(json.dumps(message)) > MAX_PREFERENCES_BYTES:
+            raise _Refused(f"the preferences are larger than {MAX_PREFERENCES_BYTES} bytes")
+        preferences = copy.deepcopy(self._preferences)
+        if message.get("lang") is not None:
+            if not _lang_ok(message["lang"]):
+                raise _Refused(f"the language must be a name of 1 to {MAX_LANG_NAME} characters "
+                               "without spaces or control characters")
+            preferences["lang"] = message["lang"]
+        if message.get("presets") is not None:
+            presets = message["presets"]
+            if not isinstance(presets, list):
+                raise _Refused("the presets must be a list")
+            if len(presets) > MAX_PRESETS:
+                raise _Refused(f"at most {MAX_PRESETS} presets are kept")
+            for entry in presets:
+                problem = _preset_problem(entry)
+                if problem is not None:
+                    raise _Refused(problem)
+            preferences["presets"] = [_stored_preset(p) for p in presets]
+        self._preferences = preferences
+        self._emit_state()
 
     def _configure_engine(self, engine: Engine | None = None) -> None:
         """Hand a handol-mux engine the active board's settings (§3.4); only stores."""
@@ -1473,6 +1565,7 @@ class GameSession:
         "board_rename": _msg_board_rename,
         "raw": _msg_raw,
         "final_score": _msg_final_score,
+        "preferences": _msg_preferences,
         "load_sgf": _msg_load_sgf,
         "state": _msg_state,
     }

@@ -187,6 +187,10 @@
    * Build the editor. ``opts.onChange({policy, compare})`` fires with a valid
    * pair (compare is null when comparison is off); ``opts.visits()`` gives the
    * current Visits setting, which decides whether λ is usable.
+   *
+   * ``opts.onPresets(list)`` fires instead of a write to browser storage once
+   * ``usePresets`` has said the account keeps the presets (§8.5); the caller
+   * sends them (only app.js sends frames, §3.8).
    */
   function mount(opts) {
     var $ = function (id) { return document.getElementById(id); };
@@ -195,6 +199,8 @@
     var comparing = false;
     var active = 'A';
     var userPresets = loadUserPresets();
+    // Set by usePresets(): the account keeps the presets, so this browser stores none (§8.5).
+    var accountPresets = false;
     var timer = null;
     var fieldInputs = {};
     var knobParts = {};
@@ -338,6 +344,14 @@
       });
       fillPresetMenu();
       render();
+    }
+
+    // Where a saved list goes: to the account through the caller, or to browser storage (§8.5).
+    function saveUserPresets(list) {
+      if (!accountPresets) { storeUserPresets(list); return; }
+      if (opts.onPresets) opts.onPresets(list.map(function (p) {
+        return { name: p.name, tuple: copy(p.tuple) };
+      }));
     }
 
     function fillPresetMenu() {
@@ -504,7 +518,7 @@
       } else {
         userPresets.push({ name: name, tuple: tuple });
       }
-      storeUserPresets(userPresets);
+      saveUserPresets(userPresets);
       fillPresetMenu();
       if (opts.notify) opts.notify(t('preset.saved', { name: name }));
     });
@@ -515,7 +529,7 @@
       var name = value.slice(5);
       if (!global.confirm(t('preset.confirmDelete', { name: name }))) return;
       userPresets = userPresets.filter(function (p) { return p.name !== name; });
-      storeUserPresets(userPresets);
+      saveUserPresets(userPresets);
       fillPresetMenu();
     });
 
@@ -553,7 +567,7 @@
           userPresets.push({ name: name, tuple: copy(p.tuple) });
           added += 1;
         });
-        storeUserPresets(userPresets);
+        saveUserPresets(userPresets);
         fillPresetMenu();
         if (opts.notify) opts.notify(t('preset.imported', { added: added, skipped: skipped }), skipped > 0);
       });
@@ -574,6 +588,17 @@
         if (comparing) tuples.B = copy(compare);
         if (!comparing) active = 'A';
         render();
+      },
+      /**
+       * The account keeps the presets (§4.2 `preferences`): show these instead of this
+       * browser's, and store none here from now on (§8.5).
+       */
+      usePresets: function (list) {
+        accountPresets = true;
+        userPresets = (Array.isArray(list) ? list : []).filter(usablePreset).map(function (p) {
+          return { name: p.name.trim(), tuple: copy(p.tuple) };
+        });
+        fillPresetMenu();
       },
       /** Re-check after something the verdict depends on (Visits) changed. */
       recheck: check,
