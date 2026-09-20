@@ -147,7 +147,9 @@ game's length, and reading an SGF is linear in its number of moves.
 
 `resign` is not a vertex: resigning is its own action, which sets the result (`W+R` when Black
 resigns, `B+R` when White does) and ends the game. A move played after a result is set — at the
-end, or branching from an earlier position — clears the result, and so does undo.
+end, or branching from an earlier position — clears the result, and so does undo. Discarding the
+later moves at a past cursor clears it too, even when no move is played in their place (§3.2): the
+result described a game those moves are no longer part of.
 
 **Game over** is a property of the position at the cursor: the two moves before it are passes, or
 the result is a resignation (`B+R`, `W+R`, `B+Resign`, `W+Resign`) and the cursor is at the last
@@ -821,6 +823,10 @@ reconnect delay and clears the status. When it closes:
   sent, whose `303` navigation is left to finish. The page itself never learns which mode it runs in;
 - with `4403` (§4.3), the page does not reconnect and the status says why — refused by the Host
   and Origin rules (§7.4) — and keeps saying it until the page is reloaded;
+- with `4429` (§4.3), the page does not reconnect and the status says why — this identity already
+  holds the most sockets it may (§7.6), so another tab must be closed — and keeps saying it until
+  the page is reloaded. Reconnecting cannot help: the cap is still reached on the next try, and a
+  page that retried would spend the server's handshakes for nothing while showing an empty board;
 - with any other code (`1009`, `1013`, a lost network, a server restart), the status shows the
   lost-connection text (`status.lost`: "Lost the connection to gowui; reconnecting...") and the
   page reconnects after 0.5 s, doubling the delay after each failed try up to 8 s. The attach
@@ -951,9 +957,12 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   `log_history`, and the last `analysis`, as described in §4.2). No broadcast can land between
   the attach frames and the tab's registration, so none is lost or duplicated.
 - **Socket cap.** One identity holds at most 32 sockets at once (§7.6). A handshake past the cap
-  is accepted, attached to nothing and closed with `1013` ("try again later"), so a signed-in
-  client that reconnects in a loop cannot spend the server's memory on attach frames; 32 is well
-  past what a person's tabs need, and a closed socket frees its place at once.
+  is accepted, attached to nothing and closed with `4429`, so a signed-in client that reconnects
+  in a loop cannot spend the server's memory on attach frames; 32 is well past what a person's
+  tabs need, and a closed socket frees its place at once. The code is the cap's own, not the
+  `1013` of Overflow below: a refusal that no retry can lift must be told apart from a tab the
+  server dropped for being slow, which is what lets the page stop reconnecting and say why
+  (§3.8 "Connection") instead of retrying forever against an empty board.
 - **Broadcast** never awaits. It serialises a frame to JSON text once, then puts that text into
   each tab's bounded queue with `put_nowait`. One sender task per tab drains its queue in order.
 - **Coalescing.** A `state` or an `analysis` frame supersedes an earlier frame of its type: the
@@ -1406,7 +1415,7 @@ the served policy and fails on any `securitypolicyviolation` event or console er
 | Raw console command | 1,000 characters, one line |
 | `play` vertex | 8 characters |
 | Rule-set name (`new_game`) | 40 characters |
-| Open WebSockets per identity | 32 (a further handshake is closed with `1013`, §4.3) |
+| Open WebSockets per identity | 32 (a further handshake is closed with `4429`, §4.3) |
 
 Out-of-range numbers are clamped and board names truncated; other oversize input is refused with
 an error.
@@ -1668,9 +1677,12 @@ One SQLite file, `GOWUI_DB`, holds four tables:
 - **Accounts.** `add` relies on the unique name constraint (no check-then-insert), so the server
   and the CLI cannot create the same name twice. `remove` deletes, by account id, the account, its
   logins, its `states` row and its `set_aside` rows: a name that is reused later starts clean.
-  `passwd` replaces the hash and deletes the account's logins; it looks the name up inside its own
-  transaction and requires the update to touch exactly one row, so a `remove` that lands first
-  makes it report no such account rather than reporting success while changing nothing.
+  `passwd` replaces the hash and deletes the account's logins. Both look the name up inside their
+  own transaction and require the delete or the update to touch exactly one row, so a `remove`
+  that lands first makes the other report no such account rather than reporting success while
+  changing nothing — for `remove` that matters when the name is added again in between, where
+  reporting `ok` over the row it did not delete would say the account is gone while one of that
+  name is there.
 
 ### 8.5 Browser storage
 
