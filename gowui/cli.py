@@ -6,6 +6,7 @@ bundle. ``gowui`` and ``gowui local`` run local mode; ``gowui serve`` runs serve
 from __future__ import annotations
 
 import argparse
+import asyncio
 import getpass
 import ipaddress
 import logging
@@ -167,11 +168,24 @@ def url_line(host: str, port: int) -> str:
 
 
 class _Server(uvicorn.Server):
-    """Prints the URL line once the socket is bound."""
+    """Prints the URL line once the socket is bound, and remembers a SIGINT it handled.
+
+    uvicorn re-raises the signal it captured when its run ends, but the handler it restores is
+    asyncio's runner, which answers by cancelling the main task instead of raising
+    ``KeyboardInterrupt``; the runner raises it back only while its own count still matches. The
+    exit status must not ride on that relay (§9 "Stopping"), so the signal is recorded where it
+    is handled.
+    """
 
     def __init__(self, config: uvicorn.Config, host: str) -> None:
         super().__init__(config)
         self._host = host
+        self.interrupted = False
+
+    def handle_exit(self, sig: int, frame: Any = None) -> None:
+        if sig == signal.SIGINT:
+            self.interrupted = True
+        super().handle_exit(sig, frame)
 
     async def startup(self, sockets: Any = None) -> None:
         await super().startup(sockets=sockets)
@@ -257,14 +271,20 @@ def main(argv: list[str] | None = None) -> int:
             config = build_config(args)
         except StateFileError as exc:
             _parser().error(str(exc))  # a usage error: exits with status 2 (§9)
+    server = _Server(config, args.host)
+    interrupted = False
     try:
-        _Server(config, args.host).run()
+        server.run()
     except KeyboardInterrupt:  # Ctrl-C after a clean shutdown (§9 "Stopping")
-        if store is not None:
-            store.close()
-        return _die_by_sigint()
+        interrupted = True
+    except asyncio.CancelledError:  # the same Ctrl-C, relayed as a cancellation
+        if not server.interrupted:
+            raise
+        interrupted = True
     if store is not None:
         store.close()
+    if interrupted or server.interrupted:
+        return _die_by_sigint()
     return 0
 
 
