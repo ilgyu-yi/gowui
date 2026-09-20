@@ -18,7 +18,7 @@ body=$(mktemp)
 hardening=(--read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges)
 
 cleanup() {
-  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker rm -f "$name" "$name-refuse" >/dev/null 2>&1 || true
   docker volume rm -f "$volume" >/dev/null 2>&1 || true
   rm -f "$body"
 }
@@ -82,9 +82,15 @@ users=$(docker exec "$name" gowui user list)
 grep -qx alice <<<"$users" || fail "alice is gone after a restart (users: $users)"
 ok "alice survives a restart on the same volume"
 
-if docker run --rm "${hardening[@]}" -e GOWUI_AUTH=header "$image" >/dev/null 2>&1; then
-  fail "GOWUI_AUTH=header without GOWUI_TRUSTED_PROXIES started"
-fi
-ok "a malformed configuration refuses to start"
+# The refusal happens before anything is bound (SPEC §7.9), so it is immediate; the timeout is
+# there so a regression that starts and serves instead fails in 30s rather than hanging the job.
+status=0
+timeout 30 docker run --rm --name "$name-refuse" "${hardening[@]}" -e GOWUI_AUTH=header "$image" \
+  >/dev/null 2>&1 || status=$?
+case $status in
+  0) fail "GOWUI_AUTH=header without GOWUI_TRUSTED_PROXIES started" ;;
+  124) fail "GOWUI_AUTH=header without GOWUI_TRUSTED_PROXIES ran for 30s instead of refusing" ;;
+esac
+ok "a malformed configuration refuses to start (status $status)"
 
 echo "container_smoke: all checks passed for $image"
