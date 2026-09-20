@@ -300,13 +300,18 @@ context.window = context;
 vm.createContext(context);
 vm.runInContext(source, context, { filename: 'i18n.js' });
 const initial = context.i18n.lang();
+const text = (key) => {
+  const value = context.i18n.t(key);
+  return typeof value === 'string' ? value : typeof value;   // a function would be an inherited one
+};
+const looked = { inherited: text('constructor'), known: text('status.refused') };
 context.i18n.setLang(next);
 process.stdout.write(JSON.stringify({
   initial: initial,
   after: context.i18n.lang(),
   stored: stored['gowui.lang'] === undefined ? null : stored['gowui.lang'],
-  inherited: context.i18n.t('constructor'),
-  known: context.i18n.t('status.refused')
+  inherited: looked.inherited,
+  known: looked.known
 }));
 """
 
