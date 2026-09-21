@@ -624,9 +624,13 @@ too follows the data, never a mode name.
   cursor 0; +1, +10 and last at the end. Pass, Undo and Resign send `pass`, `undo` and `resign`.
   A click on a board point sends `play` for the side to move.
 - **Analysis section:** a "Continuous analysis" checkbox (`analysis`); Visits and Every (seconds)
-  fields, sent as `engine_params` when changed — an empty Visits field, or one that is not a
-  whole number of at least 1, sends no visit change (the frame's other fields still go), so the
-  setting keeps the value it had and the field is filled again from the next `state`; the Label
+  fields, sent as `engine_params` when changed — a field holding no usable number is left out of
+  the frame (the frame's other fields still go), so that setting keeps the value it had and the
+  field is filled again from the next `state`. Visits is usable as a whole number of at least 1,
+  so an empty field, `0` and a typed `1.9` each send no visit change, and none of them is
+  truncated to a number the user did not type; Every is usable as a number above 0, so an empty
+  field and `0` send no interval change instead of the page's own 0.4. A usable number the
+  settings hold out of range is sent and clamped there (§3.4), not dropped here; the Label
   select (below); Ownership, Raw policy
   heatmap and Move numbers checkboxes; the candidate table. Ownership is the server's setting
   (`includeOwnership`): ticking it sends `engine_params`, and its tick follows `state`. The label
@@ -821,6 +825,12 @@ account signed in from another browser shows the same language and the same pres
 that names no table is ignored, as a saved one is, and a preset entry the tuple rules refuse is
 dropped from the menu, as a stored one is (§8.5). While `preferences` is `null` the page reads
 and writes the two `localStorage` keys of §8.5, as it does with no server preferences at all.
+
+Which of the two it is, the page learns from the first `state`, and it shows nothing of either
+before that: the preset menu holds the built-in presets alone until the first `state` says whose
+own presets go under them, so a page the account keeps the presets for never shows this browser's
+presets, not even for the moment before the frame arrives. The first `state` carrying a
+`preferences` object also clears both keys (§8.5).
 
 The page holds the bounds of §4.1 and §7.6 itself, before it sends, because `preferences` is
 refused whole: one entry the server would refuse would otherwise block every later save too.
@@ -1792,6 +1802,14 @@ exactly two keys:
 | `gowui.userPresets` | JSON list of `{"name": <str>, "tuple": <object>}` (§3.8); an unreadable value counts as an empty list, and an entry without a name, with a name §4.1 refuses, or with a tuple §2.5 refuses (checked as if searching, as Import does) is dropped when the list is read |
 
 Nothing else — no board, setting, engine address or identity — is stored in the browser.
+
+**The account takes the keys over.** The page does not merely stop reading the two keys when the
+first `state` carrying a `preferences` object arrives (§3.8 "Preferences"): it removes both, so a
+language and a preset list this browser saved before — in local mode, or under another account on
+a shared machine — do not linger for the next person to read out of storage. The page keeps
+nothing of its own to put back: a later session that the policy leaves to the browser starts from
+the defaults of §3.8, the language `navigator.language` chooses and no presets of its own, which
+is what a browser that had never run gowui starts from too.
 
 ## 9. Command line
 
