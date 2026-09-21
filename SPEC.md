@@ -58,20 +58,20 @@
 | &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1727 |
 | &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1741 |
 | &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1750 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1787 |
-| §8 | Persistence | 1806 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1808 |
-| &nbsp;&nbsp;§8.2 | Saving | 1844 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1877 |
-| &nbsp;&nbsp;§8.4 | Server database | 1919 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1983 |
-| §9 | Command line | 2010 |
-| §10 | Configuration (server) | 2080 |
-| &nbsp;&nbsp;§10.1 | Container | 2118 |
-| §11 | Feature inventory | 2206 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2213 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2251 |
-| §12 | Non-goals | 2269 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1786 |
+| §8 | Persistence | 1805 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1807 |
+| &nbsp;&nbsp;§8.2 | Saving | 1843 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1876 |
+| &nbsp;&nbsp;§8.4 | Server database | 1918 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1982 |
+| §9 | Command line | 2009 |
+| §10 | Configuration (server) | 2079 |
+| &nbsp;&nbsp;§10.1 | Container | 2117 |
+| §11 | Feature inventory | 2205 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2212 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2250 |
+| §12 | Non-goals | 2268 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1703,26 +1703,26 @@ boundaries: a neighbouring letter, digit, `.`, `-` or `_` means the text names s
 (`katagonaut` or `my-katago.example` is left alone when the catalog host is `katago`), while
 `katago:6363`, `[::1]:6363` and the host standing alone are replaced. An address printed as a
 Python tuple is replaced whole, its port with it — `('katago', 6363)` and the four-element form
-an IPv6 address takes, `('::1', 6363, 0, 0)`. A host that is also an
-ordinary word therefore still costs that word — `KataGo` becomes `[engine]` for a catalog host
-named `katago` — because the address must never appear. Withholding a whole log line stays a
+an IPv6 address takes, `('::1', 6363, 0, 0)`. A host that is also an ordinary word therefore still
+costs that word — `KataGo` becomes `[engine]` for a catalog host named `katago` — because the
+address must never appear. Withholding a whole log line stays a
 plain case-insensitive containment test, so no log line can carry the address through a form the
 scrubber does not know. This covers text the engine itself supplied, such as
 handol-mux error messages (§2.5). `state.engine.request` carries only the policy's echo (§4.2),
 and engine text that is not an SGF result never becomes the game's result (§3.5), so it cannot
 reach `state.game`, the snapshot's SGF or a saved SGF. Snapshots store only the `engineId` (§8.1).
 
-What is hidden is the address the request resolved to (§6.3), the configured host and its port. An
-address the name service resolved that host to is not: a line naming the engine's IP address
-rather than its name is neither withheld nor scrubbed. A connection failure carries none, because
-the transport never copies OS error text, which is where the resolved address would appear (§2.1);
-text the engine itself supplies could. Hiding it as well would mean the transport handing the
-session the peer address it actually connected to, to hide beside the configured one.
+What is hidden is the address the engine-address policy chose for the request (§6.3) — the
+configured host and its port. What the name service then makes of that host is not: a line naming
+the engine's IP address rather than its configured name is neither withheld nor scrubbed. A
+connection failure carries no such line, because the transport never copies OS error text, which
+is where that IP address would appear (§2.1); text the engine itself supplies could. Hiding it as
+well would mean the transport handing the session the peer address it actually connected to, to
+hide beside the configured one.
 
-A catalog entry
-with `"console": true` gives every signed-in user raw GTP access to that engine, including KataGo
-commands that read or write files on the engine host (`loadsgf`, `printsgf`); enable it only for
-engines whose operator accepts that.
+A catalog entry with `"console": true` gives every signed-in user raw GTP access to that engine,
+including KataGo commands that read or write files on the engine host (`loadsgf`, `printsgf`);
+enable it only for engines whose operator accepts that.
 
 ### 7.8 Isolation and idle release (server)
 
@@ -1753,10 +1753,9 @@ A TLS-terminating proxy in front of `gowui serve` must be listed in `GOWUI_TRUST
 whatever `GOWUI_AUTH` is. Forwarded headers are read only from a trusted peer, and only for these
 purposes: `X-Forwarded-Proto: https` or `wss` makes the request count as https (so
 `GOWUI_COOKIE_SECURE=auto` sets Secure), `X-Forwarded-Host` is the effective host for the Host and
-origin rules (§7.4), and the last
-address in `X-Forwarded-For` is the client address for login throttling (§7.1). From any other peer
-they are ignored. With no trusted proxy configured, a deployment behind a proxy should set
-`GOWUI_COOKIE_SECURE=1`.
+origin rules (§7.4), and the last address in `X-Forwarded-For` is the client address for login
+throttling (§7.1). From any other peer they are ignored. With no trusted proxy configured, a
+deployment behind a proxy should set `GOWUI_COOKIE_SECURE=1`.
 
 How the forwarded headers are read (both modes; local mode trusts no proxy, so there it never
 applies):
