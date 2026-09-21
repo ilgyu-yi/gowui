@@ -219,6 +219,10 @@
     try { global.localStorage.setItem(STORE, JSON.stringify(list)); } catch (err) { /* ignore */ }
   }
 
+  function clearUserPresets() {
+    try { global.localStorage.removeItem(STORE); } catch (err) { /* ignore */ }
+  }
+
   /**
    * Build the editor. ``opts.onChange({policy, compare})`` fires with a valid
    * pair (compare is null when comparison is off); ``opts.visits()`` gives the
@@ -227,6 +231,11 @@
    * ``opts.onPresets(list)`` fires instead of a write to browser storage once
    * ``usePresets`` has said the account keeps the presets (§8.5); the caller
    * sends them (only app.js sends frames, §3.8).
+   *
+   * The menu offers the built-in presets alone until ``usePresets`` or
+   * ``useBrowserPresets`` says whose own presets go under them, which the first
+   * ``state`` decides: nothing of this browser's is shown to a page whose
+   * account keeps them, not even for the moment before that frame (§3.8).
    */
   function mount(opts) {
     var $ = function (id) { return document.getElementById(id); };
@@ -234,9 +243,11 @@
     var tuples = { A: {}, B: {} };
     var comparing = false;
     var active = 'A';
-    var userPresets = loadUserPresets();
+    var userPresets = [];
     // Set by usePresets(): the account keeps the presets, so this browser stores none (§8.5).
     var accountPresets = false;
+    // Set by either: whose presets these are is settled, so the menu is no longer built-ins only.
+    var presetsSettled = false;
     var timer = null;
     var fieldInputs = {};
     var knobParts = {};
@@ -383,8 +394,13 @@
     }
 
     // Where a saved list goes: to the account through the caller, or to browser storage (§8.5).
+    // While whose presets these are is unsettled — before the first `state` — the menu has read
+    // no stored list, so nothing is written over one.
     function saveUserPresets(list) {
-      if (!accountPresets) { storeUserPresets(list); return; }
+      if (!accountPresets) {
+        if (presetsSettled) storeUserPresets(list);
+        return;
+      }
       if (opts.onPresets) opts.onPresets(list.map(function (p) {
         return { name: p.name, tuple: copy(p.tuple) };
       }));
@@ -648,9 +664,24 @@
        */
       usePresets: function (list) {
         accountPresets = true;
+        presetsSettled = true;
+        // Not merely "stores none": the key goes, so a list saved here before lingers for nobody
+        // (§8.5).
+        clearUserPresets();
         userPresets = (Array.isArray(list) ? list : []).filter(usablePreset).map(function (p) {
           return { name: p.name.trim(), tuple: copy(p.tuple) };
         });
+        fillPresetMenu();
+      },
+      /**
+       * This browser keeps the presets (`state.preferences` is null, §8.5): read the stored
+       * ones now. Read here and not at mount, so a page whose account keeps them never shows
+       * this browser's, not even for the moment before the first `state` (§3.8).
+       */
+      useBrowserPresets: function () {
+        if (presetsSettled) return;
+        presetsSettled = true;
+        userPresets = loadUserPresets();
         fillPresetMenu();
       },
       /** Re-check after something the verdict depends on (Visits) changed. */
