@@ -705,6 +705,10 @@
     edgeTimer = window.setInterval(function () {
       if (!drag || !drag.started) { stopEdgeScroll(); return; }
       if (horizontal) box.scrollLeft += step; else box.scrollTop += step;
+    // The pointer has not moved, but the tiles under it have: recompute, or the drop lands where
+    // it would have without any scrolling and the scroll serves nothing (SPEC 3.8 "Reordering").
+    drag.anchor = anchorAt(clientX, clientY);
+    showDropMark();
     }, 16);
   }
 
@@ -737,7 +741,9 @@
     endDrag();
     drag = { node: node, id: boardId, pointerId: event.pointerId,
              x: event.clientX, y: event.clientY, started: false, anchor: null };
-    if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
+    // The capture is taken at the threshold (below), not here: capturing on pointerdown retargets
+    // the compatibility click and dblclick to this node, and the name's own dblclick handler -
+    // rename in place, SPEC 3.8 - would never run.
   }
 
   function tilePointerMove(event) {
@@ -746,6 +752,7 @@
       if (Math.abs(event.clientX - drag.x) < DRAG_THRESHOLD &&
           Math.abs(event.clientY - drag.y) < DRAG_THRESHOLD) return;
       drag.started = true;
+      if (drag.node.setPointerCapture) drag.node.setPointerCapture(drag.pointerId);
       drag.node.classList.add('dragging');
       $('board-list').classList.add('dragging');
     }

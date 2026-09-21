@@ -129,6 +129,55 @@ def test_dragging_a_tile_past_the_next_one_moves_it(start_app, open_page):
     assert (frame["id"], frame["after"]) == (first, second)
 
 
+def test_a_double_click_on_the_name_still_opens_the_rename_field(start_app, open_page):
+    """§3.8 "Reordering": a press picks nothing up until the pointer has moved a few pixels, so a
+    double-click on the name is still itself — and §3.8 "Rename in place" still swaps the name for
+    a text field. Capturing the pointer on `pointerdown` retargets the compatibility `dblclick` to
+    the tile, and the name's own handler never runs."""
+    g = open_page(start_app()).open()
+    only = g.state()["activeBoard"]
+    tile(g, only).locator(".thumb-name").dblclick()
+    expect(tile(g, only).locator(".thumb-rename")).to_have_count(1)
+
+
+def test_the_edge_scroll_moves_the_drop_target_with_the_strip(start_app, open_page):
+    """§3.8 "Reordering": dragging near an edge scrolls the strip "so a tile can be moved past the
+    ones that fit on screen". Scrolling without moving the drop target does not serve that: the
+    line would stay on the tile the pointer was over before the strip moved, and the frame would
+    name the pre-scroll anchor."""
+    g = open_page(start_app()).open()
+    for _ in range(11):
+        g.page.locator("#board-new").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(12)
+    ids = [board["id"] for board in g.state()["boards"]]
+
+    # Each new board becomes active and is scrolled into view, so the strip is already at the
+    # bottom and the first tile is off-screen. Put it back, or the press lands on nothing.
+    g.page.evaluate("() => { document.querySelector('.boards').scrollTop = 0; }")
+    g.until("() => document.querySelector('.boards').scrollTop === 0")
+    start = tile(g, ids[0]).bounding_box()
+    # The scroller, not #board-list: the list is as tall as all twelve tiles, so its lower edge is
+    # far below the window and a point near it is not in the strip at all.
+    strip = g.page.locator(".boards").bounding_box()
+    since = g.mark()
+    g.page.mouse.move(start["x"] + start["width"] / 2, start["y"] + start["height"] / 2)
+    g.page.mouse.down()
+    # Into the trailing edge band, then held still: the auto-scroll is the only thing moving.
+    g.page.mouse.move(start["x"] + start["width"] / 2, strip["y"] + strip["height"] - 8, steps=8)
+    marked = "() => { const tile = document.querySelector('#board-list .thumb.drop-after');" \
+             " return tile ? Number(tile.dataset.id) : null; }"
+    before = g.page.evaluate(marked)
+    g.until("(was) => { const tile = document.querySelector('#board-list .thumb.drop-after');"
+            " return tile !== null && Number(tile.dataset.id) !== was; }", before)
+    after = g.page.evaluate(marked)
+    g.page.mouse.up()
+
+    frame = g.wait_sent("board_move", since)
+    assert (frame["after"], after != before) == (after, True), (
+        f"the drop line was on board {before} before the scroll and {after} after it, "
+        f"but the move named {frame['after']}")
+
+
 def test_alt_arrow_up_moves_a_focused_tile_one_place_earlier(start_app, open_page):
     """§3.8 "Reordering by keyboard": Alt with the up arrow moves a focused tile one place
     earlier, sending the same ``board_move`` — the second tile's anchor is the head."""

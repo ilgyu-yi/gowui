@@ -283,7 +283,15 @@ async def test_a_move_changes_nothing_but_the_order(h):
     connected both are empty for every board, so an analysis thrown away looks exactly like one
     that was never there. The move epoch and the boards' own versions are what the claim is
     about, so the test reads them."""
+    from gowui.engine.types import Analysis
+
     first, _second, third = await three_boards(h)
+    # Seeded, because with no engine connected every slot's analysis is None and comparing
+    # {1: None, 2: None, 3: None} to itself proves nothing - the blind spot this assertion exists
+    # to close would still be open.
+    for slot in h.session.boards:
+        slot.last_analysis = Analysis(turn=slot.id, source="seeded")
+        slot.analysis_version = slot.version
     before = {b["id"]: b for b in (await h.fresh_state())["boards"]}
     epoch = h.session._epoch
     versions = {slot.id: slot.version for slot in h.session.boards}

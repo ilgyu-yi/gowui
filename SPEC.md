@@ -1059,8 +1059,8 @@ mean "move to the top".
 
 Each is refused with fixed text and changes nothing:
 
-- an `id` (or `after`) that is not a whole number — "id must be a board id", "after must be a board
-  id or null";
+- an `id` (or `after`) that is not an integer — a whole-valued float is not one either —
+  "id must be a board id", "after must be a board id or null";
 - an id naming no board — "no board *id*", quoting the value as above;
 - `board_duplicate` or `board_new` at `MAX_BOARDS` — the text names which was refused, because at
   the limit the two are the difference between losing a copy and losing a blank;
