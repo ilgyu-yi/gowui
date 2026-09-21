@@ -1,11 +1,11 @@
 """What scrolls, and what does not, at each width (SPEC §3.8 "Scrolling", "Board strip"; issue
 #45).
 
-Three checks, one per rule the §3.8 "Scrolling" paragraph adds: above 980px the document does not
+The checks, one per rule the §3.8 "Scrolling" paragraph carries: above 980px the document does not
 scroll and each column scrolls inside itself with the board standing still; a window too short for
 the side panel still reaches every control, by a column's scrolling and never by the page's; at
 980px and below the page scrolls as one column while the board strip scrolls sideways within
-itself.
+itself; and at every width the page scrolls down and never across (issue #48).
 
 The viewport here is deliberately shorter than the shared context's 1400x1000, because the rule is
 only visible in a window the content does not fit. Every read after a viewport change waits on a
@@ -176,3 +176,50 @@ def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
     before = page_scroll(g)
     assert scrolled(g, ".board-list", "Left") > 0, "the strip does not scroll sideways"
     assert page_scroll(g) == before, "scrolling the strip sideways moved the page"
+
+
+#: Narrow enough that a control row must wrap and the board must be well under its 78vh cap.
+CRAMPED = {"width": 360, "height": 700}
+
+
+def widest_overflow(g: Gowui) -> list:
+    """Every element whose right edge is past the document's, nearest first."""
+    return g.page.evaluate("""() => {
+        const edge = document.documentElement.clientWidth;
+        return [...document.querySelectorAll('*')]
+            .filter((el) => el.getBoundingClientRect().right > edge + 1)
+            .map((el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')
+                         + (typeof el.className === 'string' && el.className
+                            ? '.' + el.className.split(' ')[0] : ''))
+            .slice(0, 6);
+    }""")
+
+
+def test_the_board_comes_back_down_when_the_window_does(start_app, open_page):
+    """§3.8 "Scrolling": the board takes the width its column offers and no more. Its size is
+    written in pixels from the width it measured, so a column allowed to be as wide as its own
+    contents would let it keep whatever width it once reached."""
+    g = open_page(start_app()).open()
+    resized(g, {"width": 1400, "height": 1000})
+    grown = g.page.locator("#board-wrap").bounding_box()["width"]
+    assert grown > 700, f"the board did not grow at a large window: {grown}px"
+
+    resized(g, CRAMPED)
+    column = g.page.evaluate("() => document.querySelector('.board-pane').clientWidth")
+    board = g.page.locator("#board-wrap").bounding_box()["width"]
+    assert board <= column + 1, f"the board is {board}px inside a {column}px column"
+    assert board < grown, f"the board stayed {board}px after the window shrank from {grown}px"
+
+
+def test_the_page_never_scrolls_across(start_app, open_page):
+    """§3.8 "Scrolling": nothing may be reached only by scrolling sideways, at any width the
+    layout supports — so a control row too wide for the window wraps instead of pushing past it."""
+    g = open_page(start_app()).open()
+    for size in ({"width": 1400, "height": 1000}, NARROW, CRAMPED):
+        resized(g, size)
+        across, within = g.page.evaluate(
+            "() => [document.documentElement.scrollWidth,"
+            " document.documentElement.clientWidth]")
+        assert across <= within + 1, (
+            f"at {size['width']}x{size['height']} the page is {across}px across a {within}px "
+            f"window; past the edge: {widest_overflow(g)}")
