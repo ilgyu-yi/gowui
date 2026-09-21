@@ -198,7 +198,10 @@
     // Taken from the draw, not from this.state.lastMove: the record has to name the ring that
     // reached the canvas, or it would report one the board never drew.
     record.lastMoveRing = ring;
-    // The alpha the position's stones were handed, not the one this draw intended.
+    // The alpha the position's stones were painted with, read back off the canvas rather than
+    // repeated from the argument: a record that only echoed what this draw asked for could not
+    // see the paint, and would go on reporting the dim after a change stopped applying it
+    // (SPEC §3.8 "Test observability").
     record.positionDim = String(positionDim);
     // The readout line reads the pointer from here: the board is what knows whether the pointer
     // is on a candidate's circle, and `setPreview` is what carries a table row's move in.
@@ -247,7 +250,8 @@
     }
   };
 
-  // Draws the position at `dim` and returns the alpha it handed each stone.
+  // Draws the position at `dim` and returns the alpha the stones were painted with, as the canvas
+  // reports it. A board with no stones on it paints nothing to observe, and answers `dim`.
   GoBoard.prototype._drawStones = function (m, dim) {
     var stones = this.state.stones;
     for (var y = 0; y < m.size; y++) {

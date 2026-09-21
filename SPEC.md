@@ -758,6 +758,17 @@ finally either the PV preview or the candidates.
   count reachable only by hovering a candidate — the one gesture that covers the position. Value is
   `utility`, signed, two decimals. The first row is marked as the best. Hovering a row previews
   its PV; clicking it plays the move for the side to move.
+  **No numeric cell is ever cut.** The columns share the panel's width rather than take their
+  contents' (an eight-column table at its content width would hand the scrolling side panel a
+  sideways scrollbar, §3.8 "The page scrolls down, never across"), so the share has to hold the
+  widest value each column can carry: `100.0%`, `-123.4`, `1.2M`, `+99.7%`, `-1.23`. An even share
+  does not — the panel leaves the table 358px, an eighth of that is 45px, and `100.0%` needs 56px,
+  `-123.4` 50px, which the ellipsis rule then renders `100…` and `-12…`. A truncated signed
+  decimal is worse than a missing one: it still reads as a number, and it is off by an order of
+  magnitude. So while comparing, the columns take uneven shares — Visits, Value and Move less,
+  the four percentages more — and the table is set one step smaller than the body text, which is
+  what makes the eight of them fit. The six columns of the other modes fit an even share at the
+  body size and keep it.
 - **Candidate readout.** One line under the board, above the navigation row, always present so the
   controls below it do not move as it fills. It carries the **fields of the table's current mode,
   plus Visits and Value** — one rule, so the line and the table cannot come to disagree — with
@@ -779,6 +790,16 @@ finally either the PV preview or the candidates.
   deliberate gap with a shape, not an oversight.
   This is the only place a candidate's full set is written: a preview puts no second copy of these
   numbers on the board.
+  **What a narrow window costs it.** The line keeps its fields at their own width and never wraps,
+  so a window too narrow for all of them loses whole fields off the **end** — the fields are in
+  the table's column order, so the Value with its bound goes first, then Δ, B and A. Measured
+  while comparing: the eight fields need 722px, which a 1400px window's board column has and a
+  480px window's 448px and a 360px window's 328px do not. Losing the end is the choice on the
+  record, not an accident: wrapping would move the controls below the line, which is the one thing
+  its fixed height exists to prevent; scrolling across is refused everywhere (§3.8 "Scrolling");
+  a `title` is reachable by neither keyboard nor touch; and reordering the fields to save the
+  Value would break the rule that the line and the table cannot come to disagree. What is lost
+  off the line is still in the table beside the board, whose own columns are never cut.
 - **PV preview.** Hovering a drawn candidate on the board (a `moveInfos` entry past the drawn
   ones is not on the board and previews nothing), or its table row, draws the first 20 moves
   of its `pv` as numbered stones, alternating colours from the side searched for and numbered
@@ -1024,10 +1045,14 @@ shows the newest `state` as soon as it is ready for one, never a backlog of stal
 attribute, and no `data:` or `javascript:` URL; the icon is `/favicon.svg`. Scripts build the DOM
 with `createElement`, `textContent` and `replaceChildren`, and never use `innerHTML`,
 `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function`. The only style
-writes are two CSSOM properties — the canvas's size and the winrate bar's width — which the policy
-allows. Everything else a script changes about how the page looks it changes by adding or removing
-a class, so a new appearance costs a rule and not a write. (A help card's position was a third
-until the card moved into CSS; the sentence outlived it.)
+writes are two things — the canvas's size and the winrate bar's width — which the policy allows.
+They are three CSSOM properties over four lines (`grep -rn '\.style\.' gowui/static/js/`): the
+canvas takes `width` and `height` together, since one scale factor maps clicks to rows and a
+non-square element would map them to the wrong one, and the bar's `width` is written from both
+arms of the winrate branch — the flat 50% with no winrate to show, and the winrate itself.
+Everything else a script changes about how the page looks it changes by adding or removing
+a class, so a new appearance costs a rule and not a write. (A help card's position was a fourth
+line until the card moved into CSS; the sentence outlived it.)
 
 **Test observability.** Each draw of the board canvas records what it drew on the canvas's
 `dataset`, which the page's own logic never reads:
@@ -1043,7 +1068,7 @@ until the card moved into CSS; the sentence outlived it.)
 | `ownership` | `on` when ownership squares were drawn, else `off` |
 | `numbers` | `on` when move numbers were drawn, else `off` |
 | `lastMoveRing` | the point the last-move ring went round, or empty |
-| `positionDim` | the strength the position's stones were drawn at: `1`, or the dim while a preview is up |
+| `positionDim` | the strength the position's stones were drawn at: `1`, or the dim while a preview is up. Read back off the canvas after the stones are painted, so it is what the draw did and not what it was asked for; with no stones on the board there is nothing to observe and it is the strength the draw asked for |
 
 Each thumbnail canvas records `draws` the same way. `window.__lastAnalysis` holds the payload of
 the last `analysis` frame applied.
