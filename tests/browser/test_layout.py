@@ -163,7 +163,7 @@ def test_a_short_window_still_reaches_every_control(start_app, open_page):
         f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways")
 
 
-def comparing_at_its_widest(g: Gowui) -> None:
+def comparing_at_its_widest(g: Gowui, visits: int = 1234567) -> None:
     """Inject a comparing analysis whose every column carries the widest value it can hold
     (§3.8 "Candidate table"): a full winrate, a three-figure loss, a seven-figure visit count, a
     policy that moves nearly the whole way between the two tuples, and a signed utility.
@@ -172,7 +172,7 @@ def comparing_at_its_widest(g: Gowui) -> None:
     table that takes its columns from its contents, so the table would sit inside the panel however
     the columns were shared out and both checks below would pass on a page that cuts numbers."""
     size = g.state()["game"]["size"]
-    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=1234567),
+    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=visits),
               "utility": -1.23, "utilityLcb": -1.23} for x in range(10)]
     a = [0.0] * (size * size + 1)
     b = [0.0] * (size * size + 1)
@@ -252,6 +252,38 @@ def test_the_six_column_modes_do_not_cut_a_number_either(start_app, open_page):
     cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
            for head, text, scroll, client in column_fit(g) if scroll > client]
     assert cut == [], f"the default table cuts {len(cut)} of its columns: {cut}"
+
+
+def test_one_over_wide_value_does_not_take_room_from_the_other_columns(start_app, open_page):
+    """§3.8 "Candidate table": the columns share the panel's width rather than take their
+    contents'. The values §3.8 names all fit their shares, so what this is for is the one that
+    does not — §2.2 takes whatever the engine sends, and a count no column could hold has to be
+    cut inside the panel rather than served by squeezing the columns beside it. A table that took
+    its contents' widths would answer by shrinking every other column towards its own text (Win to
+    within half a pixel of being cut, measured) and then growing past the panel anyway."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    resized(g, SHORT)
+    # 1.2345e12 visits: `1234500.0M`, 73px, wider than the widest share the table has (57px).
+    comparing_at_its_widest(g, visits=1_234_500_000_000)
+
+    # The table's own box against the room its section leaves it: a table that takes its
+    # contents' widths grows its box, so reading the table against itself would see nothing.
+    table, room = g.page.evaluate("""() => {
+        const t = document.querySelector('table.candidates');
+        const box = t.parentElement;
+        const style = getComputedStyle(box);
+        return [Math.round(t.getBoundingClientRect().width),
+                Math.round(box.clientWidth - parseFloat(style.paddingLeft)
+                           - parseFloat(style.paddingRight))];
+    }""")
+    assert table <= room, (f"one over-wide cell grew the table to {table}px in the {room}px its "
+                           "section leaves it, which the side panel can only offer sideways")
+    cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
+           for head, text, scroll, client in column_fit(g)
+           if scroll > client and head.strip() != g.t("col.visits")]
+    assert cut == [], f"one over-wide cell cost {len(cut)} other columns their number: {cut}"
 
 
 def test_the_readout_loses_whole_fields_off_its_end(start_app, open_page):
