@@ -31,7 +31,14 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .topbar h1 { font-size: 16px; margin: 0; letter-spacing: 0.06em; }
-.engine-line { display: flex; align-items: center; gap: 6px; }
+/* Three declarations, and the last two only work as a pair — measured at a 320px window with a
+   56-character engine label: neither alone moves the page off 410px, both together bring it to
+   320. The row is a flex item of .topbar, so its own automatic minimum is its min-content width:
+   `min-width: 0` on the row is what lets the row narrow, and only then does `min-width: 0` on the
+   fields let the picker narrow inside it. `flex-wrap` is the separate case — a row of ordinary
+   controls too wide for the window (SPEC §3.8 "Scrolling"). */
+.engine-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.engine-line input, .engine-line select { min-width: 0; }
 .status { color: var(--muted); flex: 1 1 200px; min-height: 1em; }
 .status.error { color: var(--bad); }
 
@@ -54,7 +61,12 @@ main {
   align-items: start;
 }
 
-.board-pane { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+/* min-width: 0 — the pane is as wide as its column, never as wide as its contents. Without it
+   a grid item is at least its content's min-content width, and #board's inline pixel width
+   (board.js writes it from the width it measured) becomes that floor: the board would keep
+   whatever width it once reached and the page would never come back down (§3.8 "Scrolling"). */
+.board-pane { display: flex; flex-direction: column; gap: 10px; align-items: center;
+              min-width: 0; }
 #board-wrap { width: 100%; max-width: min(78vh, 900px); }
 #board { width: 100%; height: auto; display: block; border-radius: 6px; cursor: pointer; }
 

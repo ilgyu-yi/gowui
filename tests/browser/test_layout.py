@@ -1,11 +1,11 @@
 """What scrolls, and what does not, at each width (SPEC §3.8 "Scrolling", "Board strip"; issue
 #45).
 
-Three checks, one per rule the §3.8 "Scrolling" paragraph adds: above 980px the document does not
+The checks, one per rule the §3.8 "Scrolling" paragraph carries: above 980px the document does not
 scroll and each column scrolls inside itself with the board standing still; a window too short for
 the side panel still reaches every control, by a column's scrolling and never by the page's; at
 980px and below the page scrolls as one column while the board strip scrolls sideways within
-itself.
+itself; and from 320px up the page scrolls down and never across (issue #48).
 
 The viewport here is deliberately shorter than the shared context's 1400x1000, because the rule is
 only visible in a window the content does not fit. Every read after a viewport change waits on a
@@ -176,3 +176,97 @@ def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
     before = page_scroll(g)
     assert scrolled(g, ".board-list", "Left") > 0, "the strip does not scroll sideways"
     assert page_scroll(g) == before, "scrolling the strip sideways moved the page"
+
+
+#: Narrow enough that a control row must wrap and the board must be well under its 78vh cap.
+CRAMPED = {"width": 360, "height": 700}
+#: The narrowest width §3.8 "Scrolling" claims; under about 260px the board's own 240px floor no
+#: longer fits and the page does scroll across, which SPEC says is accepted rather than designed for.
+FLOOR = {"width": 320, "height": 700}
+
+
+def widest_overflow(g: Gowui) -> list[str]:
+    """Every element whose right edge is past the document's, nearest first."""
+    return g.page.evaluate("""() => {
+        const edge = document.documentElement.clientWidth;
+        return [...document.querySelectorAll('*')]
+            .filter((el) => el.getBoundingClientRect().right > edge + 1)
+            .map((el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')
+                         + (typeof el.className === 'string' && el.className
+                            ? '.' + el.className.split(' ')[0] : ''))
+            .slice(0, 6);
+    }""")
+
+
+def test_the_board_comes_back_down_when_the_window_does(start_app, open_page):
+    """§3.8 "Scrolling": the board takes the width its column offers and no more. Its size is
+    written in pixels from the width it measured, so a column allowed to be as wide as its own
+    contents would let it keep whatever width it once reached."""
+    g = open_page(start_app()).open()
+    resized(g, {"width": 1400, "height": 1000})
+    grown = g.page.locator("#board-wrap").bounding_box()["width"]
+    assert grown > 700, f"the board did not grow at a large window: {grown}px"
+
+    resized(g, CRAMPED)
+    column = g.page.evaluate("() => document.querySelector('.board-pane').clientWidth")
+    board = g.page.locator("#board-wrap").bounding_box()["width"]
+    assert board < grown, f"the board stayed {board}px after the window shrank from {grown}px"
+    # Not just "inside its column": at this width the column is what sizes the board, so a board
+    # that shrank too far would pass the weaker check. `board < grown` alone would let a 1px board
+    # through.
+    assert abs(board - column) <= 1, f"the board is {board}px inside a {column}px column"
+    bitmap, across, ratio = g.page.evaluate(
+        "() => { const c = document.querySelector('#board');"
+        " return [c.width, c.clientWidth, devicePixelRatio]; }")
+    assert bitmap == round(across * ratio), (
+        f"the canvas is {bitmap} device px for {across} CSS px at dpr {ratio}")
+
+
+def test_the_page_never_scrolls_across(start_app, open_page):
+    """§3.8 "Scrolling": from 320px up, nothing may be reached only by scrolling the page
+    sideways — so a control row too wide for the window wraps instead of pushing past it. Below
+    about 260px the board's own 240px floor stops fitting and SPEC accepts the overflow, which is
+    why the sweep stops at the floor rather than going lower."""
+    g = open_page(start_app()).open()
+    for size in ({"width": 1400, "height": 1000}, NARROW, CRAMPED, FLOOR):
+        resized(g, size)
+        across, within, pane, column = g.page.evaluate(
+            "() => { const p = document.querySelector('.board-pane');"
+            " return [document.documentElement.scrollWidth,"
+            " document.documentElement.clientWidth, p.scrollWidth, p.clientWidth]; }")
+        assert across <= within + 1, (
+            f"at {size['width']}x{size['height']} the page is {across}px across a {within}px "
+            f"window; past the edge: {widest_overflow(g)}")
+        assert pane <= column + 1, (
+            f"at {size['width']}x{size['height']} the board pane is {pane}px across a {column}px "
+            f"column and scrolls sideways")
+
+
+def test_one_long_control_does_not_widen_the_page(start_app, open_page):
+    """§3.8 "Scrolling": a control whose own content is wider than the window narrows rather than
+    pushing the page across. The engine picker in server mode is the one that can reach this — a
+    catalog label is whatever the deployment named its engine (§6.3). The protocol select stands in
+    for it here: the catalog picker is `hidden` outside server mode, and the same
+    `.engine-line select` rule covers both.
+
+    This is a pair, not two guards: the row is a flex item of the top bar, so `min-width: 0` on the
+    row is what lets the row narrow, and only then can `min-width: 0` on the fields narrow the
+    control inside it. Measured at this width with this label, neither alone moves the page off
+    410px and both together bring it to 320 — so a test that removed one at a time would call both
+    of them dead."""
+    g = open_page(start_app()).open()
+    resized(g, FLOOR)
+    g.page.evaluate("""() => {
+        const pick = document.querySelector('#protocol');
+        const option = document.createElement('option');
+        option.textContent = 'handol-mux human policy on a1005 gpu 1 (very long label)';
+        pick.appendChild(option);
+        pick.value = option.value;
+    }""")
+    settled(g)
+
+    across, within = g.page.evaluate(
+        "() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]")
+    assert across <= within + 1, (
+        f"a long engine label makes the page {across}px across a {within}px window; "
+        f"past the edge: {widest_overflow(g)}")
