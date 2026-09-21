@@ -482,24 +482,42 @@
         node.className = 'thumb';
         node.dataset.id = String(entry.id);
         buildThumb(node);
-        node.onclick = function () { send({ type: 'board_select', id: entry.id }); };
+        node.onclick = function () {
+          if (takeSuppressedClick()) return;  // a drag never also selects (§3.8 "Reordering")
+          send({ type: 'board_select', id: entry.id });
+        };
         var startRename = function (event) {
           event.stopPropagation();
           renameInPlace(node, entry.id);
         };
         node.querySelector('.thumb-name').ondblclick = startRename;
         node.querySelector('.thumb-edit').onclick = startRename;
+        // ⧉ names *that* tile's board: `board_duplicate` has no "the active one" meaning (§4.1).
+        node.querySelector('.thumb-duplicate').onclick = function (event) {
+          event.stopPropagation();
+          send({ type: 'board_duplicate', id: entry.id });
+        };
         node.querySelector('.thumb-close').onclick = function (event) {
           event.stopPropagation();
-          if (window.confirm(t('boards.confirmDelete', { name: displayName(node.dataset.name) }))) {
-            send({ type: 'board_delete', id: entry.id });
-          }
+          // On the last tile the × asks a different question, because it will not remove the
+          // tile: a dialog that said "delete" and then did not would be a lie (§3.8, §3.3).
+          var last = (state.boards || []).length < 2;
+          var question = t(last ? 'boards.confirmReset' : 'boards.confirmDelete',
+                           { name: displayName(node.dataset.name) });
+          if (window.confirm(question)) send({ type: 'board_delete', id: entry.id });
         };
+        node.onkeydown = function (event) { tileKey(event, node, entry.id); };
+        node.onpointerdown = function (event) { tilePointerDown(event, node, entry.id); };
+        node.onpointermove = function (event) { tilePointerMove(event); };
+        node.onpointerup = function (event) { tilePointerUp(event); };
+        node.onpointercancel = function () { cancelDrag(); };
       }
       if (list.children[index] !== node) moveTile(list, node, index);
       node.classList.toggle('active', entry.id === state.activeBoard);
-      node.querySelector('.thumb-close').hidden = entries.length < 2;
-      node.querySelector('.thumb-close').title = t('boards.delete');
+      // The × is shown on every tile, the last one included (§3.3: there it resets rather
+      // than removes).
+      node.querySelector('.thumb-close').title = t(entries.length < 2 ? 'boards.reset' : 'boards.delete');
+      node.querySelector('.thumb-duplicate').title = t('boards.duplicate');
       if (!node.querySelector('.thumb-rename')) {
         node.querySelector('.thumb-name').textContent = displayName(entry.name);
       }
@@ -527,9 +545,15 @@
   }
 
   function buildThumb(node) {
+    node.tabIndex = 0;  // a tile takes focus (§3.8 "Reordering by keyboard")
     var title = element('div', 'thumb-title');
-    title.append(element('span', 'thumb-name'), element('button', 'thumb-edit', '✎'));
-    title.lastChild.type = 'button';
+    var edit = element('button', 'thumb-edit', '✎');
+    // ⧉ sits in the title row after ✎, not beside ×: the copy it makes appears below, and the
+    // one button that destroys something keeps its corner to itself (§3.8).
+    var duplicate = element('button', 'thumb-duplicate', '⧉');
+    edit.type = 'button';
+    duplicate.type = 'button';
+    title.append(element('span', 'thumb-name'), edit, duplicate);
     var close = element('button', 'thumb-close', '×');
     close.type = 'button';
     node.append(element('canvas'), title, element('div', 'thumb-meta'),
@@ -556,6 +580,7 @@
     field.value = isDefaultName(node.dataset.name) ? '' : node.dataset.name;
     field.placeholder = displayName(node.dataset.name);
     label.hidden = true;
+    node.classList.add('renaming');  // the field fills the row; no hover button is shown (§3.8)
     label.parentNode.insertBefore(field, label);
     field.focus();
     field.select();
@@ -566,6 +591,7 @@
       var name = field.value.trim();
       field.remove();
       label.hidden = false;
+      node.classList.remove('renaming');
       if (save && name && name !== node.dataset.name) {
         label.textContent = name;
         send({ type: 'board_rename', id: boardId, name: name });
@@ -582,7 +608,200 @@
     field.onblur = function () { if (!rearranging) finish(true); };
   }
 
-  $('board-duplicate').onclick = function () { send({ type: 'board_duplicate' }); };
+  // The button under the strip appends a fresh board; where it sits is where its board lands.
+  $('board-new').onclick = function () { send({ type: 'board_new' }); };
+
+  /* -- reordering the strip (§3.8 "Reordering") ---------------------------- */
+  // The server owns the order: a drop and an Alt+arrow both only *send* `board_move`, and the
+  // tile moves when the server's `state` comes back. Rearranging first would need an undo for a
+  // refused move. The anchor is the board the tile lands **after**, or null for the head (§4.1).
+
+  //: a press picks nothing up until the pointer has moved this far, so a click, a double-click on
+  //: the name and a press inside the rename field are all still themselves.
+  var DRAG_THRESHOLD = 5;
+  //: how near the strip's leading or trailing edge a drag scrolls it, and by how much a tick.
+  var EDGE_BAND = 36, EDGE_STEP = 12;
+
+  var drag = null;          // { node, id, pointerId, x, y, started, anchor }
+  var edgeTimer = 0;
+  var suppressClick = false;
+
+  function takeSuppressedClick() {
+    if (!suppressClick) return false;
+    suppressClick = false;
+    return true;
+  }
+
+  // The strip lies down its column when the layout is wide and sideways when it is narrow, so
+  // the drag reads the axis the tiles are actually laid out on rather than a breakpoint.
+  function stripIsHorizontal(list) {
+    return window.getComputedStyle(list).flexDirection === 'row';
+  }
+
+  // The element that actually scrolls the strip on that axis: the list itself when narrow, the
+  // column around it when wide.
+  function stripScroller(list, horizontal) {
+    for (var node = list; node && node !== document.body; node = node.parentNode) {
+      var over = horizontal ? node.scrollWidth - node.clientWidth
+                            : node.scrollHeight - node.clientHeight;
+      if (over > 1) return node;
+    }
+    return null;
+  }
+
+  // The last tile whose midpoint the pointer has passed, skipping the dragged one; null before
+  // the first, which is the head.
+  function anchorAt(clientX, clientY) {
+    var list = $('board-list');
+    var horizontal = stripIsHorizontal(list);
+    var at = horizontal ? clientX : clientY;
+    var anchor = null;
+    Array.prototype.forEach.call(list.children, function (node) {
+      if (drag && node === drag.node) return;
+      var box = node.getBoundingClientRect();
+      var middle = horizontal ? box.left + box.width / 2 : box.top + box.height / 2;
+      if (at > middle) anchor = node.dataset.id;
+    });
+    return anchor;
+  }
+
+  // The drop line is a class on an existing tile, never an inserted node: renderBoards indexes
+  // list.children, and an extra node would corrupt its arithmetic.
+  function clearDropMark() {
+    Array.prototype.forEach.call($('board-list').children, function (node) {
+      node.classList.remove('drop-before', 'drop-after');
+    });
+  }
+
+  function showDropMark() {
+    clearDropMark();
+    var others = Array.prototype.filter.call($('board-list').children,
+                                             function (n) { return n !== drag.node; });
+    if (!others.length) return;
+    if (drag.anchor == null) { others[0].classList.add('drop-before'); return; }
+    others.forEach(function (node) {
+      if (node.dataset.id === drag.anchor) node.classList.add('drop-after');
+    });
+  }
+
+  function stopEdgeScroll() {
+    if (edgeTimer) { window.clearInterval(edgeTimer); edgeTimer = 0; }
+  }
+
+  // Dragging near the strip's leading or trailing edge scrolls it, so a tile can be moved past
+  // the ones that fit on screen.
+  function edgeScroll(clientX, clientY) {
+    stopEdgeScroll();
+    var list = $('board-list');
+    var horizontal = stripIsHorizontal(list);
+    var box = stripScroller(list, horizontal);
+    if (!box) return;
+    var rect = box.getBoundingClientRect();
+    var at = horizontal ? clientX : clientY;
+    var lead = (horizontal ? rect.left : rect.top) + EDGE_BAND;
+    var trail = (horizontal ? rect.right : rect.bottom) - EDGE_BAND;
+    var step = at < lead ? -EDGE_STEP : (at > trail ? EDGE_STEP : 0);
+    if (!step) return;
+    edgeTimer = window.setInterval(function () {
+      if (!drag || !drag.started) { stopEdgeScroll(); return; }
+      if (horizontal) box.scrollLeft += step; else box.scrollTop += step;
+    }, 16);
+  }
+
+  function endDrag() {
+    if (!drag) return;
+    var node = drag.node;
+    var pointerId = drag.pointerId;
+    drag = null;
+    stopEdgeScroll();
+    clearDropMark();
+    node.classList.remove('dragging');
+    $('board-list').classList.remove('dragging');
+    if (node.hasPointerCapture && node.hasPointerCapture(pointerId)) {
+      node.releasePointerCapture(pointerId);
+    }
+  }
+
+  // Escape or a cancelled pointer ends the drag and sends nothing; the click the press still
+  // produces is swallowed all the same, so a cancelled drag does not select either.
+  function cancelDrag() {
+    if (!drag) return;
+    if (drag.started) suppressClick = true;
+    endDrag();
+  }
+
+  function tilePointerDown(event, node, boardId) {
+    suppressClick = false;
+    if (event.button !== 0) return;
+    if (event.target.closest && event.target.closest('button, .thumb-rename')) return;
+    endDrag();
+    drag = { node: node, id: boardId, pointerId: event.pointerId,
+             x: event.clientX, y: event.clientY, started: false, anchor: null };
+    if (node.setPointerCapture) node.setPointerCapture(event.pointerId);
+  }
+
+  function tilePointerMove(event) {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.started) {
+      if (Math.abs(event.clientX - drag.x) < DRAG_THRESHOLD &&
+          Math.abs(event.clientY - drag.y) < DRAG_THRESHOLD) return;
+      drag.started = true;
+      drag.node.classList.add('dragging');
+      $('board-list').classList.add('dragging');
+    }
+    // The strip does not rearrange under the pointer: only the dimming and the line move.
+    drag.anchor = anchorAt(event.clientX, event.clientY);
+    showDropMark();
+    edgeScroll(event.clientX, event.clientY);
+  }
+
+  function tilePointerUp(event) {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    var dropped = drag;
+    endDrag();
+    if (!dropped.started) return;   // a press that never became a drag is still a click
+    suppressClick = true;
+    var after = dropped.anchor == null ? null : Number(dropped.anchor);
+    var entries = state.boards || [];
+    var index = entries.findIndex(function (e) { return e.id === dropped.id; });
+    var before = index > 0 ? entries[index - 1].id : null;
+    if (after === before) return;   // it landed where it started
+    send({ type: 'board_move', id: dropped.id, after: after });
+  }
+
+  // Alt with the up or down arrow moves a focused tile one place earlier or later; at the ends
+  // it does nothing. Alt with the left or right arrow is deliberately not used: it is Back and
+  // Forward in the major browsers. The document handler returns early while Alt is held, so this
+  // one never has to fight it.
+  function moveTileBy(boardId, delta) {
+    var entries = state.boards || [];
+    var index = entries.findIndex(function (e) { return e.id === boardId; });
+    if (index < 0) return;
+    var to = index + delta;
+    if (to < 0 || to >= entries.length) return;
+    // Computed from this tab's own view, which is safe precisely because the frame carries an
+    // anchor: a stale view is refused, not misapplied (§3.8, §4.1).
+    var after = delta < 0 ? (to > 0 ? entries[to - 1].id : null) : entries[to].id;
+    send({ type: 'board_move', id: boardId, after: after });
+  }
+
+  function tileKey(event, node, boardId) {
+    if (event.target !== node) return;   // a button or the rename field answers for itself
+    if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      moveTileBy(boardId, event.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      send({ type: 'board_select', id: boardId });
+    }
+  }
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') cancelDrag();
+  });
 
   function stepBoard(delta) {
     var entries = state.boards || [];

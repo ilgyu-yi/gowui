@@ -204,19 +204,45 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .thumb.active { border-color: #4f8cff; }
 .thumb canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; }
 .thumb .thumb-title { display: flex; align-items: center; gap: 4px; margin-top: 3px; min-height: 20px; }
-.thumb .thumb-name { font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thumb .thumb-edit { padding: 0 4px; font-size: 11px; line-height: 16px; opacity: 0; }
-.thumb:hover .thumb-edit { opacity: 0.8; }
+/* The name takes the row and the two buttons keep their width, so a long name is cut with an
+   ellipsis instead of pushing ✎ and ⧉ out of the tile (SPEC §3.8 "Board strip"). */
+.thumb .thumb-name { flex: 1 1 auto; min-width: 0;
+                     font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thumb .thumb-edit, .thumb .thumb-duplicate { flex: none; padding: 0 4px; font-size: 11px; line-height: 16px; opacity: 0; }
+.thumb:hover .thumb-edit, .thumb:hover .thumb-duplicate { opacity: 0.8; }
 .thumb .thumb-rename { width: 100%; font-size: 12px; padding: 1px 4px; }
+/* While a rename field is open the tile shows no hover button at all: the field fills that row
+   (§3.8), which is one fewer way to hit × by accident. */
+.thumb.renaming .thumb-edit, .thumb.renaming .thumb-duplicate, .thumb.renaming .thumb-close {
+  display: none;
+}
 .thumb .thumb-meta { font-size: 11px; color: var(--muted); line-height: 1.35; overflow: hidden;
                      text-overflow: ellipsis; white-space: nowrap; }
 .thumb .thumb-close { position: absolute; top: 2px; right: 2px; padding: 0 6px; font-size: 12px;
                       line-height: 18px; opacity: 0; }
 .thumb:hover .thumb-close { opacity: 0.85; }
-#board-duplicate { font-size: 12px; }
+#board-new { font-size: 12px; }
+/* Dragging (§3.8 "Reordering"). Every drag visual is a class, never a style write and never an
+   inserted node: renderBoards indexes list.children, so an extra node would corrupt its
+   arithmetic — the drop line is a ::after on the tile the drop lands against. */
+.board-list.dragging { user-select: none; }
+.board-list.dragging .thumb { cursor: grabbing; }
+.thumb.dragging { opacity: 0.45; }
+.thumb.drop-before::after, .thumb.drop-after::after {
+  content: ''; position: absolute; left: -1px; right: -1px; height: 3px;
+  background: #4f8cff; border-radius: 2px;
+}
+.thumb.drop-before::after { top: -6px; }
+.thumb.drop-after::after { bottom: -6px; }
 @media (max-width: 980px) {
   .board-list { flex-direction: row; overflow-x: auto; }
   .thumb { width: 112px; flex: none; }
+  /* The strip lies sideways here, so the drop line stands up with it. */
+  .thumb.drop-before::after, .thumb.drop-after::after {
+    left: auto; right: auto; top: -1px; bottom: -1px; width: 3px; height: auto;
+  }
+  .thumb.drop-before::after { left: -6px; }
+  .thumb.drop-after::after { right: -6px; }
 }
 
 /* Wide: the page is exactly the viewport and each column scrolls inside itself (SPEC §3.8
