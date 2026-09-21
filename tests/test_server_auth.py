@@ -392,6 +392,66 @@ async def test_cookie_secure_follows_a_trusted_forwarded_proto(serve, tmp_path):
     assert "secure" in response.headers["set-cookie"].lower()
 
 
+# -- §7.2: the cookie's name follows the Secure flag ---------------------------------------------------
+HOST_COOKIE = "__Host-gowui_session"
+
+
+def cookie_set(response) -> tuple[str, str]:
+    """The name and the value of the cookie the answer sets."""
+    name, _, rest = response.headers["set-cookie"].partition("=")
+    return name, rest.split(";")[0]
+
+
+async def test_the_cookie_takes_the_host_prefix_when_it_is_secure(serve, tmp_path):
+    """§7.2: `__Host-` is a write restriction the browser enforces on everyone else, and it is
+    granted only to a Secure cookie with `Path=/` and no `Domain`."""
+    server = await start(serve, tmp_path, cookie_secure="1")
+    response, _ = await login(server.running, "alice")
+    cookie = response.headers["set-cookie"].lower()
+    assert cookie_set(response)[0] == HOST_COOKIE
+    assert "secure" in cookie and "path=/" in cookie and "domain=" not in cookie
+
+
+async def test_the_cookie_keeps_its_plain_name_while_it_is_not_secure(serve, tmp_path):
+    """§7.2: under `auto` over plain http the cookie is not Secure, so the prefix is not taken."""
+    server = await start(serve, tmp_path)
+    response, _ = await login(server.running, "alice")
+    assert cookie_set(response)[0] == "gowui_session"
+
+
+async def test_only_the_name_in_force_is_read(serve, tmp_path):
+    """§7.2: there is no switch-over. While the `__Host-` name is in force a `gowui_session` a
+    sibling origin planted is ignored, and the plain name ignores a `__Host-` one."""
+    secure = await start(serve, tmp_path, cookie_secure="1")
+    _, value = cookie_set((await login(secure.running, "alice"))[0])
+    assert (await get(secure.running, "/api/health",
+                      Cookie=f"{HOST_COOKIE}={value}")).status_code == 200
+    assert (await get(secure.running, "/api/health",
+                      Cookie=f"gowui_session={value}")).status_code == 401
+
+    plain = await start(serve, tmp_path, db=tmp_path / "plain" / "gowui.db")
+    _, other = cookie_set((await login(plain.running, "alice"))[0])
+    assert (await get(plain.running, "/api/health",
+                      Cookie=f"gowui_session={other}")).status_code == 200
+    assert (await get(plain.running, "/api/health",
+                      Cookie=f"{HOST_COOKIE}={other}")).status_code == 401
+
+
+async def test_log_out_clears_the_cookie_in_force(serve, tmp_path):
+    """§7.2: the cleared cookie carries the name and the flags the browser needs to accept it."""
+    server = await start(serve, tmp_path, cookie_secure="1")
+    running = server.running
+    _, value = cookie_set((await login(running, "alice"))[0])
+    async with running.client() as client:
+        out = await client.post("/logout", headers={"Host": running.host,
+                                                    "Origin": running.origin,
+                                                    "Cookie": f"{HOST_COOKIE}={value}"})
+    cleared = out.headers["set-cookie"]
+    assert cookie_set(out)[0] == HOST_COOKIE
+    assert "max-age=0" in cleared.lower() and "secure" in cleared.lower()
+    assert (await get(running, "/api/health", Cookie=f"{HOST_COOKIE}={value}")).status_code == 401
+
+
 # -- §7.1: the cost of a password hash ---------------------------------------------------------------
 def test_the_stored_hash_uses_the_owasp_equivalent_cost():
     from gowui.store import Scrypt
@@ -412,7 +472,8 @@ def test_a_hash_written_with_an_older_cost_still_verifies():
 # -- §7.5: a failure inside the guard --------------------------------------------------------------
 async def test_a_failing_identity_policy_answers_500_with_the_headers(serve, tmp_path,
                                                                       monkeypatch):
-    """§7.5: the guard answers its own failure; a 500 carries the security headers."""
+    """§7.5: the guard answers its own failure; a 500 carries the security headers, the
+    `Cache-Control` of the same section, and the fixed body — never the failure's own words."""
     import sqlite3
 
     server = await start(serve, tmp_path)
@@ -427,7 +488,8 @@ async def test_a_failing_identity_policy_answers_500_with_the_headers(serve, tmp
     assert response.headers["content-security-policy"] == \
         "default-src 'self'; frame-ancestors 'none'"
     assert response.headers["x-content-type-options"] == "nosniff"
-    assert "the database is gone" not in response.text
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.text == "Internal Server Error"
 
 
 async def test_a_handshake_whose_identity_check_fails_is_closed_with_1011(serve, tabs, tmp_path,
@@ -446,14 +508,37 @@ async def test_a_handshake_whose_identity_check_fails_is_closed_with_1011(serve,
 
 
 # -- §4.3: the per-identity socket cap ----------------------------------------------------------------
-async def test_a_socket_past_the_identity_cap_is_closed(serve, tabs, tmp_path):
-    """§4.3: one identity holds at most ``max_tabs`` sockets; the next is closed with 4429 — the
-    cap's own code, not the 1013 of queue overflow, so the page can stop reconnecting (§3.8)."""
+async def test_a_socket_past_the_identity_cap_is_closed_and_a_closed_one_frees_its_place(
+        serve, tabs, tmp_path):
+    """§4.3, §7.6: one identity holds at most the 32 of the limits table — the app runs that cap,
+    not a number the test lowered — and the 33rd is closed with 4429, the cap's own code, not the
+    1013 of queue overflow, so the page can stop reconnecting (§3.8). Closing one socket gives
+    the place back, so a tab that reconnects after a reload is not locked out by its own
+    predecessor."""
+    from gowui.spaces import MAX_TABS
+
     server = await start(serve, tmp_path)
-    _, token = await login(server.running, "alice")
-    server.running.app.state.registry.max_tabs = 1
-    first = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
-    await first.wait_state()
-    extra = await tabs(server.running, origin=server.running.origin, headers=ws_headers(token))
+    running = server.running
+    _, token = await login(running, "alice")
+    assert (running.app.state.registry.max_tabs, MAX_TABS) == (32, 32)
+
+    async def open_one():
+        tab = await tabs(running, origin=running.origin, headers=ws_headers(token))
+        assert not isinstance(tab, int), f"the handshake was refused with HTTP {tab}"
+        return tab
+
+    held = []
+    for _ in range(MAX_TABS):
+        tab = await open_one()
+        assert await tab.wait_state() is not None
+        held.append(tab)
+    extra = await open_one()
     assert await extra.close_code() == 4429
-    assert first.open
+    assert all(tab.open for tab in held)
+
+    await held[0].close()
+    key = next(iter(running.app.state.registry.live))
+    await wait_for(lambda: len(running.app.state.registry.live[key].hub.tabs) == MAX_TABS - 1,
+                   HANG)
+    replacement = await open_one()
+    assert await replacement.wait_state() is not None, "a closed socket freed no place"

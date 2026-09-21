@@ -401,6 +401,17 @@ class SpaceRegistry:
         for space in list(self.live.values()):
             await self._save(space)
 
+    async def sweep_storage(self) -> None:
+        """Let the storage policy do its own periodic work (§8.2) — server mode purges the
+        expired logins of §7.2 here. A storage without ``sweep`` has none."""
+        sweep = getattr(self.policies.storage, "sweep", None)
+        if sweep is None:
+            return
+        try:
+            await asyncio.to_thread(sweep)
+        except Exception as exc:  # noqa: BLE001 - the next pass tries again
+            log.warning("gowui: the storage sweep failed: %s", exc)
+
     # -- idle release (§7.8, §8.2) ------------------------------------------------------------------
     def _idle(self, space: Space, seconds: float) -> bool:
         return not space.hub.tabs and self.clock() - space.hub.idle_since >= seconds
@@ -448,6 +459,7 @@ class SpaceRegistry:
             try:
                 await self.save_changed()
                 await self.release_idle()
+                await self.sweep_storage()
             except Exception:  # noqa: BLE001 - the next pass tries again
                 log.exception("gowui: the autosave pass failed")
 

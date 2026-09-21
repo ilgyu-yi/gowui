@@ -31,9 +31,11 @@ from .session import EngineRequestError, EngineTarget, clean_preferences
 from .store import Store, valid_name, valid_password
 
 __all__ = ["CatalogAddresses", "CatalogEntry", "ConfigError", "LoginThrottle", "SIGN_IN_TEXT",
-           "ServerConfig", "ServerIdentity", "SqliteStorage", "server_policies"]
+           "ServerConfig", "ServerIdentity", "SqliteStorage", "cookie_name", "server_policies"]
 
 COOKIE = "gowui_session"
+#: The same cookie under the browser-enforced ``__Host-`` rule, taken while it is Secure (§7.2).
+HOST_COOKIE = f"__Host-{COOKIE}"
 MAX_COOKIE = 128
 LOGIN_BODY_CAP = 8 * 1024
 CATALOG_REFUSAL = "choose an engine from the list"
@@ -232,6 +234,11 @@ class SqliteStorage:
     def save_preferences(self, key: str, preferences: dict) -> None:
         self.store.save_preferences(key, preferences)
 
+    def sweep(self) -> None:
+        """The storage's own periodic work (§8.2): here, the expired logins of §7.2, so a row
+        left by a browser that never comes back does not wait for the next open or sign-in."""
+        self.store.purge_logins()
+
 
 # -- login throttling (§7.1) --------------------------------------------------------------------------------
 def throttle_client(address: str) -> str:
@@ -408,6 +415,20 @@ def _cookies(scope: dict, name: str) -> list[str]:
     return found
 
 
+def cookie_name(config: ServerConfig) -> str:
+    """The session cookie's name under this configuration (§7.2).
+
+    ``__Host-`` is not a re-encoding of the attributes the cookie already carries: it is a write
+    restriction the browser enforces on everyone else, so a sibling or parent origin cannot plant
+    a cookie of that name for gowui to read. The browser grants it only to a Secure cookie with
+    ``Path=/`` and no ``Domain``, so the name can follow ``1`` and not ``auto``, where the cookie
+    is deliberately not Secure over plain http. It is read once, here, so the name is fixed for
+    the life of the process and there is no switch-over: only the name in force is read, written
+    and cleared.
+    """
+    return HOST_COOKIE if config.cookie_secure == "1" else COOKIE
+
+
 class ServerIdentity:
     """SSO header from a trusted proxy first, then the session cookie (§6.2)."""
 
@@ -415,6 +436,7 @@ class ServerIdentity:
                  *, max_verifying: int = 2, max_waiting: int = 8) -> None:
         self.config = config
         self.store = store
+        self.cookie = cookie_name(config)
         self.throttle = throttle or LoginThrottle()
         self.max_waiting = max_waiting
         self._verifying = asyncio.Semaphore(max_verifying)
@@ -437,7 +459,7 @@ class ServerIdentity:
                                     logout_kind="sso" if config.logout_url else "",
                                     logout_url=config.logout_url)
         if "local" in config.auth:
-            tokens = _cookies(scope, COOKIE)
+            tokens = _cookies(scope, self.cookie)
             if len(tokens) == 1 and 0 < len(tokens[0]) <= MAX_COOKIE:
                 found = self.store.login_account(tokens[0])
                 if found is not None:
@@ -510,17 +532,18 @@ class ServerIdentity:
         secure = self.config.cookie_secure == "1" or (
             self.config.cookie_secure == "auto"
             and request_is_https(request.scope, self.config.trusted_proxies))
-        response.set_cookie(COOKIE, token, max_age=int(self.config.session_days * 86400),
+        response.set_cookie(self.cookie, token, max_age=int(self.config.session_days * 86400),
                             path="/", httponly=True, samesite="lax", secure=secure)
         return response
 
     async def logout(self, request: Any) -> Response:
-        for token in _cookies(request.scope, COOKIE):
+        for token in _cookies(request.scope, self.cookie):
             if 0 < len(token) <= MAX_COOKIE:
                 await asyncio.to_thread(self.store.close_login, token)
         target = "/login" if "local" in self.config.auth else "/"
         response = RedirectResponse(target, status_code=303)
-        response.delete_cookie(COOKIE, path="/", httponly=True, samesite="lax")
+        response.delete_cookie(self.cookie, path="/", httponly=True, samesite="lax",
+                               secure=self.cookie == HOST_COOKIE)
         return response
 
 

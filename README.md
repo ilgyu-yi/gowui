@@ -47,7 +47,7 @@ Unset or empty means the default. The exact rules for each value are in `SPEC.md
 | `GOWUI_TRUSTED_PROXIES` | comma-separated IPs/CIDRs of the proxies whose headers are believed; required for `header` | — |
 | `GOWUI_LOGOUT_URL` | where log-out sends SSO users | — |
 | `GOWUI_SESSION_DAYS` | password session lifetime, days | `14` |
-| `GOWUI_COOKIE_SECURE` | `auto` (Secure over https), `1` or `0` | `auto` |
+| `GOWUI_COOKIE_SECURE` | `auto` (Secure over https), `1` (Secure, and a `__Host-` cookie name) or `0` | `auto` |
 | `GOWUI_ENGINES` | JSON list of catalog entries `{id, label?, protocol, host, port, console?}` | `[]` |
 | `GOWUI_IDLE_MINUTES` | release a space after this many minutes with no tab | `10` |
 

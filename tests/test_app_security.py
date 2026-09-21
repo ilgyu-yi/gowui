@@ -481,24 +481,28 @@ async def test_a_401_carries_the_security_headers(anonymous_app):
     async with anonymous_app.client() as client:
         response = await client.get("/api/health")
     assert (response.headers.get("content-security-policy"),
-            response.headers.get("x-content-type-options")) == (CSP, "nosniff")
+            response.headers.get("x-content-type-options"),
+            response.headers.get("cache-control")) == (CSP, "nosniff", "no-cache")
 
 
-async def test_a_500_carries_the_security_headers(serve, monkeypatch):
-    """The guard is outside the server-error handler, so its headers reach a 500 too (§7.5)."""
+async def test_a_500_carries_the_security_headers_and_the_fixed_body(serve, monkeypatch):
+    """§7.5: the guard is outside the server-error handler, so all three of its headers reach a
+    500 too, and the body is the fixed text — never what the failure said."""
     from gowui.app import create_app
 
     app = create_app(local_bundle())
     running = await serve(app)
 
     async def broken(identity):
-        raise RuntimeError("forced")
+        raise RuntimeError("the database is gone")
 
     monkeypatch.setattr(app.state.registry, "get", broken)
     async with running.client() as client:
         response = await client.get("/api/health")
     assert (response.status_code, response.headers.get("content-security-policy"),
-            response.headers.get("x-content-type-options")) == (500, CSP, "nosniff")
+            response.headers.get("x-content-type-options"),
+            response.headers.get("cache-control")) == (500, CSP, "nosniff", "no-cache")
+    assert response.text == "Internal Server Error"
 
 
 # -- upload size (§5, §7.6) ----------------------------------------------------------------------

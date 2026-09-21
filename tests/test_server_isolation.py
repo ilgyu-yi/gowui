@@ -184,6 +184,47 @@ async def test_a_re_added_name_starts_fresh_after_a_release_too(serve, tabs, tmp
     assert again.state()["game"]["moveCount"] == 0
 
 
+# -- §7.2, §8.2, §8.4: expired logins go with the periodic pass -------------------------------------
+def login_rows(db) -> int:
+    import sqlite3
+
+    with sqlite3.connect(db) as connection:
+        return connection.execute("SELECT count(*) FROM logins").fetchone()[0]
+
+
+def one_live_and_one_stale(store) -> tuple[str, str]:
+    """A token that is still good and an expired one, for the same account, in that order: a
+    sign-in purges expired rows, so the stale one is made last."""
+    verified = store.check_password("alice", PASSWORD)
+    return store.open_login(verified, 3600.0), store.open_login(verified, -1.0)
+
+
+async def test_the_periodic_pass_sweeps_expired_logins(tmp_path):
+    """§7.2, §8.2: a row left by a browser that never comes back does not linger until the next
+    open or the next sign-in; the pass that saves spaces takes it, and leaves live rows alone."""
+    from server_helpers import config, open_store
+    from gowui.server_mode import server_policies
+    from gowui.spaces import SpaceRegistry
+
+    db = tmp_path / "data" / "gowui.db"
+    store = open_store(db)
+    try:
+        store.add_user("alice", PASSWORD)
+        live, stale = one_live_and_one_stale(store)
+        assert login_rows(db) == 2
+        registry = SpaceRegistry(server_policies(config(db), store), save_interval=0.02)
+        await registry.start()
+        try:
+            swept = await wait_for(lambda: login_rows(db) == 1, HANG)
+        finally:
+            await registry.aclose()
+        assert swept, "the expired row was still there after the pass"
+        assert store.login_account(live) is not None
+        assert store.login_account(stale) is None
+    finally:
+        store.close()
+
+
 def test_a_save_for_a_removed_account_writes_nothing(tmp_path):
     """§8.4: a ``local:`` key is saved only while that account exists."""
     from app_helpers import snapshot_with
