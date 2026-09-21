@@ -84,7 +84,10 @@ def valid_password(password: Any) -> bool:
 #: The most hashing memory one call may ask for (§7.1). A setting above it is refused when a hash
 #: is written, and a stored hash that asks for it is an error, never a quiet "wrong password".
 MAX_HASH_MEMORY = 1024 * 1024 * 1024
-#: The digest length of a stored hash, and of the dummy: ``hashlib.scrypt``'s default ``dklen``.
+#: The digest length of a stored hash, and of the dummy. Asked for on every call, not inherited:
+#: it is ``hashlib.scrypt``'s default today, and the day that default moves a written hash would
+#: stop matching the dummy a missing name is verified against (§7.1). A hash already stored keeps
+#: verifying whatever this is, since ``verify`` reads the length from the hash itself.
 DIGEST_LENGTH = 64
 
 
@@ -116,7 +119,7 @@ class Scrypt:
                              f"bytes, above the {MAX_HASH_MEMORY} this build allows")
         salt = os.urandom(16)
         digest = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=self.n, r=self.r,
-                                p=self.p, maxmem=budget)
+                                p=self.p, dklen=DIGEST_LENGTH, maxmem=budget)
         b64 = base64.b64encode
         return f"scrypt${self.n}${self.r}${self.p}${b64(salt).decode()}${b64(digest).decode()}"
 
@@ -297,8 +300,8 @@ class Store:
         """``(identity key, name)`` of an unexpired login of an existing account.
 
         A read only: an expired row gives no identity here and is purged when the database is
-        opened or a sign-in stores a token (§8.4), so the identity check on the event loop
-        (§6.2) never writes.
+        opened, when a sign-in stores a token, or by the periodic sweep that saves spaces
+        (§7.2, §8.2, §8.4), so the identity check on the event loop (§6.2) never writes.
         """
         if not token:
             return None
