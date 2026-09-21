@@ -7,7 +7,10 @@ Nothing here imports Playwright at module level, so the default run (which desel
 frame the page puts on an *open* socket and every frame it receives is appended, in order, to
 ``window.__gowuiTest.frames`` as ``{seq, dir: 'sent' | 'received' | 'close', data | code}``. A
 frame the page drops because the socket is not open is never recorded, which is what §3.8
-"Connection" requires.
+"Connection" requires. The wrapper follows ``window.WebSocket`` when Playwright's own
+``route_web_socket`` replaces it (see the script), so what is recorded is what the page sent and
+what the page received — a frame ``route.on_message`` drops included, and a frame ``inject``
+makes up included.
 
 **Fence.** A "nothing was sent" check never sleeps. ``fence()`` sends a ``{type: 'state', fence:
 n}`` marker on the page's own socket and waits for the server's ``state`` answer; frames go out
@@ -48,29 +51,46 @@ INIT_SCRIPT = r"""
   document.addEventListener('securitypolicyviolation', (e) => {
     record.csp.push(e.violatedDirective + ' ' + e.blockedURI);
   });
-  const Native = window.WebSocket;
-  function Recorded(url, protocols) {
-    const socket = protocols === undefined ? new Native(url) : new Native(url, protocols);
-    record.sockets.push(socket);
-    const nativeSend = Native.prototype.send;
-    socket.send = function (data) {
-      if (socket.readyState === Native.OPEN) {
-        record.frames.push({ seq: ++record.seq, dir: 'sent', data: String(data),
-                             byTest: record.byTest });
-      }
-      return nativeSend.call(socket, data);
-    };
-    socket.addEventListener('message', (e) => {
-      record.frames.push({ seq: ++record.seq, dir: 'received', data: String(e.data) });
-    });
-    socket.addEventListener('close', (e) => {
-      record.frames.push({ seq: ++record.seq, dir: 'close', code: e.code });
-    });
-    return socket;
-  }
-  Recorded.prototype = Native.prototype;
-  ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach((k) => { Recorded[k] = Native[k]; });
-  window.WebSocket = Recorded;
+  // The recorder must sit on the socket the *page* holds. Under page.route_web_socket Playwright
+  // injects its own WebSocket class after this script and assigns window.WebSocket itself, while
+  // capturing what window.WebSocket was — this wrapper — to open its passthrough socket to the
+  // server with. Wrapping once would therefore leave the recorder on that passthrough socket,
+  // where a frame the route drops, and a frame the route makes up, never appear. So
+  // window.WebSocket is an accessor: every class assigned to it is wrapped in turn, and only the
+  // newest wrapper records, which is the one the page's own `new WebSocket` goes through.
+  let generation = 0;
+  const wrap = (Native) => {
+    const mine = ++generation;
+    function Recorded(url, protocols) {
+      const socket = protocols === undefined ? new Native(url) : new Native(url, protocols);
+      if (mine !== generation) return socket;   // an inner socket of a later wrapper
+      record.sockets.push(socket);
+      const nativeSend = Native.prototype.send;
+      socket.send = function (data) {
+        if (socket.readyState === Native.OPEN) {
+          record.frames.push({ seq: ++record.seq, dir: 'sent', data: String(data),
+                               byTest: record.byTest });
+        }
+        return nativeSend.call(socket, data);
+      };
+      socket.addEventListener('message', (e) => {
+        record.frames.push({ seq: ++record.seq, dir: 'received', data: String(e.data) });
+      });
+      socket.addEventListener('close', (e) => {
+        record.frames.push({ seq: ++record.seq, dir: 'close', code: e.code });
+      });
+      return socket;
+    }
+    Recorded.prototype = Native.prototype;
+    ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach((k) => { Recorded[k] = Native[k]; });
+    return Recorded;
+  };
+  let exposed = wrap(window.WebSocket);
+  Object.defineProperty(window, 'WebSocket', {
+    configurable: true,
+    get: () => exposed,
+    set: (next) => { exposed = wrap(next); },
+  });
 })();
 """
 
