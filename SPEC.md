@@ -33,45 +33,45 @@
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 470 |
 | &nbsp;&nbsp;§3.3 | Boards | 536 |
 | &nbsp;&nbsp;§3.4 | Engine settings | 552 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 570 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 585 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 589 |
-| &nbsp;&nbsp;§3.8 | The page | 598 |
-| §4 | WebSocket protocol | 902 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 906 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 977 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1019 |
-| §5 | HTTP routes | 1106 |
-| §6 | Launch modes and policies | 1181 |
-| &nbsp;&nbsp;§6.1 | The rule | 1183 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1219 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1259 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1292 |
-| §7 | Authentication and security | 1327 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1329 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1390 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1426 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1446 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1494 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1515 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1560 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1583 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1597 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1606 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1643 |
-| §8 | Persistence | 1662 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1664 |
-| &nbsp;&nbsp;§8.2 | Saving | 1698 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1731 |
-| &nbsp;&nbsp;§8.4 | Server database | 1773 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1837 |
-| §9 | Command line | 1864 |
-| §10 | Configuration (server) | 1934 |
-| &nbsp;&nbsp;§10.1 | Container | 1972 |
-| §11 | Feature inventory | 2060 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2067 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2105 |
-| §12 | Non-goals | 2123 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 578 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 593 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
+| &nbsp;&nbsp;§3.8 | The page | 606 |
+| §4 | WebSocket protocol | 934 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 938 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1009 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1051 |
+| §5 | HTTP routes | 1145 |
+| §6 | Launch modes and policies | 1220 |
+| &nbsp;&nbsp;§6.1 | The rule | 1222 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1258 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1298 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1331 |
+| §7 | Authentication and security | 1366 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1368 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1429 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1465 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1485 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1533 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1554 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1600 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1634 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1648 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1657 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1694 |
+| §8 | Persistence | 1713 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1715 |
+| &nbsp;&nbsp;§8.2 | Saving | 1749 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1782 |
+| &nbsp;&nbsp;§8.4 | Server database | 1824 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1888 |
+| §9 | Command line | 1915 |
+| §10 | Configuration (server) | 1985 |
+| &nbsp;&nbsp;§10.1 | Container | 2023 |
+| §11 | Feature inventory | 2111 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2118 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2156 |
+| §12 | Non-goals | 2174 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
