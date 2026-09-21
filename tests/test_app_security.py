@@ -222,13 +222,14 @@ async def test_a_handshake_behind_a_tls_proxy_is_accepted():
     `https` would leave the request counting as plain, so its effective port would be 80 against
     an `Origin` naming 443, and §7.4 rule 3 would refuse every socket behind such a proxy — while
     the page itself loaded, because a `GET` skips that rule."""
-    sent, _ = await call_guard(proxied_bundle(), scope_for("websocket", path="/ws", headers=[
+    sent, inner = await call_guard(proxied_bundle(), scope_for("websocket", path="/ws", headers=[
         ("Host", "127.0.0.1:8080"), ("X-Forwarded-Host", "app.example"),
         ("X-Forwarded-Proto", "wss"), ("Origin", "https://app.example")]))
-    assert ws_outcome(sent) != ("accept", 4403)
+    # The handshake reaches the inner app, which accepts and closes with 1000 of its own accord.
+    assert (inner.reached, ws_outcome(sent)) == (1, ("accept", 1000))
 
 
-async def test_a_handshake_behind_a_plain_proxy_still_matches_the_origin_on_its_port():
+async def test_a_handshake_behind_a_plain_proxy_does_not_match_an_https_origin():
     """The other half of the same rule: `ws` counts as plain, so an `https` origin does not
     match a request the proxy forwarded over plain http."""
     sent, _ = await call_guard(proxied_bundle(), scope_for("websocket", path="/ws", headers=[

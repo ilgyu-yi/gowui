@@ -928,6 +928,24 @@ async def test_scrubbing_takes_a_printed_address_tuple_whole(make_session, fake_
     assert leaks(h.rec.frames + h.session.attach_frames(), SENTINEL_HOST, server.port) == []
 
 
+#: SPEC §7.7's own example host: the one host whose own colons meet the `host:port` shapes.
+IPV6_HOST = "::1"
+
+
+async def test_scrubbing_takes_an_ipv6_literal_whole(make_session, fake_engine):
+    """§7.7: a host that is an IPv6 literal carries colons of its own, so `[::1]:6363` and the
+    four-element tuple an IPv6 address takes still go whole, port with them."""
+    h, catalog = await catalog_session(make_session, host=IPV6_HOST)
+    server = await fake_engine("gtp", host=IPV6_HOST)
+    server.options.replies["version"] = (f"1.0 at [{IPV6_HOST}]:{server.port}, "
+                                         f"at ('{IPV6_HOST}', {server.port}) "
+                                         f"and at ('{IPV6_HOST}', {server.port}, 0, 0)")
+    catalog.add("kata", "gtp", server.port, console=False)
+    state = await h.connect({"engineId": "kata"})
+    assert state["engine"]["version"] == "1.0 at [engine], at [engine] and at [engine]"
+    assert leaks(h.rec.frames + h.session.attach_frames(), IPV6_HOST, server.port) == []
+
+
 # -- review round 1: containment, lifecycle, result grammar (§3.2, §3.5, §4.1, §6.3, §7.7) ---------
 class AwaitableBroadcast:
     """A broadcast that records each frame and then returns an awaitable that would raise.
