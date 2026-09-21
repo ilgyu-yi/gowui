@@ -73,8 +73,8 @@ def page_handles() -> set[str]:
 
 # -- the server half ------------------------------------------------------------------------------
 def test_the_spec_browser_to_server_table_names_the_known_types():
-    """Count guard on the SPEC reader: §4.1 names 23 types."""
-    assert len(spec_table_types("### 4.1")) == 23
+    """Count guard on the SPEC reader: §4.1 names 25 types."""
+    assert len(spec_table_types("### 4.1")) == 25
 
 
 def test_the_server_dispatches_exactly_the_spec_browser_to_server_types():

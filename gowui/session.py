@@ -178,6 +178,10 @@ class BoardSlot:
 
 
 # -- message field checks ---------------------------------------------------------------------
+#: Tells an absent key from one carrying ``null``, where the two mean different things (§4.1).
+_MISSING = object()
+
+
 def _is_number(value: Any) -> bool:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
@@ -966,9 +970,13 @@ class GameSession:
         self._switch_to(slot)
 
     def _msg_board_duplicate(self, message: dict) -> None:
+        # ``board_duplicate`` names the board it copies, as ``board_delete`` does: it has no
+        # "the active one" meaning (§4.1 "The board frames").
+        source = self._slot(_board_id(message))
+        if source is None:
+            raise _Refused(f"no board {str(message.get('id'))[:ECHO]}")
         if len(self.boards) >= MAX_BOARDS:
-            raise _Refused(f"a space holds at most {MAX_BOARDS} boards")
-        source = self._active
+            raise _Refused(f"cannot duplicate a board: a space holds at most {MAX_BOARDS} boards")
         board_id = self._fresh_id()
         clone = BoardSlot(board_id, f"Board {board_id}", copy.deepcopy(source.game),
                           source.profile, copy.deepcopy(source.policy),
@@ -976,6 +984,52 @@ class GameSession:
                           source.analysis_version)
         self.boards.insert(self.boards.index(source) + 1, clone)
         self._switch_to(clone)
+
+    def _fresh_board(self, board_id: int) -> BoardSlot:
+        """A fresh board with ``board_id`` (§3.3 "A fresh board"), the shape ``board_new`` and the
+        reset of the last board both produce.
+
+        An empty game at the **active** board's size and rules — a person reviewing 9×9 Chinese
+        games wants another of those — with the **rule set's** default komi for them (what
+        ``komi: null`` gets, §1.2), never the active board's own komi, which on a handicap board
+        is 0.5 and would arrive here with no handicap stones. Handicap 0, no setup stones, the
+        name ``Board <id>``, the default profile and empty tuples (the slot's own defaults).
+        """
+        game = self._active.game
+        return BoardSlot(board_id, f"Board {board_id}",
+                         Game(game.size, komi=None, rules=game.rules.name, handicap=0))
+
+    def _msg_board_new(self, message: dict) -> None:
+        if len(self.boards) >= MAX_BOARDS:
+            raise _Refused(f"cannot add a new board: a space holds at most {MAX_BOARDS} boards")
+        slot = self._fresh_board(self._fresh_id())
+        self.boards.append(slot)
+        self._switch_to(slot)
+
+    def _msg_board_move(self, message: dict) -> None:
+        """Put a board after the board ``after`` names, or at the head when it is null (§3.3
+        "Move"). The order changes and nothing else: the active board stays active, no analysis
+        is discarded and no engine is reconfigured (§4.1)."""
+        slot = self._slot(_board_id(message))
+        if slot is None:
+            raise _Refused(f"no board {str(message.get('id'))[:ECHO]}")
+        # ``after`` must be present: absent is refused rather than read as null, so a dropped
+        # field cannot silently mean "move to the top" (§4.1).
+        after = message.get("after") if "after" in message else _MISSING
+        anchor: BoardSlot | None = None
+        if after is not None:
+            if after is _MISSING or isinstance(after, bool) or not isinstance(after, int):
+                raise _Refused("after must be a board id or null")
+            anchor = self._slot(after)
+            if anchor is None:
+                raise _Refused(f"no board {str(after)[:ECHO]}")
+            if anchor is slot:
+                raise _Refused("a board cannot be moved after itself")
+        # An anchor already the board's predecessor lands it back where it was: the no-op a drag
+        # that lands where it started produces, accepted and changing the order not at all.
+        self.boards.remove(slot)
+        self.boards.insert(0 if anchor is None else self.boards.index(anchor) + 1, slot)
+        self._emit_state()
 
     def _fresh_id(self) -> int:
         taken = {s.id for s in self.boards}
@@ -989,7 +1043,13 @@ class GameSession:
         if slot is None:
             raise _Refused(f"no board {str(message.get('id'))[:ECHO]}")
         if len(self.boards) == 1:
-            raise _Refused("the last board cannot be deleted")
+            # Deleting the last board resets it in place (§3.3 "Delete"): it keeps its id — so a
+            # tab holding that id does not lose its tile — its place and its active status, and
+            # becomes a fresh board. The engine is reconfigured from the cleared settings (§3.4),
+            # which ``_switch_to`` does along with the state frame.
+            self.boards[0] = self._fresh_board(slot.id)
+            self._switch_to(self.boards[0])
+            return
         index = self.boards.index(slot)
         self.boards.remove(slot)
         self._epoch += 1
@@ -1610,6 +1670,8 @@ class GameSession:
         "board_select": _msg_board_select,
         "board_delete": _msg_board_delete,
         "board_duplicate": _msg_board_duplicate,
+        "board_new": _msg_board_new,
+        "board_move": _msg_board_move,
         "board_rename": _msg_board_rename,
         "raw": _msg_raw,
         "final_score": _msg_final_score,

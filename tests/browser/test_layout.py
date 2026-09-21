@@ -48,11 +48,11 @@ def resized(g: Gowui, size: dict) -> None:
     settled(g)
 
 
-def duplicate_to(g: Gowui, count: int) -> None:
-    """Fill the strip with ``count`` boards through the page's own "+ Duplicate" button."""
+def fill_strip(g: Gowui, count: int) -> None:
+    """Fill the strip with ``count`` boards through the page's own "+ New board" button."""
     tiles = g.page.locator("#board-list .thumb")
     for wanted in range(tiles.count() + 1, count + 1):
-        g.page.locator("#board-duplicate").click()
+        g.page.locator("#board-new").click()
         expect(tiles).to_have_count(wanted, timeout=QUICK)
     settled(g)
 
@@ -89,7 +89,7 @@ def test_the_board_does_not_move_while_a_side_column_scrolls(start_app, open_pag
     pane — and the board keeps its size rather than resizing under the scrollbar."""
     g = open_page(start_app()).open()
     resized(g, SHORT)
-    duplicate_to(g, 6)
+    fill_strip(g, 6)
 
     g.page.evaluate("() => window.scrollTo(0, 500)")
     assert page_scroll(g) == 0, "the document scrolled"
@@ -161,7 +161,7 @@ def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
     (§3.8 "Board strip")."""
     g = open_page(start_app()).open()
     resized(g, NARROW)
-    duplicate_to(g, 8)
+    fill_strip(g, 8)
 
     height, viewport = document_room(g)
     assert height > viewport, f"the narrow page is {height}px tall and does not scroll"

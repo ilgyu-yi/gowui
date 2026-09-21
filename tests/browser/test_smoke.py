@@ -1,6 +1,10 @@
-"""Browser smoke run (issue #8 AC4; SPEC §3.8): against the local app and the fake engine, the page
-shows the board, a candidate overlay once analysis is on, and a second board after Duplicate —
-with no console error and no CSP violation (§7.5). Screenshots go to ``test-artifacts/``.
+"""Browser smoke run (issue #8 AC4, #50; SPEC §3.8): against the local app and the fake engine, the
+page shows the board, a candidate overlay once analysis is on, and a second board after a tile's ⧉
+— with no console error and no CSP violation (§7.5). Screenshots go to ``test-artifacts/``.
+
+The board strip gets smoke cover only: the per-tile ⧉, "+ New board", a drag and its keyboard
+twin, and × on the only tile. Every per-frame rule those actions send (§4.1 "The board frames")
+is pinned in tests/test_session_boards.py, where it costs no browser.
 """
 
 from __future__ import annotations
@@ -52,16 +56,160 @@ def test_analysis_fills_the_candidate_table(start_engine, start_app, open_page):
     expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=ENGINE)
 
 
+def tile(g, board_id: int):
+    """The strip's tile for ``board_id`` (§3.8: tiles are matched by their ``data-id``)."""
+    return g.page.locator(f'#board-list .thumb[data-id="{board_id}"]')
+
+
+def tile_ids(g) -> list[str]:
+    return g.page.evaluate("() => Array.from(document.querySelectorAll('#board-list .thumb'))"
+                           ".map((node) => node.dataset.id)")
+
+
 def test_duplicate_shows_a_second_board(start_app, open_page):
     g = open_page(start_app()).open()
-    g.page.locator("#board-duplicate").click()
+    tile(g, g.state()["activeBoard"]).locator(".thumb-duplicate").click()
     expect(g.page.locator("#board-list .thumb")).to_have_count(2)
 
 
 def test_the_duplicate_is_the_active_board(start_app, open_page):
     g = open_page(start_app()).open()
-    g.page.locator("#board-duplicate").click()
+    tile(g, g.state()["activeBoard"]).locator(".thumb-duplicate").click()
     expect(g.page.locator("#board-list .thumb").nth(1)).to_have_class(re.compile(r"\bactive\b"))
+
+
+# -- the board strip (#50; §3.8 "Board strip", §3.3) ----------------------------------------------
+def test_the_tile_duplicate_names_that_tiles_board(start_app, open_page):
+    """§3.8: ⧉ sends ``board_duplicate`` for *that* tile — §4.1: the frame has no "the active
+    one" meaning, so the second tile's ⧉ names the second board, not the active one."""
+    g = open_page(start_app()).open()
+    g.page.locator("#board-new").click()
+    g.page.locator("#board-new").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(3)
+    second = g.state()["boards"][1]["id"]
+
+    since = g.mark()
+    tile(g, second).locator(".thumb-duplicate").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(4)
+    assert g.wait_sent("board_duplicate", since)["id"] == second
+
+
+def test_the_new_board_button_opens_an_empty_board(start_app, open_page):
+    """§3.8: the button under the strip is "+ New board"; §3.3: it appends a fresh board — an
+    empty game — and switches to it."""
+    g = open_page(start_app()).open()
+    g.act({"type": "play", "color": "black", "vertex": "D4"})
+    expect(g.page.locator("#move-counter")).to_have_text("1 / 1")
+
+    g.page.locator("#board-new").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(2)
+    expect(g.page.locator("#move-counter")).to_have_text("0 / 0")
+
+
+def test_dragging_a_tile_past_the_next_one_moves_it(start_app, open_page):
+    """§3.8 "Reordering": dropping sends ``board_move`` with the tile the drop landed after, and
+    the tile moves when the server's ``state`` comes back."""
+    g = open_page(start_app()).open()
+    g.page.locator("#board-new").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(2)
+    first, second = (board["id"] for board in g.state()["boards"])
+    start, target = tile(g, first).bounding_box(), tile(g, second).bounding_box()
+
+    since = g.mark()
+    g.page.mouse.move(start["x"] + start["width"] / 2, start["y"] + start["height"] / 2)
+    g.page.mouse.down()
+    # The intermediate steps are what cross the drag threshold (§3.8: a press picks nothing up
+    # until the pointer has moved a few pixels), so a single jump would not start a drag.
+    g.page.mouse.move(target["x"] + target["width"] / 2, target["y"] + target["height"] - 2,
+                      steps=8)
+    g.page.mouse.up()
+    frame = g.wait_sent("board_move", since)
+    g.until("(ids) => Array.from(document.querySelectorAll('#board-list .thumb'))"
+            ".map((node) => node.dataset.id).join() === ids", f"{second},{first}")
+    assert (frame["id"], frame["after"]) == (first, second)
+
+
+def test_a_double_click_on_the_name_still_opens_the_rename_field(start_app, open_page):
+    """§3.8 "Reordering": a press picks nothing up until the pointer has moved a few pixels, so a
+    double-click on the name is still itself — and §3.8 "Rename in place" still swaps the name for
+    a text field. Capturing the pointer on `pointerdown` retargets the compatibility `dblclick` to
+    the tile, and the name's own handler never runs."""
+    g = open_page(start_app()).open()
+    only = g.state()["activeBoard"]
+    tile(g, only).locator(".thumb-name").dblclick()
+    expect(tile(g, only).locator(".thumb-rename")).to_have_count(1)
+
+
+def test_the_edge_scroll_moves_the_drop_target_with_the_strip(start_app, open_page):
+    """§3.8 "Reordering": dragging near an edge scrolls the strip "so a tile can be moved past the
+    ones that fit on screen". Scrolling without moving the drop target does not serve that: the
+    line would stay on the tile the pointer was over before the strip moved, and the frame would
+    name the pre-scroll anchor."""
+    g = open_page(start_app()).open()
+    for _ in range(11):
+        g.page.locator("#board-new").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(12)
+    ids = [board["id"] for board in g.state()["boards"]]
+
+    # Each new board becomes active and is scrolled into view, so the strip is already at the
+    # bottom and the first tile is off-screen. Put it back, or the press lands on nothing.
+    g.page.evaluate("() => { document.querySelector('.boards').scrollTop = 0; }")
+    g.until("() => document.querySelector('.boards').scrollTop === 0")
+    start = tile(g, ids[0]).bounding_box()
+    # The scroller, not #board-list: the list is as tall as all twelve tiles, so its lower edge is
+    # far below the window and a point near it is not in the strip at all.
+    strip = g.page.locator(".boards").bounding_box()
+    since = g.mark()
+    g.page.mouse.move(start["x"] + start["width"] / 2, start["y"] + start["height"] / 2)
+    g.page.mouse.down()
+    # Into the trailing edge band, then held still: the auto-scroll is the only thing moving.
+    g.page.mouse.move(start["x"] + start["width"] / 2, strip["y"] + strip["height"] - 8, steps=8)
+    marked = ("() => { const tile = document.querySelector('#board-list .thumb.drop-after');"
+              " return tile ? Number(tile.dataset.id) : null; }")
+    before = g.page.evaluate(marked)
+    g.until("(was) => { const tile = document.querySelector('#board-list .thumb.drop-after');"
+            " return tile !== null && Number(tile.dataset.id) !== was; }", before)
+    after = g.page.evaluate(marked)
+    g.page.mouse.up()
+
+    frame = g.wait_sent("board_move", since)
+    # `after != before` is already what the wait above gated on, so the claim left to make is
+    # that the frame carries the anchor the line moved to, not the one it started on.
+    assert frame["after"] == after, (
+        f"the drop line moved from board {before} to {after} as the strip scrolled, "
+        f"but the move named {frame['after']}")
+
+
+def test_alt_arrow_up_moves_a_focused_tile_one_place_earlier(start_app, open_page):
+    """§3.8 "Reordering by keyboard": Alt with the up arrow moves a focused tile one place
+    earlier, sending the same ``board_move`` — the second tile's anchor is the head."""
+    g = open_page(start_app()).open()
+    g.page.locator("#board-new").click()
+    expect(g.page.locator("#board-list .thumb")).to_have_count(2)
+    first, second = (board["id"] for board in g.state()["boards"])
+
+    since = g.mark()
+    tile(g, second).focus()
+    g.page.keyboard.press("Alt+ArrowUp")
+    frame = g.wait_sent("board_move", since)
+    g.until("(ids) => Array.from(document.querySelectorAll('#board-list .thumb'))"
+            ".map((node) => node.dataset.id).join() === ids", f"{second},{first}")
+    assert (frame["id"], frame["after"]) == (second, None)
+
+
+def test_the_close_on_the_only_tile_resets_the_board_in_place(start_app, open_page):
+    """§3.3 "Delete": deleting the last board resets it in place — the tile stays, with the same
+    id, so a tab holding that id does not lose it."""
+    g = open_page(start_app()).open()
+    only = g.state()["boards"][0]["id"]
+    g.act({"type": "play", "color": "black", "vertex": "D4"})
+    expect(g.page.locator("#move-counter")).to_have_text("1 / 1")
+
+    g.page.once("dialog", lambda dialog: dialog.accept())
+    tile(g, only).locator(".thumb-close").click()
+    expect(g.page.locator("#move-counter")).to_have_text("0 / 0")
+    expect(g.page.locator("#board-list .thumb")).to_have_count(1)
+    assert tile_ids(g) == [str(only)]
 
 
 def test_the_smoke_flow_end_to_end(start_engine, start_app, open_page):
@@ -71,7 +219,7 @@ def test_the_smoke_flow_end_to_end(start_engine, start_app, open_page):
     g.page.locator("#analysis-on").check()
     g.expect_dataset("candidates", re.compile(r"^[1-9]\d*$"), timeout=ENGINE)
     expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=ENGINE)
-    g.page.locator("#board-duplicate").click()
+    tile(g, g.state()["activeBoard"]).locator(".thumb-duplicate").click()
     expect(g.page.locator("#board-list .thumb")).to_have_count(2)
     expect(g.page.locator("#board-list .thumb").nth(1)).to_have_class(re.compile(r"\bactive\b"))
     g.screenshot("smoke-duplicate")

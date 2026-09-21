@@ -292,7 +292,8 @@ def test_analysis_tour(start_engine, start_app, open_page):
 
     # B26: analysis follows the board on screen. The duplicate gets a second move; its analysis
     # is for cursor 2, and selecting the first board brings analysis for its cursor 1 back.
-    page.locator("#board-duplicate").click()
+    active = g.state()["activeBoard"]
+    page.locator(f'#board-list .thumb[data-id="{active}"] .thumb-duplicate').click()
     expect(page.locator("#board-list .thumb")).to_have_count(2)
     wait_state(g, lambda s: s["activeBoard"] == s["boards"][1]["id"])
     g.act({"type": "play", "color": "white", "vertex": "Q16"})

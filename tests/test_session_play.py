@@ -212,7 +212,7 @@ async def test_switching_boards_and_back_discards_the_move(h, fake_engine):
     await h.send({"type": "genmove"})
     assert await wait_for(lambda: gtp_count(server, "genmove") == 1)
     start = h.rec.mark()
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": board_a})
     assert await h.rec.wait_state(lambda f: f["activeBoard"] != board_a, start)
     await h.send({"type": "board_select", "id": board_a})
     await settle(SLOW + 0.8)

@@ -21,7 +21,7 @@ async def configured(h) -> None:
     await h.send({"type": "human_params", "profile": "rank_5k", "policy": {"min_p": 0.05},
                   "compare": {"temperature": 2}, "evalVisits": 50})
     await h.send({"type": "board_rename", "id": h.rec.state()["activeBoard"], "name": "study"})
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": h.rec.state()["activeBoard"]})
     await h.send({"type": "engine_params", "maxVisits": 321, "reportInterval": 0.7,
                   "includeOwnership": True})
     await h.send({"type": "players", "blackIsEngine": True, "whiteStyle": "katago"})
@@ -68,6 +68,18 @@ async def test_a_snapshot_round_trips_through_restore(h, make_session):
     await configured(h)
     data = h.session.snapshot()
     assert restored(make_session, data).session.snapshot() == data
+
+
+async def test_a_restored_space_keeps_the_board_order_a_move_made(h, make_session):
+    """§3.3 "Move" with §8.1: the order is the strip's only handle, so a snapshot carries the
+    order a ``board_move`` left behind, not the order the boards were made in."""
+    first = h.rec.state()["activeBoard"]
+    await h.send({"type": "board_duplicate", "id": first})
+    second = (await h.fresh_state())["activeBoard"]
+    await h.send({"type": "board_move", "id": first, "after": second})
+    await h.fresh_state()
+    data = h.session.snapshot()
+    assert board_ids(await restored(make_session, data).fresh_state()) == [second, first]
 
 
 async def test_a_restored_space_shows_the_active_boards_game_and_cursor(h, make_session):

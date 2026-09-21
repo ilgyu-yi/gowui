@@ -32,46 +32,46 @@
 | &nbsp;&nbsp;§3.1 | Spaces | 443 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 470 |
 | &nbsp;&nbsp;§3.3 | Boards | 536 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 552 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 578 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 593 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
-| &nbsp;&nbsp;§3.8 | The page | 606 |
-| §4 | WebSocket protocol | 965 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 969 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1040 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1082 |
-| §5 | HTTP routes | 1176 |
-| §6 | Launch modes and policies | 1251 |
-| &nbsp;&nbsp;§6.1 | The rule | 1253 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1289 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1329 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1362 |
-| §7 | Authentication and security | 1397 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1399 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1460 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1496 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1516 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1564 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1585 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1631 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1665 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1679 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1688 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1725 |
-| §8 | Persistence | 1744 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1746 |
-| &nbsp;&nbsp;§8.2 | Saving | 1780 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1813 |
-| &nbsp;&nbsp;§8.4 | Server database | 1855 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1919 |
-| §9 | Command line | 1946 |
-| §10 | Configuration (server) | 2016 |
-| &nbsp;&nbsp;§10.1 | Container | 2054 |
-| §11 | Feature inventory | 2142 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2149 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2187 |
-| §12 | Non-goals | 2205 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 565 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 591 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 606 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 610 |
+| &nbsp;&nbsp;§3.8 | The page | 619 |
+| §4 | WebSocket protocol | 1003 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1007 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1102 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1144 |
+| §5 | HTTP routes | 1238 |
+| §6 | Launch modes and policies | 1313 |
+| &nbsp;&nbsp;§6.1 | The rule | 1315 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1351 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1391 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1424 |
+| §7 | Authentication and security | 1459 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1461 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1522 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1558 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1578 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1626 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1647 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1693 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1727 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1741 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1750 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1787 |
+| §8 | Persistence | 1806 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1808 |
+| &nbsp;&nbsp;§8.2 | Saving | 1844 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1877 |
+| &nbsp;&nbsp;§8.4 | Server database | 1919 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1983 |
+| §9 | Command line | 2010 |
+| §10 | Configuration (server) | 2080 |
+| &nbsp;&nbsp;§10.1 | Container | 2118 |
+| §11 | Feature inventory | 2206 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2213 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2251 |
+| §12 | Non-goals | 2269 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -538,11 +538,24 @@ same key. A space is created in four steps:
 - A space holds one or more boards, shown as a thumbnail strip. Each board has an id, a name
   (default `Board N`), its own game and cursor, and its own handol-mux settings (profile, tuple,
   compare tuple).
-- **Duplicate** copies the active board — position, cursor and human settings — inserts the copy
-  after it and switches to it; at the board limit (§7.6) it is refused with an error. **Select**
-  switches boards (also `[` / `]`). **Rename** trims the name, ignores an empty one and truncates it
-  to 40 characters. **Delete** removes a board, switching to a neighbour when it was active; the
-  last board cannot be deleted.
+- **A fresh board** is the shape two of the actions below produce: an empty game at the **active
+  board's size and rules**, the **rule set's default komi** for them (§1.2 — what `komi: null`
+  gets, never the active board's own komi, which on a handicap board is 0.5 and would arrive with
+  no handicap stones), handicap 0, no setup stones, the name `Board <id>`, the default profile and
+  empty tuples. Size and rules are inherited because a person reviewing 9×9 Chinese games wants
+  another of those; komi is not, because komi belongs to the game.
+- **Duplicate** copies **the board it names** — position, cursor and human settings — inserts the
+  copy after that board and switches to it. **New board** appends a fresh board and switches to it.
+  Both are refused with an error at the board limit (§7.6), and the text says which was refused.
+- **Select** switches boards (also `[` / `]`). **Rename** trims the name, ignores an empty one and
+  truncates it to 40 characters. **Move** puts a board after another, or at the head, and changes
+  nothing else (§4.1).
+- **Delete** removes a board, switching to a neighbour when it was active. Deleting the **last**
+  board is accepted and **resets it in place** instead: the board keeps its id, its place and its
+  active status, and becomes a fresh board — so its game, name, last analysis, profile and tuples
+  are all cleared. It keeps its id so a tab holding that id does not lose its tile. There is no
+  board-less space: a page with nothing to draw is not a state this application has a use for, and
+  the way back from one would be the only action it could offer.
 - Human settings are validated when they change, with the rules of §2.5 (the profile rule, each
   tuple, and the tuples together with the visits in effect); a refused setting is reported with an
   error and not stored.
@@ -617,7 +630,7 @@ too follows the data, never a mode name.
 
 - **Top bar:** the title, the engine form (below), the language select (한국어 / English) and
   the status line.
-- **Board strip** (left): one thumbnail per board and a "+ Duplicate" button.
+- **Board strip** (left): one thumbnail per board and a "+ New board" button.
 - **Board pane** (centre): the board canvas; under it the navigation row — first, −10, −1, the
   counter `cursor / moveCount`, +1, +10, last — then Pass, Undo and Resign.
 - **Side panel** (right): the winrate bar; one line with the side to move, the score lead and the
@@ -829,15 +842,40 @@ trimmed, the port an integer); Disconnect sends `disconnect`.
 
 **Board strip.** Each tile shows its board drawn small (stones, last move, and the heatmap of its
 `heat` — or, for the active board, of the live analysis at the displayed cursor), the name with a
-✎ button, "move n/total" with Black's winrate when known, a tuple line (`profile · tuple · A/B`,
-where the tuple is abbreviated as `key value` pairs or "identity" when empty, and `A/B` appears
-while a compare tuple is set), and a × button, hidden when only one board is left.
+✎ and a ⧉ button, "move n/total" with Black's winrate when known, a tuple line
+(`profile · tuple · A/B`, where the tuple is abbreviated as `key value` pairs or "identity" when
+empty, and `A/B` appears while a compare tuple is set), and a × button in the corner. The × is
+shown on every tile, the last one included (§3.3: there it resets rather than removes).
+
+The ⧉ sits in the title row after the ✎, not beside the ×. Three things follow: the ✎ stays next
+to the name it edits, the ⧉ sits at the tile's lower edge where the copy it makes will appear, and
+the × keeps its corner to itself so nothing new is adjacent to the one button that destroys
+something. While a rename field is open the tile shows **no** hover buttons — the field fills that
+row, and this is one fewer way to hit × by accident than the strip has today.
 
 - Tiles are updated in place, matched by their `data-id`: a tile is created for a new board,
   removed for a board that is gone, and moved to its board's position. A tile's canvas is redrawn
   only when its signature (stones, last move and heat) changed.
-- Clicking a tile sends `board_select`; × asks for confirmation, then sends `board_delete`;
-  "+ Duplicate" sends `board_duplicate`.
+- Clicking a tile sends `board_select`; ⧉ sends `board_duplicate` for **that** tile;
+  × asks for confirmation, then sends `board_delete`. On the last tile the × asks a different
+  question, because it will not remove the tile: it says the board will be emptied, and a dialog
+  that said "delete" and then did not would be a lie. The button under the strip is
+  **"+ New board"** and sends `board_new`; where it sits is where its board lands.
+- **Reordering.** A tile can be dragged to a new place. Pressing on a tile picks nothing up until
+  the pointer has moved a few pixels, so a click, a double-click on the name and a press inside the
+  rename field are all still themselves. While dragging, the dragged tile is dimmed and a line
+  marks the edge the drop would land against — the strip does **not** rearrange under the pointer.
+  Dropping sends `board_move` with the tile the drop landed after (§4.1), or the head; the tile
+  moves when the server's `state` comes back, so on a slow link there is a beat between the drop
+  and the move. The server owns the order: rearranging first would need an undo for a refused move.
+  A drag never also selects. Escape cancels it and sends nothing. Dragging near the strip's leading
+  or trailing edge scrolls it, so a tile can be moved past the ones that fit on screen.
+- **Reordering by keyboard.** A tile takes focus. Enter or Space on a focused tile selects its
+  board; **Alt with the up or down arrow** moves it one place earlier or later, sending the same
+  `board_move`. At the ends those do nothing. Alt with the left or right arrow is deliberately not
+  used: it is Back and Forward in the major browsers. The anchor is computed from the tab's own
+  view, which is safe precisely because the frame carries an anchor — a stale view is refused, not
+  misapplied.
 - The strip scrolls within itself, down its column when the layout is wide and sideways when it is
   narrow (§3.8 "Scrolling"). Its scrollbar is styled to read as a scrollbar — a thin track in the
   panel's own line colour — so that a strip holding more tiles than fit says so. Whether the bar is
@@ -982,8 +1020,9 @@ One WebSocket per tab at `/ws`, JSON text frames.
 | `players` | `blackIsEngine`, `whiteIsEngine`, `blackStyle`, `whiteStyle` (each optional) |
 | `engine_params` | `maxVisits`, `reportInterval`, `includeOwnership` (each optional) |
 | `human_params` | `profile`, `policy`, `compare` (object, or null to clear; absent = unchanged), `evalVisits` |
-| `board_select`, `board_delete` | `id` |
-| `board_duplicate` | — |
+| `board_select`, `board_delete`, `board_duplicate` | `id` |
+| `board_new` | — |
+| `board_move` | `id`, `after` (a board id, or null for the head) |
 | `board_rename` | `id`, `name` |
 | `raw` | `command` |
 | `final_score` | — |
@@ -1008,6 +1047,29 @@ refused before they are read, and a refusal quotes at most 40 characters of the 
 `load_sgf` text is measured against its 1 MiB in UTF-8 bytes, a lone surrogate counting as its
 three bytes; text holding one (for example in a move comment) is accepted, saved, and restored
 with the same moves (§7.6, §8.1).
+
+**The board frames.** `board_duplicate` names the board it copies, as `board_delete` does; it has
+no "the active one" meaning. `board_new` takes no fields. `board_move` carries the board to move
+and the board it lands **after** — an anchor, never an index. A space is shared by every tab the
+account has open (§3.1), so an index computed against one tab's view of the list moves the wrong
+board when another tab has inserted or deleted meanwhile; an anchor that is gone is simply refused,
+and the next `state` resyncs that tab. `after` is `null` to move a board to the head, and the key
+must be **present**: absent is refused rather than read as null, so a dropped field cannot silently
+mean "move to the top".
+
+Each is refused with fixed text and changes nothing:
+
+- an `id` (or `after`) that is not an integer — a whole-valued float is not one either —
+  "id must be a board id", "after must be a board id or null";
+- an id naming no board — "no board *id*", quoting the value as above;
+- `board_duplicate` or `board_new` at `MAX_BOARDS` — the text names which was refused, because at
+  the limit the two are the difference between losing a copy and losing a blank;
+- `board_move` whose `after` is the board itself.
+
+A `board_move` whose anchor is already the board's predecessor is **accepted** and changes the
+order not at all — it is the no-op a drag that lands where it started produces, and refusing it
+would make an ordinary gesture report an error. A move changes the order and nothing else: the
+active board stays active, no board's analysis is discarded, and no engine is reconfigured.
 
 `preferences` changes what the storage policy keeps for the identity (§6.4): `lang`, the UI
 language, and `presets`, the user's tuple presets. A field that is absent is unchanged; both
@@ -1754,7 +1816,9 @@ it answers `303` to `/`, and a page request without an identity gets the `401` p
   "play":   { "blackIsEngine", "whiteIsEngine", "blackStyle", "whiteStyle", "analysisEnabled" } }
 ```
 
-Games travel as SGF plus the cursor. Analyses are not stored; they are recomputed. `request` is the
+Games travel as SGF plus the cursor. The `boards` list's **order is the strip's order**, so a move
+(§4.1) is stored by being stored at all, and a restored space shows the tiles as they were left.
+Analyses are not stored; they are recomputed. `request` is the
 last engine request the policy accepted (§6.3) — `{protocol, host, port}` in local mode,
 `{engineId}` in server mode. On restore, a board whose SGF no longer reads comes back empty rather
 than failing the whole restore; unknown or out-of-range settings fall back to defaults; if the
@@ -2174,7 +2238,7 @@ addition to the section in its Behaviour column.
 | B22 | Two-tuple compare with A / B / Δ heatmaps and table | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
 | B23 | handol-mux winrate through eval visits | §2.5 | both | engine: `tests/test_handol.py`; session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
 | B24 | handol-mux side-to-move refusal with an explanation | §2.5 | both | engine: `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
-| B25 | Multiple boards: duplicate, select, `[` `]`, rename in place, delete, thumbnails | §3.3 | both | session: `tests/test_session_boards.py`; UI: `tests/browser/test_smoke.py` |
+| B25 | Multiple boards: duplicate a named board, new board, select, `[` `]`, rename in place, delete or reset the last, reorder by drag and by keyboard, thumbnails | §3.3, §3.8 | both | session: `tests/test_session_boards.py`; UI: `tests/browser/test_smoke.py` |
 | B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: `tests/browser/test_tours.py` |
 | B27 | Korean / English UI, remembered | §8.5 | both | UI: `tests/test_frontend_i18n.py`, `tests/test_frontend_static.py` |
 | B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | UI: `tests/browser/test_smoke.py` |

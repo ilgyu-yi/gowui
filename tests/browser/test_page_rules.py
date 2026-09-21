@@ -68,7 +68,7 @@ def test_a_tile_move_does_not_save_an_open_rename(start_app, open_page):
     g = open_page(start_app())
     g.proxy_ws()
     g.open()
-    g.act({"type": "board_duplicate"})
+    g.act({"type": "board_duplicate", "id": g.state()["activeBoard"]})
     expect(g.page.locator("#board-list .thumb")).to_have_count(2, timeout=QUICK)
 
     state = g.state()

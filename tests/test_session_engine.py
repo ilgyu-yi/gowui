@@ -218,7 +218,7 @@ async def test_a_state_change_during_a_long_search_applies_at_once(h, fake_engin
     await h.connect_to(server)
     first = h.rec.state()["activeBoard"]
     start = h.rec.mark()
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": first})
     assert await h.rec.wait_state(lambda f: f["activeBoard"] != first, start)
     await h.send({"type": "genmove"})
     assert await wait_for(lambda: gtp_count(server, "genmove") == 1)
@@ -640,7 +640,7 @@ async def test_handol_gets_the_active_boards_settings_after_a_switch(h, handol_s
     await human(h, profile="rank_1d")
     first = h.rec.state()["activeBoard"]
     start = h.rec.mark()
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": first})
     assert await h.rec.wait_state(lambda f: f["activeBoard"] != first, start)
     await human(h, profile="proyear_2000")
     await h.send({"type": "board_select", "id": first})

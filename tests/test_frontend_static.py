@@ -313,7 +313,7 @@ def test_the_sgf_picker_accepts_sgf_files():
 # Every id the browser tests drive (tests/browser); §3.8 names what each one is.
 PAGE_IDS = [
     "protocol", "host", "port", "connect", "engine-state", "lang", "status",
-    "board-list", "board-duplicate", "board",
+    "board-list", "board-new", "board",
     "first", "prev10", "prev", "move-counter", "next", "next10", "last", "pass", "undo", "resign",
     "winbar-black", "winbar-label", "to-play", "score-lead", "visit-count",
     "human-profile", "profile-help", "eval-visits", "compare-on", "tuple-tabs", "compare-view",
