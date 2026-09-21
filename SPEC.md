@@ -258,10 +258,12 @@ candidates' `prior`). `compare` is used by handol-mux only (§2.5).
 
 `utility` and `utilityLcb` are Black's view like the rest, and they flip the way a **score** does
 — negated, not complemented — because a utility is a signed quantity centred on zero and not a
-probability. This is worth stating because the engines do not agree: KataGo reports them from the
-side to move (§2.3 sets `reportAnalysisWinratesAs = SIDETOMOVE`) while handol-mux's answer is
-already Black's, so the two KataGo clients negate and the handol client does not. A field whose
-meaning depended on which protocol filled it would make every reading of it ambiguous.
+probability. It is worth saying because the two arrive from different places and **every client negates**,
+for its own reason: KataGo reports them from the side to move (§2.3 sets
+`reportAnalysisWinratesAs = SIDETOMOVE`), and handol-mux's plain answers arrive from White's view
+(§2.5). A field whose meaning depended on which protocol filled it would make every reading of it
+ambiguous, which is what it was: the handol client negated these two and the two KataGo clients
+passed them through.
 
 Engine output is untrusted and is sanitised on the way in, so `analysis` is always valid JSON:
 
