@@ -6,6 +6,11 @@
   // At most this many moveInfos are drawn as candidates (SPEC §3.8); a later entry is nowhere on
   // the board, so the pointer never finds it.
   var DRAWN = 12;
+  // The strength the position is drawn at while a preview is up (SPEC §3.8 "The position recedes
+  // while a preview is up"). The same faintness the board already uses for the "you could play
+  // here" ghost stone: enough to read what is underneath, far enough below 1 that the variation
+  // stands apart - and, being below 1, it drops the shadow `_stone` gives only an opaque stone.
+  var POSITION_DIM = 0.35;
 
   function vertexToPoint(vertex, size) {
     if (!vertex || vertex.toLowerCase() === 'pass' || vertex.toLowerCase() === 'resign') return null;
@@ -160,16 +165,20 @@
     var m = this.metrics();
     ctx.clearRect(0, 0, m.extent, m.extent);
     this.analysisHoverHit = this._hoverIsCandidate(m);
+    var preview = this._previewCandidate();
+    // SPEC §3.8 "The position recedes while a preview is up": the position and the things that
+    // belong to its stones recede; the wood, the grid, the coordinates, the heatmap and the
+    // ownership squares do not.
+    var dim = preview ? POSITION_DIM : 1;
     this._drawWood(m);
     this._drawGrid(m);
     var ownership = this.options.showOwnership ? this._drawOwnership(m) : false;
     var heatmap = this.options.showPolicy ? this._drawPolicy(m) : 'off';
-    this._drawStones(m);
+    var positionDim = this._drawStones(m, dim);
     // SPEC §3.8 "Board overlays": the ring goes over the stones and under the numbers, so the
     // two no longer take turns — the ring keeps to the stone's edge, the number to its centre.
-    var ring = this._drawLastMove(m);
-    var numbers = this.options.showNumbers ? this._drawMoveNumbers(m) : false;
-    var preview = this._previewCandidate();
+    var ring = this._drawLastMove(m, dim);
+    var numbers = this.options.showNumbers ? this._drawMoveNumbers(m, dim) : false;
     var candidates = 0;
     var previewStones = 0;
     if (preview) previewStones = this._drawPrincipalVariation(m, preview);
@@ -189,6 +198,11 @@
     // Taken from the draw, not from this.state.lastMove: the record has to name the ring that
     // reached the canvas, or it would report one the board never drew.
     record.lastMoveRing = ring;
+    // The alpha the position's stones were handed, not the one this draw intended.
+    record.positionDim = String(positionDim);
+    // The readout line reads the pointer from here: the board is what knows whether the pointer
+    // is on a candidate's circle, and `setPreview` is what carries a table row's move in.
+    if (this.handlers.onPointer) this.handlers.onPointer(this.hoveredCandidate());
   };
 
   GoBoard.prototype._drawWood = function (m) {
@@ -233,18 +247,21 @@
     }
   };
 
-  GoBoard.prototype._drawStones = function (m) {
+  // Draws the position at `dim` and returns the alpha it handed each stone.
+  GoBoard.prototype._drawStones = function (m, dim) {
     var stones = this.state.stones;
     for (var y = 0; y < m.size; y++) {
       for (var x = 0; x < m.size; x++) {
         var value = stones[y * m.size + x];
-        if (value) this._stone(m, x, y, value === 1 ? 'black' : 'white', 1);
+        if (value) this._stone(m, x, y, value === 1 ? 'black' : 'white', dim);
       }
     }
-    // Ghost stone under the pointer on an empty intersection.
+    // Ghost stone under the pointer on an empty intersection. It recedes with the position: it
+    // says "you could play here" about a position that is not the subject while a preview is up.
     if (this.hover && !this.analysisHoverHit && !stones[this.hover.y * m.size + this.hover.x]) {
-      this._stone(m, this.hover.x, this.hover.y, this.state.toPlay, 0.35);
+      this._stone(m, this.hover.x, this.hover.y, this.state.toPlay, 0.35 * dim);
     }
+    return dim;
   };
 
   GoBoard.prototype._stone = function (m, x, y, color, alpha) {
@@ -278,7 +295,7 @@
 
   // Rings the stone just played and returns the vertex it ringed, or '' when it ringed nothing
   // (no move yet, or the last move was a pass and left no stone to ring).
-  GoBoard.prototype._drawLastMove = function (m) {
+  GoBoard.prototype._drawLastMove = function (m, dim) {
     var vertex = this.state.lastMove;
     var point = vertexToPoint(vertex, m.size);
     if (!point) return '';
@@ -294,6 +311,7 @@
     var ratio = this.pixelRatio || 1;
     var width = Math.min(3.5 * ratio, Math.max(1.25 * ratio, m.cell * 0.085));
     ctx.save();
+    ctx.globalAlpha = dim;
     ctx.lineWidth = width;
     ctx.strokeStyle = stone === 1 ? '#ff6b5e' : '#d63b2c';
     ctx.beginPath();
@@ -304,9 +322,11 @@
     return vertex;
   };
 
-  GoBoard.prototype._drawMoveNumbers = function (m) {
+  GoBoard.prototype._drawMoveNumbers = function (m, dim) {
     var numbers = this.state.moveNumbers || {};
     var ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = dim;
     ctx.font = 'bold ' + (m.cell * 0.36).toFixed(0) + 'px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -321,6 +341,7 @@
       ctx.fillText(String(numbers[vertex]),
         m.margin + point.x * m.cell, m.margin + point.y * m.cell);
     });
+    ctx.restore();
     return drawn > 0;
   };
 
@@ -460,6 +481,25 @@
     return infos.slice(0, DRAWN).some(function (info) { return info.move === vertex; });
   };
 
+  /* The candidate under the pointer, whether the pointer is on its circle or on its table row
+     (§3.8 "Candidate readout"). Unlike a preview it asks for no `pv`: the readout describes the
+     candidate, and a candidate without a variation still has every other field. */
+  GoBoard.prototype.hoveredCandidate = function () {
+    var infos = (this.analysis && this.analysis.moveInfos) || [];
+    if (!infos.length) return null;
+    var wanted = this.pinnedPv;
+    var searched = infos;
+    if (!wanted && this.hover && this.state) {
+      wanted = pointToVertex(this.hover.x, this.hover.y, this.state.size);
+      searched = infos.slice(0, DRAWN);
+    }
+    if (!wanted) return null;
+    for (var i = 0; i < searched.length; i++) {
+      if (searched[i].move === wanted) return searched[i];
+    }
+    return null;
+  };
+
   GoBoard.prototype._previewCandidate = function () {
     var infos = (this.analysis && this.analysis.moveInfos) || [];
     if (!infos.length) return null;
@@ -497,7 +537,9 @@
       if (occupied[key]) return;
       occupied[key] = true;
       drawn += 1;
-      self._stone(m, point.x, point.y, current, 0.96);
+      // Full strength: the variation is the subject, and an opaque stone carries the shadow the
+      // dimmed position loses (§3.8 "The position recedes while a preview is up").
+      self._stone(m, point.x, point.y, current, 1);
       ctx.fillStyle = current === 'black' ? '#f0f0ea' : '#16181d';
       var number = String(first + index);
       var scale = number.length > 2 ? 0.3 : 0.38;
@@ -506,25 +548,9 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(number, m.margin + point.x * m.cell, m.margin + point.y * m.cell);
     });
-
-    var label = info.move + '  ' + this._candidateLabel(info) +
-      (this.options.labelMode === 'winrate' || this.options.labelMode === 'prior' ? '%' : '');
-    // A human-policy candidate has no visits of its own; "0 visits" says nothing.
-    if (info.visits > 0) {
-      label += '  ' + (global.i18n ? global.i18n.t('visits.count', { n: abbreviate(info.visits) })
-                                    : abbreviate(info.visits) + ' visits');
-    }
-    ctx.font = 'bold ' + (m.cell * 0.4).toFixed(0) + 'px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    var padding = m.cell * 0.2;
-    var height = m.cell * 0.72;
-    var width = ctx.measureText(label).width + padding * 2;
-    var top = m.extent - height - padding;
-    ctx.fillStyle = 'rgba(16, 18, 24, 0.82)';
-    ctx.fillRect(padding, top, width, height);
-    ctx.fillStyle = '#e6e8ee';
-    ctx.fillText(label, padding * 2, top + m.cell * 0.16);
+    // No caption: what the board would have said about this candidate is in the readout line
+    // (§3.8 "PV preview", "Candidate readout"), which is the only place a candidate's full set is
+    // written. With it goes the one text board.js took from the i18n tables.
     return drawn;
   };
 

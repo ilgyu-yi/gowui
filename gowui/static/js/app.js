@@ -40,10 +40,20 @@
   var preferencesSent = false;
   var PORTS = { gtp: 6363, analysis: 6364, handol: 11985 };
 
+  // The move of the candidate under the pointer, from a board circle or a table row, or null.
+  var pointedAt = null;
+
   var board = new GoBoard($('board'), {
     onClick: function (vertex) {
       if (!state.game) return;
       send({ type: 'play', color: state.game.toPlay, vertex: vertex });
+    },
+    // The board knows where the pointer is; the readout line is what says it (§3.8).
+    onPointer: function (info) {
+      var move = info ? info.move : null;
+      if (move === pointedAt) return;
+      pointedAt = move;
+      renderReadout();
     }
   });
 
@@ -860,10 +870,21 @@
     return point ? policy[point.y * size + point.x] || 0 : 0;
   }
 
-  var DEFAULT_HEAD = ['col.move', 'col.win', 'col.score', 'col.visits', 'col.policy'];
+  // The three column sets of §3.8 "Candidate table". Visits and Value are in every one of them,
+  // and the readout line takes its fields from the same three arrays - one rule, so the line and
+  // the table cannot come to disagree (§3.8 "Candidate readout").
+  var DEFAULT_HEAD = ['col.move', 'col.win', 'col.score', 'col.visits', 'col.policy', 'col.value'];
+  var HANDOL_HEAD = ['col.move', 'col.win', 'col.score', 'col.visits', 'col.prob', 'col.value'];
+  var COMPARE_HEAD = ['col.move', 'col.win', 'col.score', 'col.visits', 'col.a', 'col.b',
+                      'col.delta', 'col.value'];
+
+  function headKeys() {
+    if (!state.analysis || state.analysis.source !== 'handol') return DEFAULT_HEAD;
+    return state.analysis.compare ? COMPARE_HEAD : HANDOL_HEAD;
+  }
+
   function setTableHead(keys) {
     var row = document.querySelector('table.candidates thead tr');
-    keys = keys || DEFAULT_HEAD;
     var mode = keys.join(',');
     if (row.dataset.mode === mode) return;
     row.dataset.mode = mode;
@@ -876,51 +897,78 @@
     });
   }
 
-  function percent(v, signed) {
+  function percent(v, plus) {
     if (v == null) return '-';
     var text = (v * 100).toFixed(1) + '%';
-    return signed && v > 0 ? '+' + text : text;
+    return plus && v > 0 ? '+' + text : text;
+  }
+
+  // A number the engine did not report is '-', never a zero: §2.2 turns a non-finite number into
+  // null, so every field can take that path, `visits` included (§3.8 "Candidate readout").
+  function counted(n) {
+    return n == null ? '-' : goboardUtils.abbreviate(n);
+  }
+
+  function withSign(v, digits) {
+    return v == null ? '-' : (v >= 0 ? '+' : '') + v.toFixed(digits);
+  }
+
+  // Black's view in the B+ / W+ form the score line already uses. The readout writes its
+  // perspective-bearing fields this way, so the line cannot contradict the circle it describes
+  // (§3.8 "Candidate readout"); the table's own sign sits under a column header instead.
+  function blacksView(v, digits) {
+    return v == null ? '-' : (v >= 0 ? 'B+' : 'W+') + Math.abs(v).toFixed(digits);
+  }
+
+  // The side the engine searched for (§0): the winrate is shown from it, as the circle's label is.
+  function searchedSide() {
+    var reported = state.analysis && state.analysis.currentPlayer;
+    if (reported === 'B') return 'black';
+    if (reported === 'W') return 'white';
+    return state.game ? state.game.toPlay : 'black';
+  }
+
+  // One candidate's fields, by the column key that names each (without its `col.` prefix).
+  // `named` asks for the readout's forms, where a field with a perspective names its side.
+  function fieldsOf(info, searched, named) {
+    var winrate = info.winrate == null ? null
+      : (searched === 'black' ? info.winrate : 1 - info.winrate);
+    var fields = {
+      move: info.move,
+      win: percent(winrate),
+      score: named ? blacksView(info.scoreLead, 1) : withSign(info.scoreLead, 1),
+      visits: counted(info.visits),
+      policy: percent(info.prior),
+      prob: percent(info.prior),
+      value: named ? blacksView(info.utility, 2) : withSign(info.utility, 2)
+    };
+    if (state.analysis && state.analysis.compare) {
+      var pa = probabilityOf(state.analysis.policy, info.move);
+      var pb = probabilityOf(state.analysis.compare.policy, info.move);
+      fields.a = percent(pa);
+      fields.b = percent(pb);
+      fields.delta = percent(pb - pa, true);
+    }
+    return fields;
   }
 
   function renderCandidates() {
     var body = $('candidates');
     body.replaceChildren();
-    var handol = state.analysis && state.analysis.source === 'handol';
-    var comparing = handol && !!state.analysis.compare;
-    setTableHead(!handol ? null : comparing
-      ? ['col.move', 'col.win', 'col.score', 'col.a', 'col.b', 'col.delta']
-      : ['col.move', 'col.win', 'col.score', 'col.prob']);
+    var keys = headKeys();
+    setTableHead(keys);
     var shown = viewOf(state.analysis);
     var infos = (shown && shown.moveInfos) || [];
 
     var toPlay = state.game ? state.game.toPlay : 'black';
-    var reported = state.analysis && state.analysis.currentPlayer;
-    var searched = reported === 'B' ? 'black' : (reported === 'W' ? 'white' : toPlay);
+    var searched = searchedSide();
     infos.slice(0, 10).forEach(function (info, index) {
       var row = document.createElement('tr');
       if (index === 0) row.className = 'best';
-      var winrate = info.winrate == null ? null
-        : (searched === 'black' ? info.winrate : 1 - info.winrate);
-      var score = info.scoreLead == null ? '-' : (info.scoreLead >= 0 ? '+' : '') + info.scoreLead.toFixed(1);
-      var cells;
-      if (comparing) {
-        var pa = probabilityOf(state.analysis.policy, info.move);
-        var pb = probabilityOf(state.analysis.compare.policy, info.move);
-        cells = [info.move, percent(winrate), score, percent(pa), percent(pb), percent(pb - pa, true)];
-      } else if (handol) {
-        cells = [info.move, percent(winrate), score, percent(info.prior)];
-      } else {
-        cells = [
-          info.move,
-          winrate == null ? '-' : (winrate * 100).toFixed(1) + '%',
-          score,
-          goboardUtils.abbreviate(info.visits),
-          info.prior == null ? '-' : (info.prior * 100).toFixed(1) + '%'
-        ];
-      }
-      cells.forEach(function (text) {
+      var fields = fieldsOf(info, searched, false);
+      keys.forEach(function (column) {
         var cell = document.createElement('td');
-        cell.textContent = text;
+        cell.textContent = fields[column.slice(4)];
         row.appendChild(cell);
       });
       row.onmouseenter = function () { board.setPreview(info.move); };
@@ -930,6 +978,57 @@
         send({ type: 'play', color: toPlay, vertex: info.move });
       };
       body.appendChild(row);
+    });
+    renderReadout();
+  }
+
+  /* -- the candidate readout (§3.8 "Candidate readout") ------------------- */
+  // One line under the board, always present so the controls below it do not move as it fills.
+  function piece(className, text, field) {
+    var node = document.createElement('span');
+    node.className = className;
+    node.textContent = text;
+    if (field) node.setAttribute('data-field', field);
+    return node;
+  }
+
+  function renderReadout() {
+    var line = $('candidate-readout');
+    var shown = viewOf(state.analysis);
+    var infos = (shown && shown.moveInfos) || [];
+    var info = null;
+    for (var i = 0; pointedAt && i < infos.length; i++) {
+      if (infos[i].move === pointedAt) info = infos[i];
+    }
+    // With no pointer on a circle or a row the line shows the best candidate, marked as such so
+    // it is not mistaken for something hovered.
+    var best = !info;
+    if (!info) info = infos[0] || null;
+    line.replaceChildren();
+    line.classList.toggle('empty', !info);
+    if (!info) {
+      // No analysis, or none with candidates.
+      line.appendChild(piece('mark', t('readout.none')));
+      return;
+    }
+    if (best) line.appendChild(piece('mark', t('readout.best')));
+    var searched = searchedSide();
+    var fields = fieldsOf(info, searched, true);
+    headKeys().forEach(function (key) {
+      var name = key.slice(4);
+      var label = t(key);
+      // The winrate is the side the engine searched for, as the circle's label is; the score and
+      // the Value name Black in their own text (§3.8).
+      if (name === 'win') label += ' (' + t(searched === 'black' ? 'black' : 'white') + ')';
+      var field = document.createElement('span');
+      field.className = 'field';
+      field.appendChild(piece('label', label));
+      field.appendChild(piece('num', fields[name], name));
+      // The bound sits beside the Value it bounds, in the same view.
+      if (name === 'value') {
+        field.appendChild(piece('lcb', blacksView(info.utilityLcb, 2), 'valueLcb'));
+      }
+      line.appendChild(field);
     });
   }
 

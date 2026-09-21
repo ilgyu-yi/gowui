@@ -70,6 +70,24 @@ main {
 #board-wrap { width: 100%; max-width: min(78vh, 900px); }
 #board { width: 100%; height: auto; display: block; border-radius: 6px; cursor: pointer; }
 
+/* SPEC §3.8 "Candidate readout": one line under the board, above the navigation row. It holds its
+   height whether it is full or empty and never wraps, so the controls below it do not move as it
+   fills; what does not fit the column is clipped rather than pushed past it, since nothing may be
+   reached by scrolling the page sideways (§3.8 "The page scrolls down, never across"). */
+.readout {
+  display: flex; gap: 10px; align-items: baseline;
+  width: 100%; max-width: min(78vh, 900px); min-width: 0;
+  min-height: 22px;
+  white-space: nowrap; overflow: hidden;
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.readout .field { display: flex; gap: 4px; align-items: baseline; min-width: 0; }
+.readout .num { color: var(--text); }
+.readout .mark { color: var(--accent); font-weight: 600; }
+/* The parentheses are the mark of a bound, not words: they read the same in every language. */
+.readout .lcb::before { content: "("; }
+.readout .lcb::after { content: ")"; }
+
 .board-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; max-width: min(78vh, 900px); }
 .board-controls .spacer { flex: 1; }
 .counter { color: var(--muted); min-width: 70px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -121,9 +139,15 @@ details > .row:first-of-type { margin-top: 8px; }
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
 
-.candidates { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+/* table-layout: fixed — the columns share the panel's width instead of taking their contents'.
+   While comparing, the table carries eight of them (§3.8 "Candidate table"), and an auto table
+   that outgrew the panel would hand the scrolling column a sideways scrollbar (§3.8 "The page
+   scrolls down, never across"). */
+.candidates { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums;
+              table-layout: fixed; }
 .candidates th { text-align: right; color: var(--muted); font-weight: 500; padding: 3px 4px; }
 .candidates th:first-child, .candidates td:first-child { text-align: left; }
+.candidates th, .candidates td { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .candidates td { text-align: right; padding: 3px 4px; border-top: 1px solid var(--line); }
 .candidates tr { cursor: pointer; }
 .candidates tr:hover td { background: var(--panel-2); }
@@ -149,7 +173,7 @@ details > .row:first-of-type { margin-top: 8px; }
 
 @media (max-width: 980px) {
   main { grid-template-columns: 1fr; }
-  #board-wrap, .board-controls { max-width: 100%; }
+  #board-wrap, .board-controls, .readout { max-width: 100%; }
 }
 
 /* handol-mux (human) controls */
