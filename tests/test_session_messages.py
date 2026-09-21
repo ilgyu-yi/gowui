@@ -7,6 +7,7 @@ order; and every frame is valid JSON.
 from __future__ import annotations
 
 import threading
+import time
 
 import pytest
 
@@ -302,3 +303,76 @@ async def test_a_refusal_quotes_little_of_an_oversize_value(h, message):
     await h.send(message)
     error = await h.rec.wait_error(start)
     assert error is not None and len(error) <= 200
+
+
+# -- names the page and the server must trim alike (§4.1) ----------------------------------------
+BOM = "\ufeff"  # written as an escape: a raw mark is invisible in every editor and diff
+
+
+async def test_a_preset_name_is_trimmed_as_the_page_trims_it(make_session):
+    """§4.1 stores the trimmed name. The page trims with JavaScript's `trim()`, which takes
+    U+FEFF, so a name ending in one must not be stored with it still there."""
+    h = make_session(preferences={})
+    await h.send({"type": "preferences",
+                  "presets": [{"name": f"{BOM} opening {BOM}", "tuple": {"temperature": 2}}]})
+    state = await h.fresh_state()
+    assert [p["name"] for p in state["preferences"]["presets"]] == ["opening"]
+
+
+async def test_a_board_name_is_trimmed_as_the_page_trims_it(h):
+    """§3.3 trims a board name with the same rules."""
+    board = h.rec.state()["activeBoard"]
+    await h.send({"type": "board_rename", "id": board, "name": f"{BOM} study {BOM}"})
+    state = await h.fresh_state()
+    assert [b["name"] for b in state["boards"]] == ["study"]
+
+
+async def test_a_board_rename_holding_only_a_bom_is_ignored(h):
+    board = h.rec.state()["activeBoard"]
+    before = h.rec.state()["boards"][0]["name"]
+    await h.send({"type": "board_rename", "id": board, "name": BOM * 3})
+    assert (await h.fresh_state())["boards"][0]["name"] == before
+
+
+def test_the_trim_set_is_every_codepoint_str_strip_takes():
+    """The set is written out so importing costs nothing on a CLI call, which means nothing keeps
+    it honest but this. A Unicode revision that adds a space character must fail here rather than
+    let the server and the page drift apart on a name's edges (§3.3, §4.1)."""
+    from gowui.session import TRIM_ALSO, TRIM_CHARS
+
+    runtime = {chr(c) for c in range(0x110000) if chr(c).isspace()}
+    assert set(TRIM_CHARS) == runtime | {TRIM_ALSO}
+
+
+@pytest.mark.parametrize("name", [
+    f" {BOM}" * 262_132,
+    "X" + " " * 1_048_574 + "X",
+    f"{BOM} " * 131_066 + "X" + f" {BOM}" * 131_065,
+], ids=["all-trimmable", "interior-run", "both-ends"])
+async def test_a_name_is_trimmed_in_bounded_time(h, name):
+    """§7.6 bounds a frame, not the work one costs, and a rename is the one handler that trims
+    before it truncates, so the whole 1 MiB reaches the trim. Each shape below is the worst case
+    for a different way of writing the trim: a convergence loop costs a pass per character on
+    `all-trimmable`, and a pattern anchored to the end re-tries at every offset inside
+    `interior-run`. One pass in from each end costs nothing on any of them. The session runs on a
+    single event loop, so a handler that takes seconds denies service to every other account."""
+    assert len(name.encode()) <= 1_048_576, "the frame would be refused for its size, not trimmed"
+    board = h.rec.state()["activeBoard"]
+    start = time.perf_counter()
+    await h.send({"type": "board_rename", "id": board, "name": name})
+    await h.fresh_state()
+    assert time.perf_counter() - start < 0.2
+
+
+async def test_a_later_preferences_change_leaves_a_frame_already_sent_alone(make_session):
+    """§4.2: a `state` carries the preferences of the moment it was made, so the frame may share
+    the stored value instead of copying it on every emission (the value is replaced, not
+    changed in place)."""
+    h = make_session(preferences={})
+    await h.send({"type": "preferences", "lang": "ko",
+                  "presets": [{"name": "first", "tuple": {"temperature": 2}}]})
+    frame = h.session.attach_frames()[0]
+    await h.send({"type": "preferences", "lang": "en",
+                  "presets": [{"name": "second", "tuple": {"temperature": 2}}]})
+    assert (frame["preferences"]["lang"],
+            [p["name"] for p in frame["preferences"]["presets"]]) == ("ko", ["first"])
