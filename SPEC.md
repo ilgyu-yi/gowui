@@ -547,9 +547,11 @@ same key. A space is created in four steps:
 - **Duplicate** copies **the board it names** — position, cursor and human settings — inserts the
   copy after that board and switches to it. **New board** appends a fresh board and switches to it.
   Both are refused with an error at the board limit (§7.6), and the text says which was refused.
-- **Select** switches boards (also `[` / `]`). **Rename** trims the name, ignores an empty one and
-  truncates it to 40 characters. **Move** puts a board after another, or at the head, and changes
-  nothing else (§4.1).
+- **Select** switches boards (also `[` / `]`). **Rename** trims the name (the set of §4.1),
+  ignores an empty one, truncates it to 40 characters (§7.6) and trims again — the cut falls
+  wherever the 40th character is, so it can leave the space that was between two words at the end,
+  and a stored name ends in no whitespace whatever its length. **Move** puts a board after
+  another, or at the head, and changes nothing else (§4.1).
 - **Delete** removes a board, switching to a neighbour when it was active. Deleting the **last**
   board is accepted and **resets it in place** instead: the board keeps its id, its place and its
   active status, and becomes a fresh board — so its game, name, last analysis, profile and tuples
@@ -1096,6 +1098,13 @@ no lone surrogate, and no whitespace other than the plain space a preset name ma
 A newline would let a preset name fake a line of the page's confirmation dialogs (§3.8), and a
 lone surrogate is text no non-ASCII serialiser can write. Stored names are the trimmed ones.
 
+**Trimmed** means with both ends stripped of every codepoint Unicode calls whitespace — the ASCII
+ones, `U+0085`, `U+00A0`, `U+1680`, `U+2000`–`U+200A`, `U+2028`, `U+2029`, `U+202F`, `U+205F`,
+`U+3000` — and of the byte-order mark `U+FEFF` beside them. The set is what the page's `trim()`
+takes off, the mark included: a name the page trimmed has to come out the same on the server, or a
+name ending in a mark would be stored with it on one side of the wire and without it on the other.
+A board name is trimmed with the same set (§3.3).
+
 What is stored goes to every tab of the identity in the next `state` (§4.2) and is written by the
 same saves as the snapshot (§8.2).
 
@@ -1449,8 +1458,13 @@ the user's tuple presets (§4.1) — and, when it does, loads and saves them nex
 - `load_preferences(key)` returns the stored preferences object, or `None` when nothing is
   stored. A stored value is read through the rules of §4.1, except that what they refuse is
   dropped — a `lang` of the wrong shape, an entry past the 64th, an entry without a usable name
-  or with a tuple §2.5 refuses — rather than refusing the whole value, as a browser-stored preset
-  is dropped when the list is read (§8.5).
+  or with a tuple §2.5 refuses, and an entry whose trimmed name an earlier one already carries,
+  of which the **first** is kept — rather than refusing the whole value, as a browser-stored
+  preset is dropped when the list is read (§8.5). The duplicate rule of §4.1 refuses a message
+  whole but only drops here: a hand-edited row (§8.4), or one written before that rule existed,
+  would otherwise come back with both entries and be sent back whole by the next save, which is
+  refused as a whole — wedging preset saving until the user deleted the name. A read that refused
+  instead would turn the same row into a load failure, which is worse than what it fixes.
 - `save_preferences(key, preferences)` stores them.
 
 Preferences are never part of the snapshot (§8.1), so a storage that keeps none writes none, and
