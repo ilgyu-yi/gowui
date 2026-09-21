@@ -306,7 +306,7 @@ async def test_a_refusal_quotes_little_of_an_oversize_value(h, message):
 
 
 # -- names the page and the server must trim alike (§4.1) ----------------------------------------
-BOM = "﻿"
+BOM = "\ufeff"  # written as an escape: a raw mark is invisible in every editor and diff
 
 
 async def test_a_preset_name_is_trimmed_as_the_page_trims_it(make_session):
@@ -345,9 +345,9 @@ def test_the_trim_set_is_every_codepoint_str_strip_takes():
 
 
 @pytest.mark.parametrize("name", [
-    " ﻿" * 262_132,
+    f" {BOM}" * 262_132,
     "X" + " " * 524_260 + "X",
-    "﻿ " * 131_066 + "X" + " ﻿" * 131_065,
+    f"{BOM} " * 131_066 + "X" + f" {BOM}" * 131_065,
 ], ids=["all-trimmable", "interior-run", "both-ends"])
 async def test_a_name_is_trimmed_in_bounded_time(h, name):
     """§7.6 bounds a frame, not the work one costs, and a rename is the one handler that trims
