@@ -255,6 +255,10 @@ def test_analysis_tour(start_engine, start_app, open_page):
     width = page.evaluate("() => document.getElementById('winbar-black').style.width")
     assert re.fullmatch(r"\d+(\.\d)?%", width)
 
+    # §3.8 "Candidate table": the KataGo columns, with Value (`utility`) beside Policy.
+    expect(page.locator("table.candidates thead th")).to_have_text(
+        ["Move", "Win", "Score", "Visits", "Policy", "Value"], timeout=ENGINE)
+
     # B8: after a black move (White to move) the bar still shows Black's winrate: the label's
     # black part is the root winrate the page holds, which the server keeps from Black's view.
     g.act({"type": "play", "color": "black", "vertex": "D4"})
@@ -354,14 +358,19 @@ def test_handol_tour(start_engine, start_app, open_page, tmp_path):
     sent = g.wait_sent("human_params", since, timeout=ENGINE)
     assert (sent["policy"], sent["compare"]) == ({}, {"temperature": 1.5})
     g.expect_dataset("heatmap", "diff", timeout=ENGINE)
+    # §3.8 "Candidate table": Visits is in every mode and Value (`utility`) is the last column,
+    # so the comparing head is eight wide.
     expect(page.locator("table.candidates thead th")).to_have_text(
-        ["Move", "Win", "Score", "A", "B", "Δ"], timeout=ENGINE)
+        ["Move", "Win", "Score", "Visits", "A", "B", "Δ", "Value"], timeout=ENGINE)
     page.locator("#compare-view").select_option("A")
     g.expect_dataset("heatmap", "policy")
     since = g.mark()
     page.locator("#compare-on").uncheck()
     assert g.wait_sent("human_params", since)["compare"] is None
     expect(page.locator("#tuple-tabs")).to_be_hidden()
+    # §3.8 "Candidate table", handol-mux without a compare tuple: Prob. keeps Visits and Value.
+    expect(page.locator("table.candidates thead th")).to_have_text(
+        ["Move", "Win", "Score", "Visits", "Prob.", "Value"], timeout=ENGINE)
 
     # B21: a built-in preset, then save, export, delete and import of the user's own.
     since = g.mark()

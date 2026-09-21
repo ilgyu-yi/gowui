@@ -330,6 +330,21 @@ async def test_white_to_move_report_names_the_current_player(fake_engine, connec
     assert report.current_player == "W"
 
 
+async def test_white_to_move_utility_is_negated_to_black(fake_engine, connect):
+    """§2.2: `utility` is Black's view like the rest, and it flips the way a score does —
+    negated, not complemented, because it is signed and centred on zero. KataGo reports it from
+    the side to move, so a White-to-move report's 0.1 reaches the browser as -0.1."""
+    report = await white_report(fake_engine, connect)
+    assert report.move_infos[0].utility == pytest.approx(-0.1)
+
+
+async def test_white_to_move_utility_lcb_is_negated_to_black(fake_engine, connect):
+    """§2.2: `utilityLcb` takes the same flip as `utility`; a bound left in the other view would
+    not bound the number it sits beside."""
+    report = await white_report(fake_engine, connect)
+    assert report.move_infos[0].utility_lcb == pytest.approx(-0.09)
+
+
 async def test_the_policy_is_not_flipped(fake_engine, connect):
     report = await white_report(fake_engine, connect)
     assert report.policy[0] == pytest.approx(0.25)

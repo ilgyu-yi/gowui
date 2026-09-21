@@ -137,6 +137,18 @@ def test_no_script_writes_a_style_attribute(name):
     assert found == []
 
 
+# -- the candidate readout (§3.8 "Candidate readout", "PV preview") -----------------------------------
+def test_board_js_takes_no_text_from_the_i18n_tables():
+    """§3.8: the readout line is "the only place a candidate's full set is written: a preview puts
+    no second copy of these numbers on the board". The board's caption was the one thing board.js
+    drew from the tables (``visits.count``), and a caption that is gone leaves no lookup behind.
+    Neither the DOM nor the draw record can see a caption painted on the canvas, so the source is
+    where this rule is readable at all."""
+    assert re.search(r"\bi18n\b", strip_js_comments(read_js("app.js"))), \
+        "the scan finds no i18n in app.js, so finding none in board.js would say nothing"
+    assert re.findall(r"\bi18n\b", strip_js_comments(read_js("board.js"))) == []
+
+
 # -- browser storage (§8.5) ---------------------------------------------------------------------------
 def test_the_page_stores_exactly_the_two_browser_keys():
     literals = set()
@@ -314,6 +326,7 @@ def test_the_sgf_picker_accepts_sgf_files():
 PAGE_IDS = [
     "protocol", "host", "port", "connect", "engine-state", "lang", "status",
     "board-list", "board-new", "board",
+    "candidate-readout",
     "first", "prev10", "prev", "move-counter", "next", "next10", "last", "pass", "undo", "resign",
     "winbar-black", "winbar-label", "to-play", "score-lead", "visit-count",
     "human-profile", "profile-help", "eval-visits", "compare-on", "tuple-tabs", "compare-view",

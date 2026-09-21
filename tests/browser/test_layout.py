@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from browser_kit import QUICK, Gowui, expect
+from browser_kit import (QUICK, Gowui, analysis_frame, analysis_payload, expect, move_info,
+                         vertex)
 
 pytestmark = pytest.mark.browser
 
@@ -153,6 +154,30 @@ def test_a_short_window_still_reaches_every_control(start_app, open_page):
                            " return [side.scrollWidth, side.clientWidth]; }")
     assert room[0] == room[1], (
         f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways")
+
+
+def test_the_comparing_columns_do_not_widen_the_side_panel(start_app, open_page):
+    """§3.8 "The page scrolls down, never across" with "Candidate table": while comparing, the
+    table carries eight columns. A column that scrolls vertically treats a horizontal overflow as
+    scrollable too, so a table wider than the side panel hands the panel a sideways scrollbar —
+    and nothing may be reached only by scrolling across."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    resized(g, SHORT)
+    size = g.state()["game"]["size"]
+    infos = [move_info(vertex(x, 0, size), visits=1000 - x) for x in range(10)]
+    flat = [1.0 / (size * size + 1)] * (size * size + 1)
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, infos, source="handol", policy=flat,
+        compare={"policy": flat, "moveInfos": infos})))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+
+    room = g.page.evaluate("() => { const side = document.querySelector('.side');"
+                           " return [side.scrollWidth, side.clientWidth]; }")
+    assert room[0] == room[1], (
+        f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways "
+        "with the comparing table's eight columns")
 
 
 def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
