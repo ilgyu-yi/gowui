@@ -55,9 +55,9 @@
 | &nbsp;&nbsp;§7.5 | Response headers and rendering | 1626 |
 | &nbsp;&nbsp;§7.6 | Limits (both modes) | 1647 |
 | &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1693 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1727 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1741 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1750 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1728 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1742 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1751 |
 | &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1787 |
 | §8 | Persistence | 1806 |
 | &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1808 |
@@ -1712,12 +1712,13 @@ handol-mux error messages (§2.5). `state.engine.request` carries only the polic
 and engine text that is not an SGF result never becomes the game's result (§3.5), so it cannot
 reach `state.game`, the snapshot's SGF or a saved SGF. Snapshots store only the `engineId` (§8.1).
 
-What is hidden is the address the request resolved to (§6.3), the configured host and its port. An
-address the name service resolved that host to is not: a line naming the engine's IP address
-rather than its name is neither withheld nor scrubbed. A connection failure carries none, because
-the transport never copies OS error text, which is where the resolved address would appear (§2.1);
-text the engine itself supplies could. Hiding it as well would mean the transport handing the
-session the peer address it actually connected to, to hide beside the configured one.
+What is hidden is the address the engine-address policy chose for the request (§6.3) — the
+configured host and its port. What the name service then makes of that host is not: a line naming
+the engine's IP address rather than its configured name is neither withheld nor scrubbed. A
+connection failure carries no such line, because the transport never copies OS error text, which
+is where that IP address would appear (§2.1); text the engine itself supplies could. Hiding it as
+well would mean the transport handing the session the peer address it actually connected to, to
+hide beside the configured one.
 
 A catalog entry
 with `"console": true` gives every signed-in user raw GTP access to that engine, including KataGo
@@ -1753,10 +1754,9 @@ A TLS-terminating proxy in front of `gowui serve` must be listed in `GOWUI_TRUST
 whatever `GOWUI_AUTH` is. Forwarded headers are read only from a trusted peer, and only for these
 purposes: `X-Forwarded-Proto: https` or `wss` makes the request count as https (so
 `GOWUI_COOKIE_SECURE=auto` sets Secure), `X-Forwarded-Host` is the effective host for the Host and
-origin rules (§7.4), and the last
-address in `X-Forwarded-For` is the client address for login throttling (§7.1). From any other peer
-they are ignored. With no trusted proxy configured, a deployment behind a proxy should set
-`GOWUI_COOKIE_SECURE=1`.
+origin rules (§7.4), and the last address in `X-Forwarded-For` is the client address for login
+throttling (§7.1). From any other peer they are ignored. With no trusted proxy configured, a
+deployment behind a proxy should set `GOWUI_COOKIE_SECURE=1`.
 
 How the forwarded headers are read (both modes; local mode trusts no proxy, so there it never
 applies):
