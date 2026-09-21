@@ -334,19 +334,34 @@ async def test_a_board_rename_holding_only_a_bom_is_ignored(h):
     assert (await h.fresh_state())["boards"][0]["name"] == before
 
 
-async def test_a_name_that_is_all_trimmable_is_trimmed_in_bounded_time(h):
-    """§7.6 bounds a frame, not the work one costs. A name alternating between the two kinds of
-    trimmable character is the worst case for trimming, and a rename is the one handler that
-    trims before it truncates, so the whole 1 MiB reaches the trim. It has to cost one pass, not
-    one per character: the session runs on a single event loop, so a handler that takes seconds
-    denies service to every other account in the process."""
-    name = " ﻿" * 262_132  # 1,048,528 bytes as UTF-8, just inside the §7.6 frame limit
+def test_the_trim_set_is_every_codepoint_str_strip_takes():
+    """The set is written out so importing costs nothing on a CLI call, which means nothing keeps
+    it honest but this. A Unicode revision that adds a space character must fail here rather than
+    let the server and the page drift apart on a name's edges (§3.3, §4.1)."""
+    from gowui.session import TRIM_ALSO, TRIM_CHARS
+
+    runtime = {chr(c) for c in range(0x110000) if chr(c).isspace()}
+    assert set(TRIM_CHARS) == runtime | {TRIM_ALSO}
+
+
+@pytest.mark.parametrize("name", [
+    " ﻿" * 262_132,
+    "X" + " " * 524_260 + "X",
+    "﻿ " * 131_066 + "X" + " ﻿" * 131_065,
+], ids=["all-trimmable", "interior-run", "both-ends"])
+async def test_a_name_is_trimmed_in_bounded_time(h, name):
+    """§7.6 bounds a frame, not the work one costs, and a rename is the one handler that trims
+    before it truncates, so the whole 1 MiB reaches the trim. Each shape below is the worst case
+    for a different way of writing the trim: a convergence loop costs a pass per character on
+    `all-trimmable`, and a pattern anchored to the end re-tries at every offset inside
+    `interior-run`. One pass in from each end costs nothing on any of them. The session runs on a
+    single event loop, so a handler that takes seconds denies service to every other account."""
+    assert len(name.encode()) <= 1_048_576, "the frame would be refused for its size, not trimmed"
     board = h.rec.state()["activeBoard"]
-    before = h.rec.state()["boards"][0]["name"]
     start = time.perf_counter()
     await h.send({"type": "board_rename", "id": board, "name": name})
-    assert (await h.fresh_state())["boards"][0]["name"] == before
-    assert time.perf_counter() - start < 1.0
+    await h.fresh_state()
+    assert time.perf_counter() - start < 0.2
 
 
 async def test_a_later_preferences_change_leaves_a_frame_already_sent_alone(make_session):
