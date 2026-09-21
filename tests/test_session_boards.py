@@ -260,6 +260,17 @@ async def test_rename_truncates_to_40_characters(h):
     assert (await rename(h, "x" * 41 + "yz"))["name"] == "x" * 40
 
 
+async def test_rename_trims_again_after_the_cut(h):
+    """§3.3: the cut falls wherever the 40th character is, so it can leave the space that was
+    between two words at the end; a stored name ends in no whitespace whatever its length."""
+    assert (await rename(h, "x" * 39 + " word"))["name"] == "x" * 39
+
+
+async def test_the_cut_is_trimmed_with_the_set_of_section_4_1(h):
+    """§3.3, §4.1: both passes take the byte-order mark off as the page's `trim()` does."""
+    assert (await rename(h, "y" * 38 + " ﻿" + "z"))["name"] == "y" * 38
+
+
 # -- move (§3.3 "Move", §4.1 "The board frames") --------------------------------------------------
 async def test_a_move_puts_the_board_after_its_anchor(h):
     """§3.3 "Move": a board goes after the one the frame names."""

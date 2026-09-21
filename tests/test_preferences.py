@@ -99,6 +99,21 @@ def test_the_spec_refuses_two_presets_of_one_name():
     assert "same `name` once trimmed" in section
 
 
+def test_the_spec_says_what_trimmed_means():
+    """§4.1 says "once trimmed" of every name it takes; the set itself is written there, mark
+    included, so the page's `trim()` and the server agree on where a name ends."""
+    section = spec_section("### 4.1")
+    assert "**Trimmed** means" in section
+    assert "`U+FEFF`" in section and "`U+00A0`" in section and "`U+3000`" in section
+
+
+def test_the_spec_drops_a_duplicate_on_the_way_in_and_keeps_the_first():
+    """§6.4: the read path is the lenient one — it drops what §4.1 refuses instead of refusing
+    the whole value, and a duplicate name is no exception."""
+    section = spec_section("### 6.4")
+    assert "an earlier one already carries" in section and "**first** is kept" in section
+
+
 def test_the_spec_says_a_refusal_puts_the_menu_back():
     """§3.8: after an `error` the page shows what the account holds, not a phantom entry."""
     section = spec_section("### 3.8")
@@ -146,6 +161,38 @@ def test_a_stored_preferences_value_is_read_with_what_it_refuses_dropped(tmp_pat
             "lang": None, "presets": [preset("keeps"), preset("lambda", LAMBDA)]}
     finally:
         store.close()
+
+
+def test_a_stored_row_holding_one_name_twice_keeps_the_first(tmp_path):
+    """§6.4: the duplicate rule of §4.1 refuses a message whole, but the read path drops — a row
+    hand-edited, or written before the rule existed, comes back with the later one gone."""
+    from gowui.server_mode import SqliteStorage
+
+    db = tmp_path / "gowui.db"
+    store = open_store(db)
+    try:
+        storage = SqliteStorage(store)
+        storage.save_preferences("sso:alice", EMPTY)
+        _overwrite(db, "sso:alice", json.dumps({
+            "lang": "ko",
+            "presets": [preset("mine"), preset("other", LAMBDA), preset("  mine  ", LAMBDA)]}))
+        assert storage.load_preferences("sso:alice") == {
+            "lang": "ko", "presets": [preset("mine"), preset("other", LAMBDA)]}
+    finally:
+        store.close()
+
+
+async def test_what_a_cleaned_row_gives_back_the_write_path_takes(make_session):
+    """§6.4: the reason the read path drops instead of refusing. A row holding one name twice
+    would otherwise load whole and be sent back whole by the next save, which §4.1 refuses as a
+    whole — wedging preset saving until the user deleted that name."""
+    from gowui.session import clean_preferences
+
+    loaded = clean_preferences({"lang": "ko",
+                                "presets": [preset("mine"), preset("mine", LAMBDA)]})
+    harness = make_session(preferences={})
+    await harness.send({"type": "preferences", **loaded})
+    assert harness.session.preferences == loaded == {"lang": "ko", "presets": [preset("mine")]}
 
 
 @pytest.mark.parametrize("text", ["not json at all", "[1, 2, 3]", '"a string"'])
