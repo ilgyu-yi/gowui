@@ -946,6 +946,7 @@ which the policy allows.
 | `heatmap` | `policy`, `diff` or `off` — what was drawn |
 | `ownership` | `on` when ownership squares were drawn, else `off` |
 | `numbers` | `on` when move numbers were drawn, else `off` |
+| `lastMoveRing` | the point the last-move ring went round, or empty |
 
 Each thumbnail canvas records `draws` the same way. `window.__lastAnalysis` holds the payload of
 the last `analysis` frame applied.
