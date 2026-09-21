@@ -324,8 +324,8 @@ def parse_result(message: dict, black_to_play: bool, size: int, turn: int) -> An
             score_stdev=finite(raw.get("scoreStdev")),
             prior=finite(raw.get("prior")),
             lcb=flip_rate(raw.get("lcb"), black_to_play),
-            utility=finite(raw.get("utility")),
-            utility_lcb=finite(raw.get("utilityLcb")),
+            utility=flip_score(raw.get("utility"), black_to_play),
+            utility_lcb=flip_score(raw.get("utilityLcb"), black_to_play),
             order=finite_int(raw.get("order")),
             pv=board_vertices(pv if isinstance(pv, list) else [], size),
         ))

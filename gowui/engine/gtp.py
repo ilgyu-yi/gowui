@@ -615,8 +615,8 @@ def parse_analysis_line(text: str, black_to_play: bool, size: int, *, lz: bool =
             score_stdev=finite(fields.get("scoreStdev")),
             prior=rate(fields.get("prior")),
             lcb=flip_rate(rate(fields.get("lcb")), black_to_play),
-            utility=finite(fields.get("utility")),
-            utility_lcb=finite(fields.get("utilityLcb")),
+            utility=flip_score(fields.get("utility"), black_to_play),
+            utility_lcb=flip_score(fields.get("utilityLcb"), black_to_play),
             order=finite_int(fields.get("order")),
             pv=board_vertices(fields.get("pv", []), size),
         ))
