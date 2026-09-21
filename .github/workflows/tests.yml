@@ -27,7 +27,7 @@ jobs:
           cache: pip
       # The frontend checks (node --check, the tuple-validator agreement) need node; with CI set
       # they fail instead of skipping when it is missing (README "Frontend checks").
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - run: pip install -e ".[dev]"
