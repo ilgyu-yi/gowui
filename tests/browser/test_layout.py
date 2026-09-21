@@ -5,7 +5,7 @@ The checks, one per rule the §3.8 "Scrolling" paragraph carries: above 980px th
 scroll and each column scrolls inside itself with the board standing still; a window too short for
 the side panel still reaches every control, by a column's scrolling and never by the page's; at
 980px and below the page scrolls as one column while the board strip scrolls sideways within
-itself; and at every width the page scrolls down and never across (issue #48).
+itself; and from 320px up the page scrolls down and never across (issue #48).
 
 The viewport here is deliberately shorter than the shared context's 1400x1000, because the rule is
 only visible in a window the content does not fit. Every read after a viewport change waits on a
@@ -223,8 +223,10 @@ def test_the_board_comes_back_down_when_the_window_does(start_app, open_page):
 
 
 def test_the_page_never_scrolls_across(start_app, open_page):
-    """§3.8 "Scrolling": nothing may be reached only by scrolling sideways, at any width the
-    layout supports — so a control row too wide for the window wraps instead of pushing past it."""
+    """§3.8 "Scrolling": from 320px up, nothing may be reached only by scrolling the page
+    sideways — so a control row too wide for the window wraps instead of pushing past it. Below
+    about 260px the board's own 240px floor stops fitting and SPEC accepts the overflow, which is
+    why the sweep stops at the floor rather than going lower."""
     g = open_page(start_app()).open()
     for size in ({"width": 1400, "height": 1000}, NARROW, CRAMPED, FLOOR):
         resized(g, size)
@@ -238,3 +240,31 @@ def test_the_page_never_scrolls_across(start_app, open_page):
         assert pane <= column + 1, (
             f"at {size['width']}x{size['height']} the board pane is {pane}px across a {column}px "
             f"column and scrolls sideways")
+
+
+def test_one_long_control_does_not_widen_the_page(start_app, open_page):
+    """§3.8 "Scrolling": a control whose own content is wider than the window narrows rather than
+    pushing the page across. The engine picker in server mode is the one that can reach this — a
+    catalog label is whatever the deployment named its engine (§6.3).
+
+    This is a pair, not two guards: the row is a flex item of the top bar, so `min-width: 0` on the
+    row is what lets the row narrow, and only then can `min-width: 0` on the fields narrow the
+    control inside it. Measured at this width with this label, neither alone moves the page off
+    410px and both together bring it to 320 — so a test that removed one at a time would call both
+    of them dead."""
+    g = open_page(start_app()).open()
+    resized(g, FLOOR)
+    g.page.evaluate("""() => {
+        const pick = document.querySelector('#protocol');
+        const option = document.createElement('option');
+        option.textContent = 'handol-mux human policy on a1005 gpu 1 (very long label)';
+        pick.appendChild(option);
+        pick.value = option.value;
+    }""")
+    settled(g)
+
+    across, within = g.page.evaluate(
+        "() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]")
+    assert across <= within + 1, (
+        f"a long engine label makes the page {across}px across a {within}px window; "
+        f"past the edge: {widest_overflow(g)}")

@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 593 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
 | &nbsp;&nbsp;§3.8 | The page | 606 |
-| §4 | WebSocket protocol | 968 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 972 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1043 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1085 |
-| §5 | HTTP routes | 1179 |
-| §6 | Launch modes and policies | 1254 |
-| &nbsp;&nbsp;§6.1 | The rule | 1256 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1292 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1332 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1365 |
-| §7 | Authentication and security | 1400 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1402 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1463 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1499 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1519 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1567 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1588 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1634 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1668 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1682 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1691 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1728 |
-| §8 | Persistence | 1747 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1749 |
-| &nbsp;&nbsp;§8.2 | Saving | 1783 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1816 |
-| &nbsp;&nbsp;§8.4 | Server database | 1858 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1922 |
-| §9 | Command line | 1949 |
-| §10 | Configuration (server) | 2019 |
-| &nbsp;&nbsp;§10.1 | Container | 2057 |
-| §11 | Feature inventory | 2145 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2152 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2190 |
-| §12 | Non-goals | 2208 |
+| §4 | WebSocket protocol | 965 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 969 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1040 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1082 |
+| §5 | HTTP routes | 1176 |
+| §6 | Launch modes and policies | 1251 |
+| &nbsp;&nbsp;§6.1 | The rule | 1253 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1289 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1329 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1362 |
+| §7 | Authentication and security | 1397 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1399 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1460 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1496 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1516 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1564 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1585 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1631 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1665 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1679 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1688 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1725 |
+| §8 | Persistence | 1744 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1746 |
+| &nbsp;&nbsp;§8.2 | Saving | 1780 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1813 |
+| &nbsp;&nbsp;§8.4 | Server database | 1855 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1919 |
+| §9 | Command line | 1946 |
+| §10 | Configuration (server) | 2016 |
+| &nbsp;&nbsp;§10.1 | Container | 2054 |
+| §11 | Feature inventory | 2142 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2149 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2187 |
+| §12 | Non-goals | 2205 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -651,9 +651,6 @@ for a control beside it.
   The floor is 320px because the board canvas is never drawn narrower than 240px (§3.8 "Board"),
   and under about 260px that floor plus the layout's padding no longer fits the window; below it
   the page does scroll across, and that is accepted rather than designed around.
-  The rule is about the layout's own boxes. A single control whose intrinsic width is itself wider
-  than the window — a catalog entry with a very long label in the engine picker (§6.3) is the case
-  that can reach it — is not bounded by it, and widens the page as any over-wide content would.
   The board is the one that has to be watched, because its size is written in pixels from the width
   it measured: a column allowed to be as wide as its own contents would let the board hold whatever
   width it once reached, and the page would never come back down.
