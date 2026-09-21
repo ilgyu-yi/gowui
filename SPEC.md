@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 593 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
 | &nbsp;&nbsp;§3.8 | The page | 606 |
-| §4 | WebSocket protocol | 954 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 958 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1029 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1071 |
-| §5 | HTTP routes | 1165 |
-| §6 | Launch modes and policies | 1240 |
-| &nbsp;&nbsp;§6.1 | The rule | 1242 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1278 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1318 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1351 |
-| §7 | Authentication and security | 1386 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1388 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1449 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1485 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1505 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1553 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1574 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1620 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1654 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1668 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1677 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1714 |
-| §8 | Persistence | 1733 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1735 |
-| &nbsp;&nbsp;§8.2 | Saving | 1769 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1802 |
-| &nbsp;&nbsp;§8.4 | Server database | 1844 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1908 |
-| §9 | Command line | 1935 |
-| §10 | Configuration (server) | 2005 |
-| &nbsp;&nbsp;§10.1 | Container | 2043 |
-| §11 | Feature inventory | 2131 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2138 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2176 |
-| §12 | Non-goals | 2194 |
+| §4 | WebSocket protocol | 960 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 964 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1035 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1077 |
+| §5 | HTTP routes | 1171 |
+| §6 | Launch modes and policies | 1246 |
+| &nbsp;&nbsp;§6.1 | The rule | 1248 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1284 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1324 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1357 |
+| §7 | Authentication and security | 1392 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1394 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1455 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1491 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1511 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1559 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1580 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1626 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1660 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1674 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1683 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1720 |
+| §8 | Persistence | 1739 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1741 |
+| &nbsp;&nbsp;§8.2 | Saving | 1775 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1808 |
+| &nbsp;&nbsp;§8.4 | Server database | 1850 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1914 |
+| §9 | Command line | 1941 |
+| §10 | Configuration (server) | 2011 |
+| &nbsp;&nbsp;§10.1 | Container | 2049 |
+| §11 | Feature inventory | 2137 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2144 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2182 |
+| §12 | Non-goals | 2200 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -643,6 +643,12 @@ for a control beside it.
 - **Narrow (980px and below).** The layout is one column and the page scrolls as a whole; three
   stacked scrollers would leave nothing to scroll the page by. The board strip is the exception:
   it lies across the top and scrolls sideways within itself.
+- **The page scrolls down, never across.** At every width the layout supports, the document gains
+  no horizontal scrolling: the board takes the width its column offers and no more, and a row of
+  controls too wide for the window wraps instead of pushing past it. Nothing may be reached only by
+  scrolling sideways. The board is the one that has to be watched, because its size is written in
+  pixels from the width it measured: a column that is allowed to be as wide as its own contents
+  would let the board hold whatever width it once reached, and the page would never come back down.
 - A help card opens against the right edge of the row that raised it, inside its column, and
   scrolls with that column. It is not pinned to the viewport: the `?` that opens it sits near the
   top of the side panel, so scrolling away from the card is scrolling away from the control it
