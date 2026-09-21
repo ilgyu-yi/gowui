@@ -625,6 +625,27 @@ too follows the data, never a mode name.
   Analysis, Players, New game, Moves, Engine console. Human policy, Analysis and Players start
   open; the others start closed.
 
+**Scrolling.** The board is what the page is for, and it does not move while the person reaches
+for a control beside it.
+
+- **Wide (above 980px).** The document does not scroll: the page is exactly the viewport's height,
+  the top bar takes the height it needs, and the three columns share what is left. Each column
+  scrolls inside itself — the board strip, the board pane and the side panel — so scrolling one
+  moves nothing in the others. No rule names the top bar's height; it is measured, because it
+  wraps and so is not a fixed number.
+- **The board pane** scrolls only when the board and the controls under it do not fit the height
+  left. The board keeps its size rather than shrinking to avoid the scrollbar: a smaller board is
+  a worse trade than a scrollbar that appears in a window short enough to need one. Every control
+  is reachable in any window, by its column's scrolling and never by the page's.
+- **Keyboard.** A control reached by keyboard is scrolled into view inside its own column, so
+  focusing something low in the side panel does not move the board. The shortcuts of §3.7 scroll
+  nothing.
+- **Narrow (980px and below).** The layout is one column and the page scrolls as a whole; three
+  stacked scrollers would leave nothing to scroll the page by. The board strip is the exception:
+  it lies across the top and scrolls sideways within itself.
+- The help cards of the engine form and the tuple fields are positioned against the viewport, so a
+  column's scrolling does not clip them.
+
 **Controls.**
 
 - **Navigation.** First goes to position 0, −10 / −1 / +1 / +10 to the cursor minus or plus that
@@ -790,6 +811,9 @@ while a compare tuple is set), and a × button, hidden when only one board is le
   only when its signature (stones, last move and heat) changed.
 - Clicking a tile sends `board_select`; × asks for confirmation, then sends `board_delete`;
   "+ Duplicate" sends `board_duplicate`.
+- The strip scrolls within itself, down its column when the layout is wide and sideways when it is
+  narrow (§3.8 "Scrolling"). Its scrollbar stays visible rather than fading, so a strip holding
+  more tiles than fit says so without being touched first.
 - **Rename in place.** Double-clicking the name, or ✎, swaps the name for a text field (at most
   40 characters). Enter or leaving the field saves; Escape cancels. An empty or unchanged name
   sends nothing; any other sends `board_rename`. Keys typed in the field never reach the
