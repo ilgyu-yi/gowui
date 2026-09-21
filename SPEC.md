@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 593 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
 | &nbsp;&nbsp;§3.8 | The page | 606 |
-| §4 | WebSocket protocol | 943 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 947 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1018 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1060 |
-| §5 | HTTP routes | 1154 |
-| §6 | Launch modes and policies | 1229 |
-| &nbsp;&nbsp;§6.1 | The rule | 1231 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1267 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1307 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1340 |
-| §7 | Authentication and security | 1375 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1377 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1438 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1474 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1494 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1542 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1563 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1609 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1643 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1657 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1666 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1703 |
-| §8 | Persistence | 1722 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1724 |
-| &nbsp;&nbsp;§8.2 | Saving | 1758 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1791 |
-| &nbsp;&nbsp;§8.4 | Server database | 1833 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1897 |
-| §9 | Command line | 1924 |
-| §10 | Configuration (server) | 1994 |
-| &nbsp;&nbsp;§10.1 | Container | 2032 |
-| §11 | Feature inventory | 2120 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2127 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2165 |
-| §12 | Non-goals | 2183 |
+| §4 | WebSocket protocol | 953 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 957 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1028 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1070 |
+| §5 | HTTP routes | 1164 |
+| §6 | Launch modes and policies | 1239 |
+| &nbsp;&nbsp;§6.1 | The rule | 1241 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1277 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1317 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1350 |
+| §7 | Authentication and security | 1385 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1387 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1448 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1484 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1504 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1552 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1573 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1619 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1653 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1667 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1676 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1713 |
+| §8 | Persistence | 1732 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1734 |
+| &nbsp;&nbsp;§8.2 | Saving | 1768 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1801 |
+| &nbsp;&nbsp;§8.4 | Server database | 1843 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1907 |
+| §9 | Command line | 1934 |
+| §10 | Configuration (server) | 2004 |
+| &nbsp;&nbsp;§10.1 | Container | 2042 |
+| §11 | Feature inventory | 2130 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2137 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2175 |
+| §12 | Non-goals | 2193 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -702,7 +702,7 @@ off, clears the analysis shown.
 
 **Board overlays.** From bottom to top: the wood, the grid with coordinates and star points,
 ownership, the raw policy heatmap, the stones (with a faint stone of the side to move under the
-pointer on an empty point that is not a candidate), move numbers or the last-move marker, and
+pointer on an empty point that is not a candidate), the last-move ring, move numbers, and
 finally either the PV preview or the candidates.
 
 - **Label modes.** The Label select chooses each candidate's main label: `winrate` — the winrate
@@ -734,7 +734,17 @@ finally either the PV preview or the candidates.
   values: a dark square where Black owns the point and a light one where White does, opacity
   proportional to the value; values below 0.06 in size are not drawn.
 - **Move numbers.** When ticked, every stone on the board carries its number from `moveNumbers`
-  (§1.4) in the contrasting colour, in place of the last-move marker.
+  (§1.4) in the contrasting colour.
+- **Last move.** The stone just played carries a ring around its edge, whether or not Move
+  numbers are ticked. A ring rather than a dot at the centre, because the centre is where the
+  move number goes: the two must not have to take turns. Reading a sequence is the case that
+  most needs to know where the sequence has got to, so it is the case that must not lose the
+  mark. Nothing is ringed when the game has no moves yet or the last move was a pass, and a PV
+  preview's stones are never ringed — the ring belongs to the position, not to a variation
+  laid over it.
+- **In a thumbnail** the last move stays a dot. The reason for the ring does not apply there:
+  a tile draws no move numbers, so nothing competes for the stone's centre, and at a tile's
+  cell size a ring is a smudge where a dot is a dot (§3.8 "Board strip").
 - **Compare views** (handol-mux, with a compare tuple, §2.5). A Show select chooses A, B or
   "Difference B − A"; ticking "Compare two tuples" selects the difference. **A** is the primary
   distribution. **B** is the compare distribution, whose winrate, score and PV are taken from A's
