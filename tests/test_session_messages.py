@@ -346,7 +346,7 @@ def test_the_trim_set_is_every_codepoint_str_strip_takes():
 
 @pytest.mark.parametrize("name", [
     f" {BOM}" * 262_132,
-    "X" + " " * 524_260 + "X",
+    "X" + " " * 1_048_574 + "X",
     f"{BOM} " * 131_066 + "X" + f" {BOM}" * 131_065,
 ], ids=["all-trimmable", "interior-run", "both-ends"])
 async def test_a_name_is_trimmed_in_bounded_time(h, name):
