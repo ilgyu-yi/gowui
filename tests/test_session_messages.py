@@ -7,6 +7,7 @@ order; and every frame is valid JSON.
 from __future__ import annotations
 
 import threading
+import time
 
 import pytest
 
@@ -331,6 +332,21 @@ async def test_a_board_rename_holding_only_a_bom_is_ignored(h):
     before = h.rec.state()["boards"][0]["name"]
     await h.send({"type": "board_rename", "id": board, "name": BOM * 3})
     assert (await h.fresh_state())["boards"][0]["name"] == before
+
+
+async def test_a_name_that_is_all_trimmable_is_trimmed_in_bounded_time(h):
+    """§7.6 bounds a frame, not the work one costs. A name alternating between the two kinds of
+    trimmable character is the worst case for trimming, and a rename is the one handler that
+    trims before it truncates, so the whole 1 MiB reaches the trim. It has to cost one pass, not
+    one per character: the session runs on a single event loop, so a handler that takes seconds
+    denies service to every other account in the process."""
+    name = " ﻿" * 262_132  # 1,048,528 bytes as UTF-8, just inside the §7.6 frame limit
+    board = h.rec.state()["activeBoard"]
+    before = h.rec.state()["boards"][0]["name"]
+    start = time.perf_counter()
+    await h.send({"type": "board_rename", "id": board, "name": name})
+    assert (await h.fresh_state())["boards"][0]["name"] == before
+    assert time.perf_counter() - start < 1.0
 
 
 async def test_a_later_preferences_change_leaves_a_frame_already_sent_alone(make_session):
