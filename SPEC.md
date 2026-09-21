@@ -33,45 +33,45 @@
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 470 |
 | &nbsp;&nbsp;§3.3 | Boards | 536 |
 | &nbsp;&nbsp;§3.4 | Engine settings | 552 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 570 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 585 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 589 |
-| &nbsp;&nbsp;§3.8 | The page | 598 |
-| §4 | WebSocket protocol | 902 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 906 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 977 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1019 |
-| §5 | HTTP routes | 1106 |
-| §6 | Launch modes and policies | 1181 |
-| &nbsp;&nbsp;§6.1 | The rule | 1183 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1219 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1259 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1292 |
-| §7 | Authentication and security | 1327 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1329 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1390 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1426 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1446 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1494 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1515 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1560 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1583 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1597 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1606 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1643 |
-| §8 | Persistence | 1662 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1664 |
-| &nbsp;&nbsp;§8.2 | Saving | 1698 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1731 |
-| &nbsp;&nbsp;§8.4 | Server database | 1773 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1837 |
-| §9 | Command line | 1864 |
-| §10 | Configuration (server) | 1934 |
-| &nbsp;&nbsp;§10.1 | Container | 1972 |
-| §11 | Feature inventory | 2060 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2067 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2105 |
-| §12 | Non-goals | 2123 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 578 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 593 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
+| &nbsp;&nbsp;§3.8 | The page | 606 |
+| §4 | WebSocket protocol | 943 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 947 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1018 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1060 |
+| §5 | HTTP routes | 1154 |
+| §6 | Launch modes and policies | 1229 |
+| &nbsp;&nbsp;§6.1 | The rule | 1231 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1267 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1307 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1340 |
+| §7 | Authentication and security | 1375 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1377 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1438 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1474 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1494 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1542 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1563 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1609 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1643 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1657 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1666 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1703 |
+| §8 | Persistence | 1722 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1724 |
+| &nbsp;&nbsp;§8.2 | Saving | 1758 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1791 |
+| &nbsp;&nbsp;§8.4 | Server database | 1833 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1897 |
+| §9 | Command line | 1924 |
+| §10 | Configuration (server) | 1994 |
+| &nbsp;&nbsp;§10.1 | Container | 2032 |
+| §11 | Feature inventory | 2120 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2127 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2165 |
+| §12 | Non-goals | 2183 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -625,6 +625,33 @@ too follows the data, never a mode name.
   Analysis, Players, New game, Moves, Engine console. Human policy, Analysis and Players start
   open; the others start closed.
 
+**Scrolling.** The board is what the page is for, and it does not move while the person reaches
+for a control beside it.
+
+- **Wide (above 980px).** The document does not scroll: the page is exactly the viewport's height,
+  the top bar takes the height it needs, and the three columns share what is left. Each column
+  scrolls inside itself — the board strip, the board pane and the side panel — so scrolling one
+  moves nothing in the others. No rule names the top bar's height; it is measured, because it
+  wraps and so is not a fixed number.
+- **The board pane** scrolls only when the board and the controls under it do not fit the height
+  left. The board keeps its size rather than shrinking to avoid the scrollbar: a smaller board is
+  a worse trade than a scrollbar that appears in a window short enough to need one. Every control
+  is reachable in any window, by its column's scrolling and never by the page's.
+- **Keyboard.** A control reached by keyboard is scrolled into view inside its own column, so
+  focusing something low in the side panel does not move the board. The shortcuts of §3.7 scroll
+  nothing.
+- **Narrow (980px and below).** The layout is one column and the page scrolls as a whole; three
+  stacked scrollers would leave nothing to scroll the page by. The board strip is the exception:
+  it lies across the top and scrolls sideways within itself.
+- A help card opens against the right edge of the row that raised it, inside its column, and
+  scrolls with that column. It is not pinned to the viewport: the `?` that opens it sits near the
+  top of the side panel, so scrolling away from the card is scrolling away from the control it
+  describes. What the column must never do is gain a **sideways** scrollbar because the card
+  overhangs it — a box that scrolls vertically treats a horizontal overflow as scrollable too, and
+  a panel sliding left and right under the pointer is worse than a card cut off at the bottom. A
+  card taller than the room below its row does run past the column's lower edge; reaching the rest
+  is the column's scrolling, as it is for anything else in the column.
+
 **Controls.**
 
 - **Navigation.** First goes to position 0, −10 / −1 / +1 / +10 to the cursor minus or plus that
@@ -790,6 +817,12 @@ while a compare tuple is set), and a × button, hidden when only one board is le
   only when its signature (stones, last move and heat) changed.
 - Clicking a tile sends `board_select`; × asks for confirmation, then sends `board_delete`;
   "+ Duplicate" sends `board_duplicate`.
+- The strip scrolls within itself, down its column when the layout is wide and sideways when it is
+  narrow (§3.8 "Scrolling"). Its scrollbar is styled to read as a scrollbar — a thin track in the
+  panel's own line colour — so that a strip holding more tiles than fit says so. Whether the bar is
+  drawn at all before it is touched, and whether it takes room from the strip or floats over it, is
+  the engine's and the platform's to decide: a page cannot make an overlay scrollbar persist. The
+  contract here is the styling, not the persistence.
 - **Rename in place.** Double-clicking the name, or ✎, swaps the name for a text field (at most
   40 characters). Enter or leaving the field saves; Escape cancels. An empty or unchanged name
   sends nothing; any other sends `board_rename`. Keys typed in the field never reach the
