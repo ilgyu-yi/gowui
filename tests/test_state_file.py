@@ -550,7 +550,8 @@ async def configure(tab) -> dict:
                         lambda f: any(b["name"] == "study" for b in f["boards"]))
     await send_and_wait(tab, {"type": "navigate", "index": 1},
                         lambda f: f["game"]["cursor"] == 1)
-    await send_and_wait(tab, {"type": "board_duplicate"}, lambda f: len(f["boards"]) == 2)
+    await send_and_wait(tab, {"type": "board_duplicate", "id": first},
+                        lambda f: len(f["boards"]) == 2)
     second = tab.state()["activeBoard"]
     await send_and_wait(tab, {"type": "board_rename", "id": second, "name": "copy"},
                         lambda f: any(b["name"] == "copy" for b in f["boards"]))

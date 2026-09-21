@@ -168,7 +168,7 @@ async def test_only_the_board_on_screen_is_analysed(h, analysis_server):
     await analysing(h, analysis_server)
     await first_analysis(h)
     start = h.rec.mark()
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": h.rec.state()["activeBoard"]})
     assert await h.rec.wait_state(lambda f: len(f["boards"]) == 2, start)
     index = len(analysis_server.requests)
     await h.play("E5")
@@ -188,7 +188,7 @@ async def test_a_report_for_the_board_left_is_not_shown_on_the_new_one(h, fake_e
     await h.play("D4")
     await analysing(h, server)
     start = h.rec.mark()
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": h.rec.state()["activeBoard"]})
     assert await h.rec.wait_state(lambda f: len(f["boards"]) == 2, start)
     await h.play("E5")
     after = h.rec.mark()
@@ -201,7 +201,7 @@ async def test_a_thumbnail_keeps_its_heatmap_after_switching_away(h, analysis_se
     await first_analysis(h, lambda f: bool(f["analysis"]["policy"]))
     board_a = h.rec.state()["activeBoard"]
     start = h.rec.mark()
-    await h.send({"type": "board_duplicate"})
+    await h.send({"type": "board_duplicate", "id": board_a})
     state = await h.rec.wait_state(lambda f: f["activeBoard"] != board_a, start)
     assert state is not None
     thumb = next(b for b in state["boards"] if b["id"] == board_a)
