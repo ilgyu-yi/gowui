@@ -81,35 +81,76 @@ def valid_password(password: Any) -> bool:
     return isinstance(password, str) and MIN_PASSWORD <= len(password) <= MAX_PASSWORD
 
 
+#: The most hashing memory one call may ask for (§7.1). A setting above it is refused when a hash
+#: is written, and a stored hash that asks for it is an error, never a quiet "wrong password".
+MAX_HASH_MEMORY = 1024 * 1024 * 1024
+#: The digest length of a stored hash, and of the dummy: ``hashlib.scrypt``'s default ``dklen``.
+DIGEST_LENGTH = 64
+
+
+def _maxmem(n: int, r: int, p: int) -> int:
+    """The memory cap for these parameters: what scrypt needs, plus a megabyte of slack (§7.1).
+
+    Derived, not fixed, so a hash written under a costlier setting still verifies instead of
+    failing closed — a fixed cap would lock every account out the day the cost is raised.
+    """
+    return 128 * r * (n + p + 2) + 1024 * 1024
+
+
 class Scrypt:
     """``scrypt$N$r$p$<salt>$<hash>`` hashes (§7.1).
 
     The defaults are OWASP's minimum written the cheaper way on memory: N = 2^16, r = 8, p = 2
     costs the same work as N = 2^17, r = 8, p = 1 at 64 MiB rather than 128 MiB. A stored hash
     carries the parameters it was made with, so hashes from an older, cheaper setting verify
-    unchanged.
+    unchanged, each call capping scrypt's memory at what its own parameters need.
     """
 
     def __init__(self, n: int = 2 ** 16, r: int = 8, p: int = 2) -> None:
         self.n, self.r, self.p = n, r, p
 
     def hash(self, password: str) -> str:
+        budget = _maxmem(self.n, self.r, self.p)
+        if budget > MAX_HASH_MEMORY:
+            raise ValueError(f"scrypt N={self.n}, r={self.r}, p={self.p} would need {budget} "
+                             f"bytes, above the {MAX_HASH_MEMORY} this build allows")
         salt = os.urandom(16)
         digest = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=self.n, r=self.r,
-                                p=self.p, maxmem=256 * 1024 * 1024)
+                                p=self.p, maxmem=budget)
         b64 = base64.b64encode
         return f"scrypt${self.n}${self.r}${self.p}${b64(salt).decode()}${b64(digest).decode()}"
+
+    def dummy(self) -> str:
+        """A hash in stored form that no password matches, made without running scrypt (§7.1).
+
+        Verifying against it costs exactly the one scrypt a real check costs, so a missing name
+        takes what a wrong password takes, while opening the database costs no hash at all
+        (§8.4): a ``gowui user list`` pays nothing for a hash it never uses.
+        """
+        b64 = base64.b64encode
+        return (f"scrypt${self.n}${self.r}${self.p}${b64(os.urandom(16)).decode()}"
+                f"${b64(os.urandom(DIGEST_LENGTH)).decode()}")
 
     def verify(self, password: str, stored: str) -> bool:
         try:
             scheme, n, r, p, salt, digest = stored.split("$")
             if scheme != "scrypt":
                 return False
+            n, r, p = int(n), int(r), int(p)
             expected = base64.b64decode(digest)
-            actual = hashlib.scrypt(password.encode("utf-8"), salt=base64.b64decode(salt),
-                                    n=int(n), r=int(r), p=int(p), dklen=len(expected),
-                                    maxmem=256 * 1024 * 1024)
+            salt_bytes = base64.b64decode(salt)
         except (ValueError, TypeError):
+            return False
+        budget = _maxmem(n, r, p)
+        try:
+            if budget > MAX_HASH_MEMORY:
+                raise ValueError(f"it needs {budget} bytes, above {MAX_HASH_MEMORY}")
+            actual = hashlib.scrypt(password.encode("utf-8"), salt=salt_bytes, n=n, r=r, p=p,
+                                    dklen=len(expected), maxmem=budget)
+        except (ValueError, MemoryError) as exc:
+            # Loudly: this account cannot sign in until its password is set again (§7.1).
+            log.error("gowui: a stored password hash asks for scrypt parameters this build will "
+                      "not run (N=%s, r=%s, p=%s): %s", n, r, p, exc)
             return False
         return hmac.compare_digest(actual, expected)
 
@@ -137,8 +178,11 @@ class Store:
     def __init__(self, path: str | os.PathLike, *, hasher: Any = None) -> None:
         self.path = Path(path)
         self.hasher = hasher if hasher is not None else Scrypt()
-        # Made now, so the first missing-name sign-in costs what a wrong password costs (§7.1).
-        self._dummy = self.hasher.hash(secrets.token_hex(16))
+        # The dummy a missing name is checked against (§7.1). A hasher that can make one without
+        # hashing does, so opening costs no scrypt; any other is asked for a hash of a secret.
+        make_dummy = getattr(self.hasher, "dummy", None)
+        self._dummy = (make_dummy() if make_dummy is not None
+                       else self.hasher.hash(secrets.token_hex(16)))
         _prepare(self.path)
         self._db = sqlite3.connect(str(self.path), check_same_thread=False,
                                    isolation_level=None, timeout=5.0)
@@ -266,6 +310,15 @@ class Store:
                 "WHERE logins.token_hash = ? AND logins.expires >= ?",
                 (_token_hash(token), now)).fetchone()
         return (row[0], row[1]) if row else None
+
+    def purge_logins(self) -> int:
+        """Delete every expired login row; how many went (§7.2, §8.4).
+
+        Opening the database and storing a token do this too; this is the same delete on its own,
+        for the periodic pass (§8.2), so a row left by a browser that never comes back does not
+        linger until one of those happens.
+        """
+        return self._exec("DELETE FROM logins WHERE expires < ?", (time.time(),))
 
     def close_login(self, token: str) -> None:
         if token:
