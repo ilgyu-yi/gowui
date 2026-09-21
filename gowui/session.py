@@ -445,6 +445,9 @@ class GameSession:
             return text
         for host, port in self._hidden:
             quoted = re.escape(host)
+            # The order is load-bearing, and a test pins it: the bracketed and tuple arms must run
+            # before the bare-host arm. An IPv6 host is its own colons, so a bare-host match inside
+            # ``('::1', 6363, 0, 0)`` would replace the host first and leave the port standing.
             for pattern in (rf"\[{quoted}\]:{port}(?!\d)",
                             rf"(?<!{_HOST_EDGE}){quoted}:{port}(?!\d)",
                             # A printed address tuple, with the flow info and scope id an IPv6

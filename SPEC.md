@@ -55,23 +55,23 @@
 | &nbsp;&nbsp;§7.5 | Response headers and rendering | 1626 |
 | &nbsp;&nbsp;§7.6 | Limits (both modes) | 1647 |
 | &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1693 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1728 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1742 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1751 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1787 |
-| §8 | Persistence | 1806 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1808 |
-| &nbsp;&nbsp;§8.2 | Saving | 1844 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1877 |
-| &nbsp;&nbsp;§8.4 | Server database | 1919 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1983 |
-| §9 | Command line | 2010 |
-| §10 | Configuration (server) | 2080 |
-| &nbsp;&nbsp;§10.1 | Container | 2118 |
-| §11 | Feature inventory | 2206 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2213 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2251 |
-| §12 | Non-goals | 2269 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1727 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1741 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1750 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1786 |
+| §8 | Persistence | 1805 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1807 |
+| &nbsp;&nbsp;§8.2 | Saving | 1843 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1876 |
+| &nbsp;&nbsp;§8.4 | Server database | 1918 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1982 |
+| §9 | Command line | 2009 |
+| §10 | Configuration (server) | 2079 |
+| &nbsp;&nbsp;§10.1 | Container | 2117 |
+| §11 | Feature inventory | 2205 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2212 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2250 |
+| §12 | Non-goals | 2268 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1703,9 +1703,9 @@ boundaries: a neighbouring letter, digit, `.`, `-` or `_` means the text names s
 (`katagonaut` or `my-katago.example` is left alone when the catalog host is `katago`), while
 `katago:6363`, `[::1]:6363` and the host standing alone are replaced. An address printed as a
 Python tuple is replaced whole, its port with it — `('katago', 6363)` and the four-element form
-an IPv6 address takes, `('::1', 6363, 0, 0)`. A host that is also an
-ordinary word therefore still costs that word — `KataGo` becomes `[engine]` for a catalog host
-named `katago` — because the address must never appear. Withholding a whole log line stays a
+an IPv6 address takes, `('::1', 6363, 0, 0)`. A host that is also an ordinary word therefore still
+costs that word — `KataGo` becomes `[engine]` for a catalog host named `katago` — because the
+address must never appear. Withholding a whole log line stays a
 plain case-insensitive containment test, so no log line can carry the address through a form the
 scrubber does not know. This covers text the engine itself supplied, such as
 handol-mux error messages (§2.5). `state.engine.request` carries only the policy's echo (§4.2),
@@ -1720,10 +1720,9 @@ is where that IP address would appear (§2.1); text the engine itself supplies c
 well would mean the transport handing the session the peer address it actually connected to, to
 hide beside the configured one.
 
-A catalog entry
-with `"console": true` gives every signed-in user raw GTP access to that engine, including KataGo
-commands that read or write files on the engine host (`loadsgf`, `printsgf`); enable it only for
-engines whose operator accepts that.
+A catalog entry with `"console": true` gives every signed-in user raw GTP access to that engine,
+including KataGo commands that read or write files on the engine host (`loadsgf`, `printsgf`);
+enable it only for engines whose operator accepts that.
 
 ### 7.8 Isolation and idle release (server)
 
