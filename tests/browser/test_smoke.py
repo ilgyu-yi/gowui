@@ -247,9 +247,12 @@ def test_hovering_a_candidate_row_previews_its_pv(start_engine, start_app, open_
 READOUT = "#candidate-readout"
 
 
-def analysing(start_engine, start_app, open_page):
-    """A connected page with analysis on, the candidates drawn and the table filled."""
+def analysing(start_engine, start_app, open_page, played: str | None = None):
+    """A connected page with analysis on, the candidates drawn and the table filled — and, when
+    ``played`` names a point, a stone on the board before any of it."""
     g = connected(start_engine, start_app, open_page)
+    if played:
+        g.act({"type": "play", "color": "black", "vertex": played})
     g.page.locator("#analysis-on").check()
     g.expect_dataset("candidates", re.compile(r"^[1-9]\d*$"), timeout=ENGINE)
     expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=ENGINE)
@@ -329,8 +332,13 @@ def test_hovering_a_row_moves_the_readout_and_leaving_puts_it_back(start_engine,
 def test_the_position_recedes_while_a_preview_is_up(start_engine, start_app, open_page):
     """§3.8 "The position recedes while a preview is up": the variation is drawn at full strength
     and the position behind it is dimmed — so ``positionDim`` is 1 with no preview, below 1 while
-    one is up, and 1 again once it is gone."""
-    g = analysing(start_engine, start_app, open_page)
+    one is up, and 1 again once it is gone.
+
+    The board needs a stone on it for that to be worth reading: the record is the strength the
+    stones were painted at, taken off the canvas, and an empty board paints none to take it from
+    (§3.8 "Test observability"). On an empty board the record can only be the strength the draw
+    asked for, which is the draw talking about itself."""
+    g = analysing(start_engine, start_app, open_page, played="D4")
     full = dim(g)
     g.page.locator("#candidates tr").first.hover()
     g.expect_dataset("preview", re.compile(r"^[A-HJ-T]\d{1,2}$"))

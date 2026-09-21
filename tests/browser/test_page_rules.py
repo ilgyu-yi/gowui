@@ -261,3 +261,102 @@ def test_a_stored_preset_the_tuple_rules_refuse_is_dropped(start_app, open_page)
     values = g.page.eval_on_selector_all(
         "#human-preset option", "options => options.map((option) => option.value)")
     assert [v for v in values if v.startswith("user:")] == ["user:keeps", "user:lambda"]
+
+
+# -- the candidate table and the readout (§3.8 "Candidate table", "Candidate readout") -----------
+def head_fields(g: Gowui) -> list[str]:
+    """The current head's column keys, without their ``col.`` prefix — the table's own order, so
+    a cell is read by the field it holds and not by a number the test would have to keep."""
+    return g.page.evaluate("""() => [...document.querySelectorAll('table.candidates thead th')]
+        .map((th) => th.getAttribute('data-i18n').slice(4))""")
+
+
+def table_cells(g: Gowui, move: str) -> dict[str, str]:
+    """The row for ``move``, by column key. Empty when the table has no such row."""
+    texts = g.page.evaluate("""(move) => {
+        const row = [...document.querySelectorAll('#candidates tr')].find(
+            (tr) => tr.cells[0].textContent.trim() === move);
+        return row ? [...row.cells].map((c) => c.textContent.trim()) : [];
+    }""", move)
+    return dict(zip(head_fields(g), texts))
+
+
+def readout_field(g: Gowui, name: str):
+    """The readout's ``name`` field, or ``None`` when the line has no such field."""
+    return g.page.evaluate("""(name) => {
+        const node = document.querySelector('#candidate-readout [data-field="' + name + '"]');
+        return node ? node.textContent.trim() : null;
+    }""", name)
+
+
+def show_view(g: Gowui, view: str) -> None:
+    """Switch the comparison view through the page's own select (§3.8). Its row is hidden until a
+    handol-mux engine turns comparing on, which an injected frame does not do, so the test unhides
+    the row and then uses the control."""
+    g.page.evaluate("""() => {
+        document.querySelectorAll('.human-only').forEach((section) => {
+            section.hidden = false;
+            section.open = true;
+        });
+        document.getElementById('compare-view-wrap').hidden = false;
+    }""")
+    g.page.locator("#compare-view").select_option(view)
+
+
+def test_a_visit_count_the_engine_did_not_report_is_a_dash(start_app, open_page):
+    """§3.8 "Candidate readout": a value the engine did not report is ``-``, never a zero — and
+    never the word ``null``. The abbreviation the table and the line share is written for a
+    number, and hands back whatever it is given as a string, so a missing count has to be caught
+    before it: `visits` takes that path like every other field."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    size = g.state()["game"]["size"]
+    move = vertex(0, 0, size)
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [move_info(move, visits=None)])))
+    expect(g.page.locator("#candidates tr")).to_have_count(1, timeout=QUICK)
+
+    assert table_cells(g, move)["visits"] == "-", table_cells(g, move)
+    assert readout_field(g, "visits") == "-"
+
+
+def test_every_view_shows_a_candidate_the_search_it_had(start_app, open_page):
+    """§3.8 "Candidate table": Visits is in every mode — it is what the search spent, and the
+    search spent it on the position, not on a view of the position. So a candidate the search
+    knows carries the same visits, Value and bound under A, under B and under B − A; only the
+    columns the view is about (A, B, Δ) change. A point the search never looked at carries ``-``,
+    which is the same rule: a value the engine did not report is never a zero."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    size = g.state()["game"]["size"]
+    known, unknown = vertex(0, 0, size), vertex(5, 5, size)
+    searched = {**move_info(known, visits=1000, prior=0.2),
+                "utility": 0.42, "utilityLcb": 0.31}
+    a = [0.0] * (size * size + 1)
+    b = [0.0] * (size * size + 1)
+    a[0], b[0] = 0.2, 0.9                       # the known candidate: Δ +70.0%, the largest
+    b[5 * size + 5] = 0.5                       # a point tuple B likes and the search never saw
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [searched], source="handol", policy=a,
+        # Tuple B is a distribution, not a search: it reports no visit count of its own, so what
+        # the line shows for it can only be the search that was run (§3.8).
+        compare={"policy": b, "moveInfos": [{**move_info(known, visits=None, prior=0.9),
+                                             "utility": None, "utilityLcb": None}]})))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+
+    seen = {}
+    for view in ("A", "B", "diff"):
+        show_view(g, view)
+        expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=QUICK)
+        seen[view] = table_cells(g, known)
+    assert [seen[view].get("visits") for view in ("A", "B", "diff")] == ["1.0k"] * 3, seen
+    assert [seen[view].get("value") for view in ("A", "B", "diff")] == ["+0.42"] * 3, seen
+
+    # Still in B − A: the point only tuple B likes, and the line on the candidate it does know.
+    assert table_cells(g, unknown)["visits"] == "-", table_cells(g, unknown)
+    assert table_cells(g, unknown)["value"] == "-", table_cells(g, unknown)
+    assert (readout_field(g, "move"), readout_field(g, "visits"),
+            readout_field(g, "value"), readout_field(g, "valueLcb")) == (
+        known, "1.0k", "B+0.42", "B+0.31")

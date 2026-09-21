@@ -7,6 +7,13 @@ the side panel still reaches every control, by a column's scrolling and never by
 980px and below the page scrolls as one column while the board strip scrolls sideways within
 itself; and from 320px up the page scrolls down and never across (issue #48).
 
+Two more come from what a column's width costs its contents (§3.8 "Candidate table", "Candidate
+readout"; issue #44): the comparing table's eight columns fit the side panel without cutting a
+number, and the readout loses whole fields off its end rather than shrinking them into each other.
+Both are measured per box — a cell's or a field's own `scrollWidth` against its `clientWidth` —
+because a screenshot cannot tell `100.0%` from `100…` at a glance and a green page cannot tell
+either.
+
 The viewport here is deliberately shorter than the shared context's 1400x1000, because the rule is
 only visible in a window the content does not fit. Every read after a viewport change waits on a
 layout predicate — the board's resize handler runs on its own frame, so a box read before it is the
@@ -156,6 +163,45 @@ def test_a_short_window_still_reaches_every_control(start_app, open_page):
         f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways")
 
 
+def comparing_at_its_widest(g: Gowui) -> None:
+    """Inject a comparing analysis whose every column carries the widest value it can hold
+    (§3.8 "Candidate table"): a full winrate, a three-figure loss, a seven-figure visit count, a
+    policy that moves nearly the whole way between the two tuples, and a signed utility.
+
+    Narrower data would not test the layout: candidates with two-digit visits and no utility fit a
+    table that takes its columns from its contents, so the table would sit inside the panel however
+    the columns were shared out and both checks below would pass on a page that cuts numbers."""
+    size = g.state()["game"]["size"]
+    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=1234567),
+              "utility": -1.23, "utilityLcb": -1.23} for x in range(10)]
+    a = [0.0] * (size * size + 1)
+    b = [0.0] * (size * size + 1)
+    # The two ends of Δ, on the first two candidates: all of A's weight on one and all of B's on
+    # the other, so one row reads +99.7% and the other -99.7% while A and B both reach 100.0%.
+    a[0], b[0] = 1.0, 0.003
+    a[1], b[1] = 0.003, 1.0
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, infos, source="handol", policy=a, compare={"policy": b, "moveInfos": infos})))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+    expect(g.page.locator("#candidates tr")).to_have_count(10, timeout=QUICK)
+
+
+def column_fit(g: Gowui) -> list[list]:
+    """Per column: its header, the widest text in it, and that cell's ``scrollWidth`` against its
+    ``clientWidth``. A cell whose content is wider than its box is the one the ellipsis rule cuts,
+    which no reading of the rendered text can see — `100…` is a string the page never composed."""
+    return g.page.evaluate("""() => {
+        const head = [...document.querySelectorAll('table.candidates thead th')];
+        return head.map((th, i) => {
+            const cells = [th, ...document.querySelectorAll(
+                'table.candidates tbody tr td:nth-child(' + (i + 1) + ')')];
+            const worst = cells.reduce((a, c) =>
+                (c.scrollWidth - c.clientWidth) > (a.scrollWidth - a.clientWidth) ? c : a);
+            return [th.textContent, worst.textContent, worst.scrollWidth, worst.clientWidth];
+        });
+    }""")
+
+
 def test_the_comparing_columns_do_not_widen_the_side_panel(start_app, open_page):
     """§3.8 "The page scrolls down, never across" with "Candidate table": while comparing, the
     table carries eight columns. A column that scrolls vertically treats a horizontal overflow as
@@ -165,19 +211,81 @@ def test_the_comparing_columns_do_not_widen_the_side_panel(start_app, open_page)
     g.proxy_ws()
     g.open()
     resized(g, SHORT)
-    size = g.state()["game"]["size"]
-    infos = [move_info(vertex(x, 0, size), visits=1000 - x) for x in range(10)]
-    flat = [1.0 / (size * size + 1)] * (size * size + 1)
-    g.inject(analysis_frame(g.state(), analysis_payload(
-        size, infos, source="handol", policy=flat,
-        compare={"policy": flat, "moveInfos": infos})))
-    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+    comparing_at_its_widest(g)
 
     room = g.page.evaluate("() => { const side = document.querySelector('.side');"
                            " return [side.scrollWidth, side.clientWidth]; }")
     assert room[0] == room[1], (
         f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways "
         "with the comparing table's eight columns")
+
+
+def test_no_comparing_cell_cuts_a_number(start_app, open_page):
+    """§3.8 "Candidate table": no numeric cell is ever cut. The columns share the panel's width
+    instead of taking their contents', so a share too small for `100.0%` renders `100…` — which
+    still reads as a number and is off by an order of magnitude. Measured per cell at the 380px
+    side panel, with the widest value each column can hold."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    resized(g, SHORT)
+    comparing_at_its_widest(g)
+
+    cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
+           for head, text, scroll, client in column_fit(g) if scroll > client]
+    assert cut == [], f"the comparing table cuts {len(cut)} of its columns: {cut}"
+
+
+def test_the_six_column_modes_do_not_cut_a_number_either(start_app, open_page):
+    """§3.8 "Candidate table": the six columns of the other modes fit an even share at the body
+    size — the same bar, so the comparing rules cannot be tightened at their expense."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    resized(g, SHORT)
+    size = g.state()["game"]["size"]
+    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=1234567,
+                          prior=1.0), "utility": -1.23, "utilityLcb": -1.23} for x in range(10)]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, infos)))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(6, timeout=QUICK)
+
+    cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
+           for head, text, scroll, client in column_fit(g) if scroll > client]
+    assert cut == [], f"the default table cuts {len(cut)} of its columns: {cut}"
+
+
+def test_the_readout_loses_whole_fields_off_its_end(start_app, open_page):
+    """§3.8 "Candidate readout": a window too narrow for every field loses whole fields off the
+    **end** — the Value and its bound first, since the fields are in the table's column order.
+    What it must not do is shrink every field to fit: the fields are flex items, and a flex item
+    squeezed below its content does not cut its text, it lets the label and the number paint over
+    the field beside it, so the line would lose nothing cleanly and become unreadable everywhere
+    at once."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    for size in ({"width": 480, "height": 700}, {"width": 360, "height": 700}):
+        resized(g, size)
+        comparing_at_its_widest(g)
+        needs, room, fields, past = g.page.evaluate("""() => {
+            const line = document.querySelector('#candidate-readout');
+            const edge = line.getBoundingClientRect().right;
+            const all = [...line.querySelectorAll('.field')];
+            const text = (f) => f.textContent.trim();
+            return [line.scrollWidth, line.clientWidth, all.map(text),
+                    all.filter((f) => f.getBoundingClientRect().left > edge - 1).map(text)];
+        }""")
+        at = f"at {size['width']}px"
+        assert needs > room, f"{at} the line needs {needs}px and has {room}px: nothing is lost"
+        squeezed = g.page.evaluate("""() => [...document.querySelectorAll(
+            '#candidate-readout .field')].filter((f) => f.scrollWidth > f.clientWidth)
+            .map((f) => f.textContent.trim() + ' ' + f.scrollWidth + '>' + f.clientWidth)""")
+        assert squeezed == [], (f"{at} the readout squeezes {len(squeezed)} fields below their "
+                                f"own text, which paints them over each other: {squeezed}")
+        assert past and past == fields[len(fields) - len(past):], (
+            f"{at} what falls off the line is {past}, which is not the end of {fields}")
+        assert past[-1].startswith(g.t("col.value")), (
+            f"{at} the last field off the end is {past[-1]!r}, not the Value")
 
 
 def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
