@@ -217,6 +217,26 @@ async def test_origin_is_matched_against_the_forwarded_host_from_a_trusted_proxy
     assert http_status(sent) == 200
 
 
+async def test_a_handshake_behind_a_tls_proxy_is_accepted():
+    """§7.10: a TLS-terminating proxy writes `wss` on an upgrade, not `https`. Reading only
+    `https` would leave the request counting as plain, so its effective port would be 80 against
+    an `Origin` naming 443, and §7.4 rule 3 would refuse every socket behind such a proxy — while
+    the page itself loaded, because a `GET` skips that rule."""
+    sent, _ = await call_guard(proxied_bundle(), scope_for("websocket", path="/ws", headers=[
+        ("Host", "127.0.0.1:8080"), ("X-Forwarded-Host", "app.example"),
+        ("X-Forwarded-Proto", "wss"), ("Origin", "https://app.example")]))
+    assert ws_outcome(sent) != ("accept", 4403)
+
+
+async def test_a_handshake_behind_a_plain_proxy_still_matches_the_origin_on_its_port():
+    """The other half of the same rule: `ws` counts as plain, so an `https` origin does not
+    match a request the proxy forwarded over plain http."""
+    sent, _ = await call_guard(proxied_bundle(), scope_for("websocket", path="/ws", headers=[
+        ("Host", "127.0.0.1:8080"), ("X-Forwarded-Host", "app.example"),
+        ("X-Forwarded-Proto", "ws"), ("Origin", "https://app.example")]))
+    assert ws_outcome(sent) == ("accept", 4403)
+
+
 # -- the Origin rule (§7.4 rule 3) ---------------------------------------------------------------
 @pytest.mark.parametrize("origin", [
     f"http://{EVIL}", "null", "http://localhost:{port}", "http://127.0.0.1:1",

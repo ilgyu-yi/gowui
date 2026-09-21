@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 585 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 589 |
 | &nbsp;&nbsp;§3.8 | The page | 598 |
-| §4 | WebSocket protocol | 892 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 896 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 964 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1006 |
-| §5 | HTTP routes | 1093 |
-| §6 | Launch modes and policies | 1168 |
-| &nbsp;&nbsp;§6.1 | The rule | 1170 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1206 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1245 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1278 |
-| §7 | Authentication and security | 1313 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1315 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1367 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1385 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1405 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1453 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1474 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1519 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1542 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1556 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1565 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1594 |
-| §8 | Persistence | 1613 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1615 |
-| &nbsp;&nbsp;§8.2 | Saving | 1649 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1680 |
-| &nbsp;&nbsp;§8.4 | Server database | 1722 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1777 |
-| §9 | Command line | 1796 |
-| §10 | Configuration (server) | 1863 |
-| &nbsp;&nbsp;§10.1 | Container | 1901 |
-| §11 | Feature inventory | 1989 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 1996 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2034 |
-| §12 | Non-goals | 2052 |
+| §4 | WebSocket protocol | 902 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 906 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 977 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1019 |
+| §5 | HTTP routes | 1106 |
+| §6 | Launch modes and policies | 1181 |
+| &nbsp;&nbsp;§6.1 | The rule | 1183 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1219 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1259 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1292 |
+| §7 | Authentication and security | 1327 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1329 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1390 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1426 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1446 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1494 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1515 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1560 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1583 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1597 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1606 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1643 |
+| §8 | Persistence | 1662 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1664 |
+| &nbsp;&nbsp;§8.2 | Saving | 1698 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1731 |
+| &nbsp;&nbsp;§8.4 | Server database | 1773 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1837 |
+| §9 | Command line | 1864 |
+| §10 | Configuration (server) | 1934 |
+| &nbsp;&nbsp;§10.1 | Container | 1972 |
+| §11 | Feature inventory | 2060 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2067 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2105 |
+| §12 | Non-goals | 2123 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1607,8 +1607,9 @@ value never stops `gowui local`.
 
 A TLS-terminating proxy in front of `gowui serve` must be listed in `GOWUI_TRUSTED_PROXIES`,
 whatever `GOWUI_AUTH` is. Forwarded headers are read only from a trusted peer, and only for these
-purposes: `X-Forwarded-Proto: https` makes the request count as https (so `GOWUI_COOKIE_SECURE=auto`
-sets Secure), `X-Forwarded-Host` is the effective host for the Host and origin rules (§7.4), and the last
+purposes: `X-Forwarded-Proto: https` or `wss` makes the request count as https (so
+`GOWUI_COOKIE_SECURE=auto` sets Secure), `X-Forwarded-Host` is the effective host for the Host and
+origin rules (§7.4), and the last
 address in `X-Forwarded-For` is the client address for login throttling (§7.1). From any other peer
 they are ignored. With no trusted proxy configured, a deployment behind a proxy should set
 `GOWUI_COOKIE_SECURE=1`.
@@ -1623,8 +1624,15 @@ applies):
   comma-separated list: when the header appears more than once, the lines are joined in order,
   as HTTP combines repeated fields. Only the **last** element counts, trimmed — it is the one the
   trusted proxy itself added. So `X-Forwarded-Proto: http, https` counts as https and
-  `https, http` as http; the request counts as https only when the last element is `https`
-  (in any case). (`X-Forwarded-Host` must appear at most once, §7.4.)
+  `https, http` as http; the request counts as https only when the last element is `https` or
+  `wss` (in any case). (`X-Forwarded-Host` must appear at most once, §7.4.)
+- **The secure scheme of either protocol.** The header carries a URL scheme, and a proxy writes
+  the scheme of the request it is forwarding: `https` for an ordinary request, `wss` for a
+  WebSocket upgrade it terminated TLS for. Both are the secure scheme, so both count as https,
+  and `ws` counts as plain exactly as `http` does. Reading only `https` would leave every
+  WebSocket behind a TLS proxy counting as plain, which the origin rule of §7.4 then refuses
+  (the effective port would be 80 against an `Origin` naming 443) — the page loads, because a
+  `GET` skips that rule, and only the socket dies.
 - **Client address.** The last `X-Forwarded-For` element counts only when `ipaddress.ip_address`
   accepts it (IPv4-mapped converted as above); otherwise the peer is the client address.
 - **Chained proxies.** With two trusted proxies in a chain, the last element is the outer proxy's

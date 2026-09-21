@@ -38,6 +38,10 @@ _SECURITY_NAMES = {name for name, _ in SECURITY_HEADERS}
 #: Headers of which a request may carry at most one (§7.4 rule 1).
 _SINGLE = (b"host", b"origin", b"x-forwarded-host")
 DEFAULT_PORTS = {"http": 80, "ws": 80, "https": 443, "wss": 443}
+#: The schemes that make a request count as https, in ``X-Forwarded-Proto`` as in the scope: a
+#: proxy writes the scheme of the request it forwards, so it writes ``wss`` for an upgrade it
+#: terminated TLS for (§7.10).
+SECURE_SCHEMES = frozenset({"https", "wss"})
 #: Reachable without an identity, matched exactly (§5); ``/css/`` is the one public prefix.
 PUBLIC_PATHS = frozenset({"/healthz", "/login", "/logout"})
 PUBLIC_PREFIX = "/css/"
@@ -136,12 +140,12 @@ def forwarded_last(scope: dict, name: bytes) -> str | None:
 
 def request_is_https(scope: dict, proxies: tuple) -> bool:
     """The request's own scheme, or ``X-Forwarded-Proto`` from a trusted proxy (§7.10)."""
-    if scope.get("scheme") in ("https", "wss"):
+    if scope.get("scheme") in SECURE_SCHEMES:
         return True
     if not trusted_peer(scope, proxies):
         return False
     last = forwarded_last(scope, b"x-forwarded-proto")
-    return last is not None and last.lower() == "https"
+    return last is not None and last.lower() in SECURE_SCHEMES
 
 
 def client_address(scope: dict, proxies: tuple) -> str:
