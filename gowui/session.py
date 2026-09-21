@@ -288,17 +288,19 @@ def _preset_problem(entry: Any) -> str | None:
     """The first problem with one tuple preset (§4.1), or ``None``."""
     if not isinstance(entry, dict) or set(entry) != {"name", "tuple"}:
         return "a preset is an object with a name and a tuple only"
-    name = entry["name"]
-    if not isinstance(name, str) or not _trim(name):
+    if not isinstance(entry["name"], str):
         return "a preset needs a name"
-    if len(_trim(name)) > MAX_PRESET_NAME:
+    name = _trim(entry["name"])  # the stored form, and what every rule below reads
+    if not name:
+        return "a preset needs a name"
+    if len(name) > MAX_PRESET_NAME:
         return f"a preset name is at most {MAX_PRESET_NAME} characters"
-    if not _name_ok(_trim(name), MAX_PRESET_NAME, spaces=True):
+    if not _name_ok(name, MAX_PRESET_NAME, spaces=True):
         return ("a preset name holds no control character, no lone surrogate and no whitespace "
                 "beyond a plain space")
     problem = tuple_problem(entry["tuple"], PRESET_VISITS)
     if problem is not None:
-        return f"refused the preset {_trim(name)[:ECHO]!r}: {problem}"
+        return f"refused the preset {name[:ECHO]!r}: {problem}"
     return None
 
 
@@ -313,13 +315,27 @@ def clean_preferences(value: Any) -> dict:
     What a storage policy reads back is taken this way, not refused as a whole (§6.4): a
     hand-edited row loses the entries the rules refuse, as a browser-stored preset does when the
     page reads its list (§8.5).
+
+    A name held twice is one of those rules: the write path refuses such a frame whole (§4.1),
+    while here the later entry is dropped and the **first** kept. Keeping both would load a row
+    the next save sends back whole and is refused whole, wedging preset saving until the user
+    deleted the name; refusing here would turn that row into a load failure instead.
     """
     source = value if isinstance(value, dict) else {}
     lang = source.get("lang")
     raw = source.get("presets")
     presets = raw[:MAX_PRESETS] if isinstance(raw, list) else []
-    return {"lang": lang if _lang_ok(lang) else None,
-            "presets": [_stored_preset(p) for p in presets if _preset_problem(p) is None]}
+    kept: list[dict] = []
+    seen: set[str] = set()
+    for entry in presets:
+        if _preset_problem(entry) is not None:
+            continue
+        stored = _stored_preset(entry)
+        if stored["name"] in seen:
+            continue
+        seen.add(stored["name"])
+        kept.append(stored)
+    return {"lang": lang if _lang_ok(lang) else None, "presets": kept}
 
 
 def _flat_request(value: Any) -> dict | None:
@@ -1063,7 +1079,10 @@ class GameSession:
 
     def _msg_board_rename(self, message: dict) -> None:
         board_id = _board_id(message)
-        name = _trim(_string(message, "name"))[:MAX_NAME]
+        # Trimmed before the cut, so the 1 MiB a frame may carry cannot fill the 40 with space
+        # (§7.6), and again after it: the cut falls wherever the 40th character is and can leave
+        # the space that was between two words at the end (§3.3).
+        name = _trim(_trim(_string(message, "name"))[:MAX_NAME])
         slot = self._slot(board_id)
         if slot is None:
             raise _Refused(f"no board {str(board_id)[:ECHO]}")
