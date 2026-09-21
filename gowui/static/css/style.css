@@ -81,7 +81,11 @@ main {
   white-space: nowrap; overflow: hidden;
   font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
 }
-.readout .field { display: flex; gap: 4px; align-items: baseline; min-width: 0; }
+/* flex: none, not min-width: 0 — the fields keep their own width. A flex item squeezed below its
+   content does not cut its text: it paints it over the field beside it, so a line too narrow for
+   all of them would become unreadable from end to end instead of losing its end. What it loses,
+   and why that end, is SPEC §3.8 "Candidate readout" ("What a narrow window costs it"). */
+.readout .field { display: flex; gap: 4px; align-items: baseline; flex: none; }
 .readout .num { color: var(--text); }
 .readout .mark { color: var(--accent); font-weight: 600; }
 /* The parentheses are the mark of a bound, not words: they read the same in every language. */
@@ -152,6 +156,30 @@ details > .row:first-of-type { margin-top: 8px; }
 .candidates tr { cursor: pointer; }
 .candidates tr:hover td { background: var(--panel-2); }
 .candidates tr.best td:first-child { color: var(--accent); font-weight: 600; }
+/* Sharing the width is not enough by itself: while comparing there are eight columns, an even
+   share of the 358px the panel leaves is 45px, and at the body size `100.0%` wants 56 of them and
+   `-123.4` 50 — which the ellipsis rule above then renders `100…` and `-12…`, still reading as a
+   number and off by an order of magnitude (SPEC §3.8 "Candidate table": no numeric cell is ever
+   cut). Two changes buy the room, and both are needed: at 11px in a narrow cell the eight widest
+   values want 329.5px of the 358, and each column then takes the share its own widest needs
+   rather than an eighth. Measured at the 380px panel, with the widest value each column can hold
+   in one table: Move 32.7 in 36, Win 45.5 in 48, Score 40.6 in 45, Visits 33.6 in 38, A and B
+   45.5 in 48, Δ 52.5 in 57 (a full +100.0%, the one signed percentage), Value 33.6 in 38. Move
+   and Visits are sized by their own heads, which are wider than anything under them; the English
+   heads are the wide pair, so the Korean page has more room and not less.
+   The widths sit on the head because a fixed table takes its columns from the first row;
+   `comparing` is a class app.js adds, never a style write (§7.5). The six columns of the other
+   modes fit an even share at the body size, and are left alone. */
+.candidates.comparing { font-size: 11px; }
+.candidates.comparing th, .candidates.comparing td { padding: 3px 2px; }
+.candidates.comparing th:nth-child(1) { width: 10%; }     /* Move: its head, wider than pass */
+.candidates.comparing th:nth-child(2) { width: 13.5%; }   /* Win: 100.0% */
+.candidates.comparing th:nth-child(3) { width: 12.5%; }   /* Score: -123.4 */
+.candidates.comparing th:nth-child(4) { width: 10.5%; }   /* Visits: its head, wider than 1.2M */
+.candidates.comparing th:nth-child(5) { width: 13.5%; }   /* A: 100.0% */
+.candidates.comparing th:nth-child(6) { width: 13.5%; }   /* B: 100.0% */
+.candidates.comparing th:nth-child(7) { width: 16%; }     /* Δ: +100.0%, signed and the widest */
+.candidates.comparing th:nth-child(8) { width: 10.5%; }   /* Value: -1.23 */
 
 .move-list {
   max-height: 220px; overflow: auto; margin: 8px 0 0; padding-left: 28px;

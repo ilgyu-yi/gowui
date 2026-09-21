@@ -254,10 +254,11 @@
   // reports it. A board with no stones on it paints nothing to observe, and answers `dim`.
   GoBoard.prototype._drawStones = function (m, dim) {
     var stones = this.state.stones;
+    var painted = null;
     for (var y = 0; y < m.size; y++) {
       for (var x = 0; x < m.size; x++) {
         var value = stones[y * m.size + x];
-        if (value) this._stone(m, x, y, value === 1 ? 'black' : 'white', dim);
+        if (value) painted = this._stone(m, x, y, value === 1 ? 'black' : 'white', dim);
       }
     }
     // Ghost stone under the pointer on an empty intersection. It recedes with the position: it
@@ -265,9 +266,13 @@
     if (this.hover && !this.analysisHoverHit && !stones[this.hover.y * m.size + this.hover.x]) {
       this._stone(m, this.hover.x, this.hover.y, this.state.toPlay, 0.35 * dim);
     }
-    return dim;
+    // The ghost is not the position and is drawn fainter still, so it is not what is reported.
+    return painted == null ? dim : painted;
   };
 
+  // Paints one stone and returns the alpha the canvas painted it with, read back off the context
+  // rather than handed back: an answer that repeated the argument would say a draw dimmed the
+  // position whether or not it did (SPEC §3.8 "Test observability").
   GoBoard.prototype._stone = function (m, x, y, color, alpha) {
     var ctx = this.ctx;
     var cx = m.margin + x * m.cell;
@@ -294,7 +299,9 @@
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
+    var painted = ctx.globalAlpha;   // what the fill above went on at, before the state is popped
     ctx.restore();
+    return painted;
   };
 
   // Rings the stone just played and returns the vertex it ringed, or '' when it ringed nothing
@@ -421,7 +428,9 @@
       return (delta > 0 ? '+' : '') + delta.toFixed(1);
     }
     switch (this.options.labelMode) {
-      case 'visits': return abbreviate(info.visits);
+      // A count the engine did not report is '-', as it is in the table and the readout line:
+      // `abbreviate` is written for a number and would put the word `null` on the board.
+      case 'visits': return info.visits == null ? '-' : abbreviate(info.visits);
       case 'prior': return info.prior == null ? '-' : (info.prior * 100).toFixed(1);
       case 'score': return info.scoreLead == null ? '-' : info.scoreLead.toFixed(1);
       default:
@@ -436,8 +445,12 @@
     var infos = (this.analysis && this.analysis.moveInfos) || [];
     if (!infos.length) return 0;
     // A human-policy distribution has no visits; shade by probability instead.
+    // Some candidates of a compared view carry a count and some carry none (§3.8 "Candidate
+    // table"): a missing one weighs nothing rather than turning the shade into a NaN.
     var byVisits = infos.some(function (info) { return info.visits > 0; });
-    var weight = function (info) { return byVisits ? info.visits : Math.abs(info.prior || 0); };
+    var weight = function (info) {
+      return byVisits ? (info.visits || 0) : Math.abs(info.prior || 0);
+    };
     var diffView = !!this.analysis.diffView;
     var best = infos.reduce(function (acc, info) { return Math.max(acc, weight(info)); }, byVisits ? 1 : 1e-9);
     var ctx = this.ctx;
@@ -472,7 +485,10 @@
       ctx.fillText(self._candidateLabel(info), cx, cy - m.cell * 0.11);
       ctx.font = (m.cell * 0.26).toFixed(0) + 'px system-ui, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      if (byVisits) ctx.fillText(abbreviate(info.visits), cx, cy + m.cell * 0.19);
+      // The second line is the visits, so a candidate without them is left with the first alone.
+      if (byVisits && info.visits != null) {
+        ctx.fillText(abbreviate(info.visits), cx, cy + m.cell * 0.19);
+      }
     });
     return drawn;
   };

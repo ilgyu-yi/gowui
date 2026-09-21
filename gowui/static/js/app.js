@@ -830,17 +830,22 @@
 
   /* -- handol-mux comparison views --------------------------------------- */
   // The analysis as the board should draw it: tuple A (the default), tuple B,
-  // or B − A. Winrates exist only for A's candidates' moves, so B's reuse them.
+  // or B − A. The search was run on the position, not on a view of the position, so every view
+  // carries the eval it produced: winrates, scores, visits and utilities exist for A's
+  // candidates' moves, and B's and the difference's reuse them.
   function viewOf(analysis) {
     if (!analysis || !analysis.compare) return analysis;
     var view = $('compare-view').value;
     if (view === 'A') return analysis;
     var evalByMove = {};
     analysis.moveInfos.forEach(function (info) { evalByMove[info.move] = info; });
+    // A move the search never saw takes `undefined` for each of these, which every field renders
+    // as `-`: a value the engine did not report is never a zero (§3.8 "Candidate readout").
     var withEval = function (info) {
       var known = evalByMove[info.move] || {};
       return Object.assign({}, info, {
-        winrate: known.winrate, scoreLead: known.scoreLead, pv: known.pv || []
+        winrate: known.winrate, scoreLead: known.scoreLead, pv: known.pv || [],
+        visits: known.visits, utility: known.utility, utilityLcb: known.utilityLcb
       });
     };
     if (view === 'B') {
@@ -857,7 +862,9 @@
       if (Math.abs(diff[i]) < 0.001) continue;
       var vertex = i === size * size ? 'pass'
         : goboardUtils.pointToVertex(i % size, Math.floor(i / size), size);
-      moves.push(withEval({ move: vertex, prior: diff[i], visits: 0, order: 0 }));
+      // No visit count here: the difference is a difference of two policies, and what the search
+      // spent on this move — if it spent anything — is what `withEval` carries in.
+      moves.push(withEval({ move: vertex, prior: diff[i], order: 0 }));
     }
     moves.sort(function (x, y) { return Math.abs(y.prior) - Math.abs(x.prior); });
     return Object.assign({}, analysis, { policy: diff, moveInfos: moves.slice(0, 20), diffView: true });
@@ -886,6 +893,11 @@
   function setTableHead(keys) {
     var row = document.querySelector('table.candidates thead tr');
     var mode = keys.join(',');
+    // The eight comparing columns are narrower than the six of the other modes, and the widths
+    // that make them fit are in the stylesheet: the class is all the page writes (§3.8 "Candidate
+    // table", §7.5).
+    document.querySelector('table.candidates').classList.toggle(
+      'comparing', keys.indexOf('col.delta') >= 0);
     if (row.dataset.mode === mode) return;
     row.dataset.mode = mode;
     row.replaceChildren();
