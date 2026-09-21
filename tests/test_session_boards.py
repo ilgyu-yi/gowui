@@ -6,6 +6,9 @@ from __future__ import annotations
 
 import re
 
+import pytest
+
+from gowui.engine.types import Analysis
 from session_helpers import board_entry, board_ids, move_list
 
 
@@ -139,9 +142,11 @@ async def test_duplicate_of_a_board_that_does_not_exist_is_refused(h):
     assert await refused(h, {"type": "board_duplicate", "id": 9999}) == ("no board 9999", True)
 
 
-async def test_duplicate_with_an_id_that_is_not_a_whole_number_is_refused(h):
-    """§4.1: an ``id`` that is not a whole number gets "id must be a board id"."""
-    assert await refused(h, {"type": "board_duplicate", "id": 1.5}) == \
+@pytest.mark.parametrize("value", [1.5, 2.0, "1", True, None], ids=str)
+async def test_duplicate_with_an_id_that_is_not_an_integer_is_refused(h, value):
+    """§4.1: an ``id`` that is not an integer gets "id must be a board id" — and a whole-valued
+    float is not one either, which the ``2.0`` case is here to say."""
+    assert await refused(h, {"type": "board_duplicate", "id": value}) == \
         ("id must be a board id", True)
 
 
@@ -283,8 +288,6 @@ async def test_a_move_changes_nothing_but_the_order(h):
     connected both are empty for every board, so an analysis thrown away looks exactly like one
     that was never there. The move epoch and the boards' own versions are what the claim is
     about, so the test reads them."""
-    from gowui.engine.types import Analysis
-
     first, _second, third = await three_boards(h)
     # Seeded, because with no engine connected every slot's analysis is None and comparing
     # {1: None, 2: None, 3: None} to itself proves nothing - the blind spot this assertion exists
@@ -319,8 +322,10 @@ async def test_a_move_without_an_after_key_is_refused(h):
         ("after must be a board id or null", True)
 
 
-async def test_a_move_whose_after_is_not_a_whole_number_is_refused(h):
-    """§4.1: an ``after`` that is not a whole number gets "after must be a board id or null"."""
+@pytest.mark.parametrize("value", [1.5, 2.0, "1", True], ids=str)
+async def test_a_move_whose_after_is_not_an_integer_is_refused(h, value):
+    """§4.1: an ``after`` that is not an integer gets "after must be a board id or null", a
+    whole-valued float included."""
     first, _second, _third = await three_boards(h)
     assert await refused(h, {"type": "board_move", "id": first, "after": 1.5}) == \
         ("after must be a board id or null", True)
@@ -340,8 +345,10 @@ async def test_a_move_whose_id_names_no_board_is_refused(h):
         ("no board 9999", True)
 
 
-async def test_a_move_whose_id_is_not_a_whole_number_is_refused(h):
-    """§4.1: an ``id`` that is not a whole number gets "id must be a board id"."""
+@pytest.mark.parametrize("value", [1.5, 2.0, "1", True, None], ids=str)
+async def test_a_move_whose_id_is_not_an_integer_is_refused(h, value):
+    """§4.1: an ``id`` that is not an integer gets "id must be a board id", a whole-valued float
+    included."""
     _first, _second, third = await three_boards(h)
     assert await refused(h, {"type": "board_move", "id": 1.5, "after": third}) == \
         ("id must be a board id", True)

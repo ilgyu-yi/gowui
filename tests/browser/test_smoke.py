@@ -164,8 +164,8 @@ def test_the_edge_scroll_moves_the_drop_target_with_the_strip(start_app, open_pa
     g.page.mouse.down()
     # Into the trailing edge band, then held still: the auto-scroll is the only thing moving.
     g.page.mouse.move(start["x"] + start["width"] / 2, strip["y"] + strip["height"] - 8, steps=8)
-    marked = "() => { const tile = document.querySelector('#board-list .thumb.drop-after');" \
-             " return tile ? Number(tile.dataset.id) : null; }"
+    marked = ("() => { const tile = document.querySelector('#board-list .thumb.drop-after');"
+              " return tile ? Number(tile.dataset.id) : null; }")
     before = g.page.evaluate(marked)
     g.until("(was) => { const tile = document.querySelector('#board-list .thumb.drop-after');"
             " return tile !== null && Number(tile.dataset.id) !== was; }", before)
@@ -173,8 +173,10 @@ def test_the_edge_scroll_moves_the_drop_target_with_the_strip(start_app, open_pa
     g.page.mouse.up()
 
     frame = g.wait_sent("board_move", since)
-    assert (frame["after"], after != before) == (after, True), (
-        f"the drop line was on board {before} before the scroll and {after} after it, "
+    # `after != before` is already what the wait above gated on, so the claim left to make is
+    # that the frame carries the anchor the line moved to, not the one it started on.
+    assert frame["after"] == after, (
+        f"the drop line moved from board {before} to {after} as the strip scrolled, "
         f"but the move named {frame['after']}")
 
 
