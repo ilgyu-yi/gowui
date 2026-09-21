@@ -643,8 +643,11 @@ for a control beside it.
 - **Narrow (980px and below).** The layout is one column and the page scrolls as a whole; three
   stacked scrollers would leave nothing to scroll the page by. The board strip is the exception:
   it lies across the top and scrolls sideways within itself.
-- The help cards of the engine form and the tuple fields are positioned against the viewport, so a
-  column's scrolling does not clip them.
+- A help card opens against the right edge of the row that raised it, inside its column, and
+  scrolls with that column. It is not pinned to the viewport: the `?` that opens it sits near the
+  top of the side panel, so scrolling away from the card is scrolling away from the control it
+  describes. What the column must never do is clip the card or gain a sideways scrollbar because
+  it overhangs — a box that scrolls vertically treats a horizontal overflow as scrollable too.
 
 **Controls.**
 
