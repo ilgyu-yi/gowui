@@ -31,11 +31,11 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .topbar h1 { font-size: 16px; margin: 0; letter-spacing: 0.06em; }
-/* The top bar wraps, so this row must be allowed to as well, and its fields must be allowed
-   to narrow: a row that cannot do either pushes the whole document sideways in a small
-   window (SPEC §3.8 "Scrolling"). */
-.engine-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
-.engine-line input, .engine-line select { min-width: 0; }
+/* The top bar wraps, so this row must be allowed to as well: a row of controls that cannot wrap
+   pushes the whole document sideways in a small window (SPEC §3.8 "Scrolling"). A `min-width: 0`
+   on the row and on its fields was tried and measured inert — once the row wraps, each control
+   sits at its natural width on a line of its own and nothing asks it to shrink. */
+.engine-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .status { color: var(--muted); flex: 1 1 200px; min-height: 1em; }
 .status.error { color: var(--bad); }
 
