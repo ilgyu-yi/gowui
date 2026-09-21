@@ -173,10 +173,14 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
    fixed-width tiles) would widen the page instead of scrolling sideways within itself. */
 .boards { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .board-list { display: flex; flex-direction: column; gap: 8px; }
-/* The strip's scrollbar stays visible rather than fading, so a strip holding more tiles than fit
-   says so without being touched first (SPEC §3.8 "Board strip"). The standard properties are what
-   current engines read; the ::-webkit-scrollbar rules below are the fallback for the ones that
-   read neither, and they also take the bar off the overlay layer that fades. */
+/* The strip's scrollbar is styled to read as one, so a strip holding more tiles than fit says so
+   (SPEC §3.8 "Board strip"). The standard properties are what current engines read; the
+   ::-webkit-scrollbar rules are for older WebKit-family engines that read neither, and are
+   exclusive with them rather than layered — a non-auto scrollbar-width suppresses the pseudos in
+   Chromium, so exactly one of the two paths applies on any given engine.
+   Neither path makes an overlay scrollbar persist: where the platform draws overlay bars, this
+   styles the bar that appears and nothing more. Reserving a permanent track (overflow: scroll)
+   would take room from every strip to serve the full one, which is the worse trade. */
 .boards, .board-list { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .boards::-webkit-scrollbar, .board-list::-webkit-scrollbar { width: 8px; height: 8px; }
 .boards::-webkit-scrollbar-thumb, .board-list::-webkit-scrollbar-thumb {
@@ -223,7 +227,11 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
   /* Each column is itself a flex column: its children keep their own height instead of being
      squeezed to fit, which is what gives the column something to scroll. */
   .boards > *, .board-pane > *, .side > * { flex: none; }
-  .side { scrollbar-gutter: stable; }
+  /* All three, not just .side. Where the platform draws classic scrollbars, a bar appearing takes
+     width from its column; in the board pane that narrows #board-wrap, and board.js pins the
+     canvas in pixels off a window resize it never hears, so the stale canvas would push the pane
+     into sideways overflow. A reserved gutter is the same width whether the bar is there or not. */
+  .boards, .board-pane, .side { scrollbar-gutter: stable; }
 }
 
 /* Class display rules (.tabs, .row label, ...) must not override the hidden attribute. */

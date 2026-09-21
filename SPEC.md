@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 593 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 597 |
 | &nbsp;&nbsp;§3.8 | The page | 606 |
-| §4 | WebSocket protocol | 937 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 941 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1012 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1054 |
-| §5 | HTTP routes | 1148 |
-| §6 | Launch modes and policies | 1223 |
-| &nbsp;&nbsp;§6.1 | The rule | 1225 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1261 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1301 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1334 |
-| §7 | Authentication and security | 1369 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1371 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1432 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1468 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1488 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1536 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1557 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1603 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1637 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1651 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1660 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1697 |
-| §8 | Persistence | 1716 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1718 |
-| &nbsp;&nbsp;§8.2 | Saving | 1752 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1785 |
-| &nbsp;&nbsp;§8.4 | Server database | 1827 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1891 |
-| §9 | Command line | 1918 |
-| §10 | Configuration (server) | 1988 |
-| &nbsp;&nbsp;§10.1 | Container | 2026 |
-| §11 | Feature inventory | 2114 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2121 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2159 |
-| §12 | Non-goals | 2177 |
+| §4 | WebSocket protocol | 943 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 947 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1018 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1060 |
+| §5 | HTTP routes | 1154 |
+| §6 | Launch modes and policies | 1229 |
+| &nbsp;&nbsp;§6.1 | The rule | 1231 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1267 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1307 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1340 |
+| §7 | Authentication and security | 1375 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1377 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1438 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1474 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1494 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1542 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1563 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1609 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1643 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1657 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1666 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1703 |
+| §8 | Persistence | 1722 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1724 |
+| &nbsp;&nbsp;§8.2 | Saving | 1758 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1791 |
+| &nbsp;&nbsp;§8.4 | Server database | 1833 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 1897 |
+| §9 | Command line | 1924 |
+| §10 | Configuration (server) | 1994 |
+| &nbsp;&nbsp;§10.1 | Container | 2032 |
+| §11 | Feature inventory | 2120 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2127 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2165 |
+| §12 | Non-goals | 2183 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -646,8 +646,11 @@ for a control beside it.
 - A help card opens against the right edge of the row that raised it, inside its column, and
   scrolls with that column. It is not pinned to the viewport: the `?` that opens it sits near the
   top of the side panel, so scrolling away from the card is scrolling away from the control it
-  describes. What the column must never do is clip the card or gain a sideways scrollbar because
-  it overhangs — a box that scrolls vertically treats a horizontal overflow as scrollable too.
+  describes. What the column must never do is gain a **sideways** scrollbar because the card
+  overhangs it — a box that scrolls vertically treats a horizontal overflow as scrollable too, and
+  a panel sliding left and right under the pointer is worse than a card cut off at the bottom. A
+  card taller than the room below its row does run past the column's lower edge; reaching the rest
+  is the column's scrolling, as it is for anything else in the column.
 
 **Controls.**
 
@@ -815,8 +818,11 @@ while a compare tuple is set), and a × button, hidden when only one board is le
 - Clicking a tile sends `board_select`; × asks for confirmation, then sends `board_delete`;
   "+ Duplicate" sends `board_duplicate`.
 - The strip scrolls within itself, down its column when the layout is wide and sideways when it is
-  narrow (§3.8 "Scrolling"). Its scrollbar stays visible rather than fading, so a strip holding
-  more tiles than fit says so without being touched first.
+  narrow (§3.8 "Scrolling"). Its scrollbar is styled to read as a scrollbar — a thin track in the
+  panel's own line colour — so that a strip holding more tiles than fit says so. Whether the bar is
+  drawn at all before it is touched, and whether it takes room from the strip or floats over it, is
+  the engine's and the platform's to decide: a page cannot make an overlay scrollbar persist. The
+  contract here is the styling, not the persistence.
 - **Rename in place.** Double-clicking the name, or ✎, swaps the name for a text field (at most
   40 characters). Enter or leaving the field saves; Escape cancels. An empty or unchanged name
   sends nothing; any other sends `board_rename`. Keys typed in the field never reach the

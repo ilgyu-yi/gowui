@@ -142,6 +142,18 @@ def test_a_short_window_still_reaches_every_control(start_app, open_page):
     assert max(abs(now[0] - was[0]), abs(now[1] - was[1])) < 0.5, (
         f"the board moved from {was} to {now} while a control took focus")
 
+    # A column that scrolls vertically treats a horizontal overflow as scrollable too, so anything
+    # inside it that is wider than the column hands the panel a sideways scrollbar (§3.8
+    # "Scrolling"). The handol-mux panel is where that bites: its Preset row holds a select that
+    # does not shrink on its own.
+    g.page.evaluate("() => document.querySelectorAll('.human-only')"
+                    ".forEach((section) => { section.hidden = false; section.open = true; })")
+    settled(g)
+    room = g.page.evaluate("() => { const side = document.querySelector('.side');"
+                           " return [side.scrollWidth, side.clientWidth]; }")
+    assert room[0] == room[1], (
+        f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways")
+
 
 def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
     """§3.8 "Scrolling", narrow: at 980px and below the layout is one column and the page scrolls
