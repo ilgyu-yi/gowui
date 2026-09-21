@@ -24,54 +24,54 @@
 | §2 | Engine protocols | 204 |
 | &nbsp;&nbsp;§2.1 | Transport | 206 |
 | &nbsp;&nbsp;§2.2 | Shared analysis shape | 247 |
-| &nbsp;&nbsp;§2.3 | GTP | 269 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 314 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 331 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 414 |
-| §3 | Session and boards | 441 |
-| &nbsp;&nbsp;§3.1 | Spaces | 443 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 470 |
-| &nbsp;&nbsp;§3.3 | Boards | 536 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 568 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 594 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 609 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 613 |
-| &nbsp;&nbsp;§3.8 | The page | 622 |
-| §4 | WebSocket protocol | 1006 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1010 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1117 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1159 |
-| §5 | HTTP routes | 1253 |
-| §6 | Launch modes and policies | 1328 |
-| &nbsp;&nbsp;§6.1 | The rule | 1330 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1366 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1406 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1439 |
-| §7 | Authentication and security | 1481 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1483 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1547 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1583 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1603 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1651 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1672 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1718 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1752 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1766 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1775 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1811 |
-| §8 | Persistence | 1830 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1832 |
-| &nbsp;&nbsp;§8.2 | Saving | 1868 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1901 |
-| &nbsp;&nbsp;§8.4 | Server database | 1943 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2007 |
-| §9 | Command line | 2034 |
-| §10 | Configuration (server) | 2104 |
-| &nbsp;&nbsp;§10.1 | Container | 2142 |
-| §11 | Feature inventory | 2230 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2237 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2275 |
-| §12 | Non-goals | 2293 |
+| &nbsp;&nbsp;§2.3 | GTP | 276 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 321 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 338 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 421 |
+| §3 | Session and boards | 448 |
+| &nbsp;&nbsp;§3.1 | Spaces | 450 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 477 |
+| &nbsp;&nbsp;§3.3 | Boards | 543 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 572 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 598 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 613 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 617 |
+| &nbsp;&nbsp;§3.8 | The page | 626 |
+| §4 | WebSocket protocol | 1044 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1048 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1143 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1185 |
+| §5 | HTTP routes | 1279 |
+| §6 | Launch modes and policies | 1354 |
+| &nbsp;&nbsp;§6.1 | The rule | 1356 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1392 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1432 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1465 |
+| §7 | Authentication and security | 1500 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1502 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1563 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1599 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1619 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1667 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1688 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1734 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1768 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1782 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1791 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1828 |
+| §8 | Persistence | 1847 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1849 |
+| &nbsp;&nbsp;§8.2 | Saving | 1885 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1918 |
+| &nbsp;&nbsp;§8.4 | Server database | 1960 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2024 |
+| §9 | Command line | 2051 |
+| §10 | Configuration (server) | 2121 |
+| &nbsp;&nbsp;§10.1 | Container | 2159 |
+| §11 | Feature inventory | 2247 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2254 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2292 |
+| §12 | Non-goals | 2310 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -255,6 +255,13 @@ policy: [..], turn, complete, source, currentPlayer, compare}`
 Numbers are Black's perspective (§0). `prior` is the raw policy probability; `policy` is the full
 board of priors when the protocol provides one (otherwise empty and the browser falls back to the
 candidates' `prior`). `compare` is used by handol-mux only (§2.5).
+
+`utility` and `utilityLcb` are Black's view like the rest, and they flip the way a **score** does
+— negated, not complemented — because a utility is a signed quantity centred on zero and not a
+probability. This is worth stating because the engines do not agree: KataGo reports them from the
+side to move (§2.3 sets `reportAnalysisWinratesAs = SIDETOMOVE`) while handol-mux's answer is
+already Black's, so the two KataGo clients negate and the handol client does not. A field whose
+meaning depended on which protocol filled it would make every reading of it ambiguous.
 
 Engine output is untrusted and is sanitised on the way in, so `analysis` is always valid JSON:
 
@@ -742,18 +749,51 @@ finally either the PV preview or the candidates.
   or the absolute prior when no candidate has visits. The first is ringed in white. A second,
   smaller line shows the visits when the candidates have visits.
 - **Candidate table.** The first 10 `moveInfos`, with the columns Move, Win (from the side
-  searched for), Score (signed), Visits and Policy. For a handol-mux analysis (`source` is
-  `handol`) the columns are Move, Win, Score and Prob; while comparing they are Move, Win, Score,
-  A, B and Δ (the move's probability under each tuple, and B − A signed). The first row is marked
-  as the best. Hovering a row previews its PV; clicking it plays the move for the side to move.
+  searched for), Score (signed), Visits, Policy and Value. For a handol-mux analysis (`source` is
+  `handol`) the columns are Move, Win, Score, Visits, Prob and Value; while comparing they are
+  Move, Win, Score, Visits, A, B, Δ and Value (the move's probability under each tuple, and
+  B − A signed). Visits is in every mode: it is what the search spent, and dropping it left the
+  count reachable only by hovering a candidate — the one gesture that covers the position. Value is
+  `utility`, signed, two decimals. The first row is marked as the best. Hovering a row previews
+  its PV; clicking it plays the move for the side to move.
+- **Candidate readout.** One line under the board, above the navigation row, always present so the
+  controls below it do not move as it fills. It carries the **fields of the table's current mode,
+  plus Visits and Value** — one rule, so the line and the table cannot come to disagree — with
+  `utilityLcb` beside the Value. It shows the candidate under the pointer, whether that pointer is
+  on a circle or on a table row; with no pointer on either it shows the best candidate, marked as
+  such so it is not mistaken for something hovered. With no analysis, or none with candidates, it
+  says so. A value the engine did not report is `-`, never a zero (§2.2 turns a non-finite number
+  into `null`, so every field can take that path, `visits` included).
+  Every field that has a perspective names its side, so the line cannot contradict the circle it
+  describes: the winrate is the side the engine searched for, as the circle's label is, and the
+  score and the Value are Black's view in the `B+` / `W+` form the score line already uses.
+  **A utility is comparable between the candidates of one position and not between positions** —
+  its score part is recentred on the position's own expected score — so the line is built from the
+  current `analysis` and nothing else: no history, no sparkline, no phrasing that reads as a change
+  over time. The weights that make it up are the engine's; gowui neither reads nor ships them.
+  The line follows the **pointer only**. The table's rows are not focusable and §3.7 defines no
+  candidate-focus concept; making ten of them focusable would add ten tab stops to the side panel
+  and raise what a keyboard activation means, since clicking a row plays its move. That is a
+  deliberate gap with a shape, not an oversight.
+  This is the only place a candidate's full set is written: a preview puts no second copy of these
+  numbers on the board.
 - **PV preview.** Hovering a drawn candidate on the board (a `moveInfos` entry past the drawn
   ones is not on the board and previews nothing), or its table row, draws the first 20 moves
   of its `pv` as numbered stones, alternating colours from the side searched for and numbered
   from the cursor + 1, so the numbers continue the game's move numbers. A pass in the PV takes its
   number and draws nothing; a point that recurs is drawn once, with its first number. The
-  candidate circles are hidden during a preview, and a caption at the bottom left gives the move,
-  its label (with `%` in the `winrate` and `prior` modes) and its visits when it has any. Leaving
-  the candidate or the row clears the preview.
+  candidate circles are hidden during a preview; what they would have said is in the readout line,
+  which is why there is no caption on the board. Leaving the candidate or the row clears the
+  preview and restores the board exactly.
+- **The position recedes while a preview is up.** The variation is drawn at full strength and the
+  position behind it is dimmed — not the other way round: fading the variation would blur the very
+  thing being read. With it recede the things that belong to those stones — their move numbers,
+  the last-move ring, and the faint stone under the pointer, which says "you could play here" about
+  a position that is no longer the subject. The wood, the grid and the coordinates do not move, and
+  neither do the **heatmap and the ownership squares**: both carry their value *in their opacity*,
+  so dimming them would not make them quieter, it would make them say something else.
+  The inversion is what marks the two apart at a glance: at full strength a stone carries a shadow
+  and a dimmed one does not, so the variation gains the shadow the position loses.
 - **Raw policy heatmap.** A purple square on each point whose `policy` entry is above 0.0005,
   more opaque the closer it is to the largest entry. With an empty `policy` (§2.2) no heatmap is
   drawn; the candidates' `prior` labels remain.
@@ -999,6 +1039,7 @@ which the policy allows.
 | `ownership` | `on` when ownership squares were drawn, else `off` |
 | `numbers` | `on` when move numbers were drawn, else `off` |
 | `lastMoveRing` | the point the last-move ring went round, or empty |
+| `positionDim` | the strength the position's stones were drawn at: `1`, or the dim while a preview is up |
 
 Each thumbnail canvas records `draws` the same way. `window.__lastAnalysis` holds the payload of
 the last `analysis` frame applied.
