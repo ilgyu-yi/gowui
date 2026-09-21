@@ -165,10 +165,10 @@
     var ownership = this.options.showOwnership ? this._drawOwnership(m) : false;
     var heatmap = this.options.showPolicy ? this._drawPolicy(m) : 'off';
     this._drawStones(m);
-    // The move number already says which stone came last.
-    var numbers = false;
-    if (this.options.showNumbers) numbers = this._drawMoveNumbers(m);
-    else this._drawLastMove(m);
+    // SPEC §3.8 "Board overlays": the ring goes over the stones and under the numbers, so the
+    // two no longer take turns — the ring keeps to the stone's edge, the number to its centre.
+    var ring = this._drawLastMove(m);
+    var numbers = this.options.showNumbers ? this._drawMoveNumbers(m) : false;
     var preview = this._previewCandidate();
     var candidates = 0;
     var previewStones = 0;
@@ -186,6 +186,9 @@
     record.heatmap = heatmap;
     record.ownership = ownership ? 'on' : 'off';
     record.numbers = numbers ? 'on' : 'off';
+    // Taken from the draw, not from this.state.lastMove: the record has to name the ring that
+    // reached the canvas, or it would report one the board never drew.
+    record.lastMoveRing = ring;
   };
 
   GoBoard.prototype._drawWood = function (m) {
@@ -273,17 +276,32 @@
     ctx.restore();
   };
 
+  // Rings the stone just played and returns the vertex it ringed, or '' when it ringed nothing
+  // (no move yet, or the last move was a pass and left no stone to ring).
   GoBoard.prototype._drawLastMove = function (m) {
     var vertex = this.state.lastMove;
     var point = vertexToPoint(vertex, m.size);
-    if (!point) return;
+    if (!point) return '';
     var stone = this.state.stones[point.y * m.size + point.x];
-    if (!stone) return;
+    if (!stone) return '';
     var ctx = this.ctx;
+    // A fixed share of the stone, floored and capped so it neither vanishes on a 240px board nor
+    // bloats on a 900px one. The share needs no scaling - m.cell is already in device pixels - but
+    // the floor and the cap are sizes a person sees, so they are CSS pixels: left in device pixels
+    // they would halve the ring's weight on a display that packs two device pixels to one CSS.
+    // The ring's outer edge sits on the stone's, so it stays clear of the number's centre and
+    // reads against both stone colours in the same red as the old dot.
+    var ratio = this.pixelRatio || 1;
+    var width = Math.min(3.5 * ratio, Math.max(1.25 * ratio, m.cell * 0.085));
+    ctx.save();
+    ctx.lineWidth = width;
+    ctx.strokeStyle = stone === 1 ? '#ff6b5e' : '#d63b2c';
     ctx.beginPath();
-    ctx.arc(m.margin + point.x * m.cell, m.margin + point.y * m.cell, m.cell * 0.17, 0, Math.PI * 2);
-    ctx.fillStyle = stone === 1 ? '#ff6b5e' : '#d63b2c';
-    ctx.fill();
+    ctx.arc(m.margin + point.x * m.cell, m.margin + point.y * m.cell,
+      Math.max(width, m.cell * 0.475 - width / 2), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    return vertex;
   };
 
   GoBoard.prototype._drawMoveNumbers = function (m) {

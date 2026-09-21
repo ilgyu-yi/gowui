@@ -2,7 +2,8 @@
 
 Each test drives the page's own controls and frames, never its internals: the status line after a
 ``4403`` close, a rename field while its tile moves, the PV preview of a candidate the board did
-not draw, an empty Visits field, and the presets this browser has stored.
+not draw, the ring on the stone just played, an empty Visits field, and the presets this browser
+has stored.
 
 The frames the server would not send on cue (a reordered ``state``, an ``analysis``) go in through
 ``proxy_ws`` / ``inject`` of browser_kit.py.
@@ -17,6 +18,11 @@ import pytest
 from browser_kit import QUICK, Gowui, analysis_frame, analysis_payload, expect, move_info, vertex
 
 pytestmark = pytest.mark.browser
+
+#: The draw record (§3.8 "Test observability") naming the point the last-move ring went round,
+#: empty when the draw ringed nothing. The Code phase has to add it; §3.8 "Last move" is not
+#: observable without it.
+RING = "lastMoveRing"
 
 
 def hover_point(g: Gowui, x: int, y: int, size: int) -> None:
@@ -107,6 +113,66 @@ def test_only_a_drawn_candidate_previews_its_pv(start_app, open_page):
     hover_point(g, 0, 0, size)
     after_a_draw(g, before)
     assert (g.dataset("preview"), g.dataset("candidates")) == (vertex(0, 0, size), "0")
+
+
+# -- the last-move ring (§3.8 "Last move") -------------------------------------------------------
+def play(g: Gowui, move: str = "D4", color: str = "black") -> str:
+    """Play ``move`` and wait until the board has drawn the position it makes."""
+    before = g.draws()
+    g.act({"type": "play", "color": color, "vertex": move})
+    after_a_draw(g, before)
+    return move
+
+
+def test_the_stone_just_played_is_ringed(start_app, open_page):
+    """§3.8 "Last move": the stone just played carries a ring around its edge."""
+    g = open_page(start_app()).open()
+    played = play(g)
+    assert g.dataset(RING) == played
+
+
+def test_the_ring_stays_when_move_numbers_are_ticked(start_app, open_page):
+    """§3.8 "Last move": the ring is drawn whether or not Move numbers are ticked — the mark and
+    the numbers no longer take turns, since the ring leaves the centre to the number."""
+    g = open_page(start_app()).open()
+    played = play(g)
+    before = g.draws()
+    g.page.locator("#show-numbers").check()
+    after_a_draw(g, before)
+    assert (g.dataset("numbers"), g.dataset(RING)) == ("on", played)
+
+
+def test_nothing_is_ringed_with_no_move_yet_or_after_a_pass(start_app, open_page):
+    """§3.8 "Last move": nothing is ringed when the game has no moves yet or the last move was a
+    pass — the ring marks a stone, and neither of those put one down."""
+    g = open_page(start_app()).open()
+    fresh = g.dataset(RING)
+    played = play(g)
+    ringed = g.dataset(RING)
+
+    before = g.draws()
+    g.act({"type": "pass", "color": "white"})
+    after_a_draw(g, before)
+    assert (fresh, ringed, g.dataset(RING)) == ("", played, "")
+
+
+def test_a_pv_preview_rings_none_of_its_own_stones(start_app, open_page):
+    """§3.8 "Last move": the ring belongs to the position, not to a variation laid over it, so a
+    preview's stones are never ringed and the position's last move keeps the only ring."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    played = play(g)
+    size = g.state()["game"]["size"]
+    candidate = vertex(0, 0, size)
+    infos = [move_info(candidate, pv=[candidate, vertex(1, 0, size)])]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, infos)))
+    g.expect_dataset("candidates", "1")
+
+    before = g.draws()
+    hover_point(g, 0, 0, size)
+    after_a_draw(g, before)
+    assert (g.dataset("preview"), g.dataset(RING)) == (candidate, played)
 
 
 # -- engine parameters (§3.8 "Controls") ---------------------------------------------------------
