@@ -24,7 +24,7 @@ services:
   traefik:
     # Pinned by digest, the tag kept beside it so the version stays readable; Dependabot's
     # docker-compose entry for /deploy proposes the bumps (SPEC §10.1 "Pinning").
-    image: traefik:v3.5@sha256:16acb89c6db341182970d6fdafece31303b0a380a8ed7aa51682e225229bf1d2
+    image: traefik:v3.6@sha256:31267173a15b4944e797a76ffd9c419707c8d8b32fe5b610f80cd0cfa05f372d
     restart: unless-stopped
     command:
       - --providers.docker=true
