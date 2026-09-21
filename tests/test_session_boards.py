@@ -277,11 +277,24 @@ async def test_a_move_onto_the_boards_own_predecessor_changes_the_order_not_at_a
 
 async def test_a_move_changes_nothing_but_the_order(h):
     """§4.1: a move changes the order and nothing else — no board's game, name, tuples or
-    analysis is touched."""
+    analysis is touched, and no engine move in flight is made stale.
+
+    The thumbnails alone cannot say this. They carry `heat` and `winrate`, and with no engine
+    connected both are empty for every board, so an analysis thrown away looks exactly like one
+    that was never there. The move epoch and the boards' own versions are what the claim is
+    about, so the test reads them."""
     first, _second, third = await three_boards(h)
     before = {b["id"]: b for b in (await h.fresh_state())["boards"]}
+    epoch = h.session._epoch
+    versions = {slot.id: slot.version for slot in h.session.boards}
+    analyses = {slot.id: slot.last_analysis for slot in h.session.boards}
+
     state = await move(h, first, third)
+
     assert {b["id"]: b for b in state["boards"]} == before
+    assert h.session._epoch == epoch, "a move made an engine move in flight stale"
+    assert {slot.id: slot.version for slot in h.session.boards} == versions
+    assert {slot.id: slot.last_analysis for slot in h.session.boards} == analyses
 
 
 async def test_a_move_keeps_the_active_board_active(h):
