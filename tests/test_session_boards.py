@@ -262,7 +262,8 @@ async def test_rename_truncates_to_40_characters(h):
 
 async def test_rename_trims_again_after_the_cut(h):
     """§3.3: the cut falls wherever the 40th character is, so it can leave the space that was
-    between two words at the end; a stored name ends in no whitespace whatever its length."""
+    between two words at the end; a name a rename stores ends in nothing that set takes off,
+    whatever its length."""
     assert (await rename(h, "x" * 39 + " word"))["name"] == "x" * 39
 
 

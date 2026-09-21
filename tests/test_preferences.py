@@ -26,6 +26,7 @@ The API these tests pin (the implementer builds to it)::
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 
 import pytest
@@ -99,19 +100,57 @@ def test_the_spec_refuses_two_presets_of_one_name():
     assert "same `name` once trimmed" in section
 
 
-def test_the_spec_says_what_trimmed_means():
-    """§4.1 says "once trimmed" of every name it takes; the set itself is written there, mark
-    included, so the page's `trim()` and the server agree on where a name ends."""
+#: A ``U+XXXX`` token, optionally the low end of a ``U+XXXX``–`U+XXXX`` range (the dash is an en
+#: dash, and the two ends may sit on different lines of the reflowed paragraph).
+CODEPOINT = re.compile(r"`U\+([0-9A-F]{4,6})`(?:\s*–\s*`U\+([0-9A-F]{4,6})`)?")
+
+
+def spec_trim_set() -> set[str]:
+    """The set §4.1's **Trimmed** paragraph writes out, read back codepoint by codepoint."""
     section = spec_section("### 4.1")
-    assert "**Trimmed** means" in section
-    assert "`U+FEFF`" in section and "`U+00A0`" in section and "`U+3000`" in section
+    paragraph = section[section.index("**Trimmed** means"):].split("\n\n")[0]
+    written: set[str] = set()
+    for low, high in CODEPOINT.findall(paragraph):
+        written.update(chr(point) for point in range(int(low, 16), int(high or low, 16) + 1))
+    return written
+
+
+def test_the_spec_writes_out_the_set_the_code_trims():
+    """§4.1 says "once trimmed" of every name it takes, so the set itself is written there rather
+    than named by a property. Reading those codepoints back and pinning them against `TRIM_CHARS`
+    is what keeps prose and code from drifting: a codepoint in one and not the other fails here.
+    """
+    from gowui.session import TRIM_CHARS
+
+    assert spec_trim_set() == set(TRIM_CHARS)
+
+
+def test_the_spec_set_covers_what_the_page_trims():
+    """§4.1 claims a covering superset, not an equality. `String.prototype.trim` takes off
+    WhiteSpace and the line terminators; the server's set adds `U+0085` and `U+001C`–`U+001F`,
+    which `str.isspace` calls whitespace and Unicode does not."""
+    page = set("\t\n\v\f\r       　﻿")
+    page.update(chr(point) for point in range(0x2000, 0x200B))
+    written = spec_trim_set()
+    assert page < written
+    assert written - page == set("\x85\x1c\x1d\x1e\x1f")
 
 
 def test_the_spec_drops_a_duplicate_on_the_way_in_and_keeps_the_first():
     """§6.4: the read path is the lenient one — it drops what §4.1 refuses instead of refusing
-    the whole value, and a duplicate name is no exception."""
+    the whole value, and a duplicate name is no exception. Only a **kept** entry claims the name:
+    the `seen` set is filled after the validity check, not before it."""
     section = spec_section("### 6.4")
-    assert "an earlier one already carries" in section and "**first** is kept" in section
+    assert "an earlier **kept** one already" in section and "**first** is kept" in section
+
+
+def test_an_invalid_entry_does_not_shadow_a_valid_namesake_after_it():
+    """§6.4, as the sentence above now says: the first entry is dropped for its tuple, so it never
+    reaches `seen`, and the valid `"mine"` behind it is kept rather than read as its duplicate."""
+    from gowui.session import clean_preferences
+
+    read = clean_preferences({"presets": [preset("mine", {"nonsense": 1}), preset("mine")]})
+    assert read["presets"] == [{"name": "mine", "tuple": SHARP}]
 
 
 def test_the_spec_says_a_refusal_puts_the_menu_back():

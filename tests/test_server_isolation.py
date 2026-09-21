@@ -187,14 +187,12 @@ async def test_a_re_added_name_starts_fresh_after_a_release_too(serve, tabs, tmp
 # -- §7.2, §8.2, §8.4: expired logins go with the periodic pass -------------------------------------
 def login_rows(db) -> int:
     """`with sqlite3.connect(...)` commits the transaction and leaves the handle open, and a poll
-    loop calls this over and over, so the connection is closed by hand."""
+    loop calls this over and over, so `closing` is what closes it."""
+    import contextlib
     import sqlite3
 
-    connection = sqlite3.connect(db)
-    try:
+    with contextlib.closing(sqlite3.connect(db)) as connection:
         return connection.execute("SELECT count(*) FROM logins").fetchone()[0]
-    finally:
-        connection.close()
 
 
 def one_live_and_one_stale(store) -> tuple[str, str]:
