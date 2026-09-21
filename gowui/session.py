@@ -81,6 +81,10 @@ BAD_NAME_CHAR = re.compile(r"[\x00-\x1f\x7f-\x9f\ud800-\udfff]|[^\S ]")
 #: ``trim()``, which takes a byte-order mark, so a name ending in one would otherwise be stored
 #: with it on one side and without it on the other (§3.3, §4.1).
 TRIM_ALSO = "﻿"
+#: Both ends of a name, taking either kind of trimmable character in one pass. A loop that strips
+#: the two kinds in turn until the value settles costs a pass per character, and a rename trims
+#: before it truncates, so a 1 MiB name would hold the event loop for seconds (§7.6, §7.8).
+TRIM_EDGE = re.compile(rf"\A[\s{TRIM_ALSO}]+|[\s{TRIM_ALSO}]+\Z")
 #: Thumbnail heatmaps are rounded to keep ``state`` small.
 THUMB_DECIMALS = 3
 #: How long closing an engine may take before the session stops waiting for it.
@@ -254,11 +258,7 @@ def _profile_ok(value: Any) -> bool:
 
 def _trim(value: str) -> str:
     """``value`` without the leading and trailing space the page's ``trim()`` also takes off."""
-    previous = None
-    while previous != value:
-        previous = value
-        value = value.strip().strip(TRIM_ALSO)
-    return value
+    return TRIM_EDGE.sub("", value)
 
 
 def _name_ok(value: Any, limit: int, *, spaces: bool = False) -> bool:
