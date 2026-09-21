@@ -632,9 +632,13 @@ too follows the data, never a mode name.
   cursor 0; +1, +10 and last at the end. Pass, Undo and Resign send `pass`, `undo` and `resign`.
   A click on a board point sends `play` for the side to move.
 - **Analysis section:** a "Continuous analysis" checkbox (`analysis`); Visits and Every (seconds)
-  fields, sent as `engine_params` when changed — an empty Visits field, or one that is not a
-  whole number of at least 1, sends no visit change (the frame's other fields still go), so the
-  setting keeps the value it had and the field is filled again from the next `state`; the Label
+  fields, sent as `engine_params` when changed — a field holding no usable number is left out of
+  the frame (the frame's other fields still go), so that setting keeps the value it had and the
+  field is filled again from the next `state`. Visits is usable as a whole number of at least 1,
+  so an empty field, `0` and a typed `1.9` each send no visit change, and none of them is
+  truncated to a number the user did not type; Every is usable as a number above 0, so an empty
+  field and `0` send no interval change instead of the page's own 0.4. A usable number the
+  settings hold out of range is sent and clamped there (§3.4), not dropped here; the Label
   select (below); Ownership, Raw policy
   heatmap and Move numbers checkboxes; the candidate table. Ownership is the server's setting
   (`includeOwnership`): ticking it sends `engine_params`, and its tick follows `state`. The label
@@ -830,6 +834,12 @@ that names no table is ignored, as a saved one is, and a preset entry the tuple 
 dropped from the menu, as a stored one is (§8.5). While `preferences` is `null` the page reads
 and writes the two `localStorage` keys of §8.5, as it does with no server preferences at all.
 
+Which of the two it is, the page learns from the first `state`, and it shows nothing of either
+before that: the preset menu holds the built-in presets alone until the first `state` says whose
+own presets go under them, so a page the account keeps the presets for never shows this browser's
+presets, not even for the moment before the frame arrives. The first `state` carrying a
+`preferences` object also clears both keys (§8.5).
+
 The page holds the bounds of §4.1 and §7.6 itself, before it sends, because `preferences` is
 refused whole: one entry the server would refuse would otherwise block every later save too.
 Saving a preset whose name is over 40 characters, or holds a character §4.1 refuses, is refused
@@ -959,7 +969,10 @@ the one way `state.preferences.lang` goes back to `null` (§4.2). The message is
   refused, not read as absent, since an empty list already says "no presets";
 - an entry is not an object with exactly a `name` and a `tuple`, with a `name` of 1 to 40
   characters once trimmed and a `tuple` the rules of §2.5 accept as if searching (with max visits
-  2, the check the page's Import makes, §3.8).
+  2, the check the page's Import makes, §3.8);
+- two entries carry the same `name` once trimmed. The page keys presets by name (§3.8), so a
+  duplicate would be renamed, overwritten and deleted together with the one it shadows; only a
+  crafted frame or a hand-edited row (§8.4) can hold one.
 
 A **name** — a `lang`, and a preset `name` once trimmed — holds no control character (C0 or C1),
 no lone surrogate, and no whitespace other than the plain space a preset name may hold inside it.
@@ -1247,7 +1260,8 @@ The server policy (§7) identifies in this order, and the first that applies dec
    name rule of §7.1. The identity is `sso:<name>` with source `sso`, `logout_kind` `sso` and
    `logout_url` `GOWUI_LOGOUT_URL`, or `logout_kind` `""` when that is unset. A header that is
    present but duplicated or invalid gives no SSO identity, and the cookie is then tried.
-2. **Session cookie**, when `GOWUI_AUTH` includes `local`: exactly one `gowui_session` cookie of at
+2. **Session cookie**, when `GOWUI_AUTH` includes `local`: exactly one cookie of the name in force
+   (§7.2) of at
    most 128 characters whose hash names an unexpired login of an existing account (§7.2). The
    identity is `local:<account id>` with the account's name, source `local` and `logout_kind`
    `local`.
@@ -1339,11 +1353,20 @@ printable characters without surrounding spaces; passwords have 8–256 characte
 - **Hashes.** A password is stored as `scrypt$N$r$p$<salt>$<hash>` with N = 2^16, r = 8, p = 2 and
   a 16-byte random salt — one of the configurations OWASP gives as equivalent to its minimum
   (N = 2^17, r = 8, p = 1), at 64 MiB and roughly 0.2 s per hash rather than 128 MiB. With at most
-  2 verifications at a time (below) that is at most 128 MiB of hashing memory, inside the 256 MiB
-  cap each call sets. Every hash carries the parameters it was made with, so hashes written by an
+  2 verifications at a time (below) that is at most 128 MiB of hashing memory. Every hash carries
+  the parameters it was made with, so hashes written by an
   older, cheaper setting still verify and are left alone until the password is set again.
   Checking a missing name runs scrypt against a fixed dummy hash, so it
-  takes the same time as a wrong password, and both give the same answer.
+  takes the same time as a wrong password, and both give the same answer. The dummy is a hash in
+  stored form carrying the current parameters, a random salt and a random digest no password
+  matches, so making it runs no scrypt at all: opening the database costs no hash (§8.4), and a
+  missing name always costs the one scrypt a real check costs — never two, never none.
+- **Memory cap.** Each call caps scrypt's memory at what its own parameters need
+  (128·r·(N + p + 2), plus a megabyte of slack), so a hash written under a costlier setting is
+  verified rather than refused above a fixed cap: raising the cost past N = 2^17, r = 8 must not
+  lock every account out. A setting whose budget would pass 1 GiB is refused instead of run —
+  writing such a hash raises, and a stored hash asking for one is logged as an error and answered
+  "no", never as a quiet wrong password.
 - **The form.** `POST /login` takes `name`, `password` and an optional `lang` as
   `application/x-www-form-urlencoded`. The body is read as a stream and cut off with `413` past
   8 KiB; more than 4 fields, a missing field, an invalid name or a password outside 8–256
@@ -1381,11 +1404,29 @@ printable characters without surrounding spaces; passwords have 8–256 characte
 
 ### 7.2 Sessions (server)
 
-A successful sign-in issues a **new** random token (256 bits, URL-safe) in the `gowui_session`
+A successful sign-in issues a **new** random token (256 bits, URL-safe) in the session
 cookie (HttpOnly, SameSite=Lax, Path=/, `Max-Age` = `GOWUI_SESSION_DAYS` × 86,400). A cookie the
 browser already had is never adopted. The cookie is Secure when `GOWUI_COOKIE_SECURE` is `1`, or
 when it is `auto` and the request counts as https (§7.10). The server stores only the SHA-256 of
-the token, so a leaked database does not yield usable sessions; expired logins are purged.
+the token, so a leaked database does not yield usable sessions; expired logins are purged when the
+database is opened, when a sign-in stores a token, and in the periodic pass that saves spaces
+(§8.2), so a row left behind by a browser that never comes back does not linger until one of the
+other two happens.
+
+- **Cookie name.** The name follows the Secure flag: `__Host-gowui_session` when
+  `GOWUI_COOKIE_SECURE` is `1`, and `gowui_session` otherwise. It is decided once from the
+  configuration, so it is fixed for the life of the process. `__Host-` is not a re-encoding of the
+  attributes above: it is a *write* restriction the browser enforces on everyone else, so a sibling
+  or parent origin — an XSS on another subdomain of the same site — cannot plant a cookie of that
+  name for gowui to read, which setting the attributes ourselves cannot prevent. The browser grants
+  the prefix only to a cookie that is Secure with `Path=/` and no `Domain`, which is why the name
+  can follow `1` and not `auto`, where the cookie is deliberately not Secure over plain http.
+- **No switch-over.** Only the name in force is read, written and cleared; the other name is
+  ignored as any unknown cookie is. Turning `GOWUI_COOKIE_SECURE` to `1`, or away from it, therefore
+  signs every browser out once: the old cookie is no longer the cookie, its login row expires or is
+  swept, and the next request gets the sign-in page. Accepting both names for a while would hand
+  back exactly what the prefix buys — a planted `gowui_session` would be read again — so the
+  one-time sign-out is taken instead.
 
 - **Log-out.** `POST /logout` deletes the token server-side, clears the cookie, and answers `303`
   to `/login` (to `/` when password sign-in is off). It needs no identity (§5). Open sockets are then revalidated (§4.3): the ones signed in with that token close
@@ -1685,7 +1726,9 @@ released, and at shutdown.
   (§6.4) ride the same passes and the same comparison, against the text last loaded or saved for
   them; a space whose storage keeps none compares nothing and writes none.
 - **Timing.** Every 5 seconds the registry saves each space that changed. It also saves a space
-  when its last tab detaches, when it is released, and at shutdown.
+  when its last tab detaches, when it is released, and at shutdown. The same pass then lets the
+  storage policy do its own periodic work — in server mode, purging expired logins (§7.2); a
+  storage that has none does nothing. A failure there is logged and the next pass tries again.
 - **Serialised per space.** A space's saves take its save lock and take the snapshot inside it, so
   saves run one at a time in the order they started, and an older snapshot never overwrites a
   newer one. The write itself runs in a worker thread (§6.4).
@@ -1771,10 +1814,12 @@ One SQLite file, `GOWUI_DB`, holds five tables:
   no game, and its worst case is one bad line the next save replaces.
 - **Opening.** The parent directory is created with mode `0700` when missing, and a missing file
   is created with mode `0600` before SQLite opens it. The connection uses WAL journaling, and the
-  `-wal` and `-shm` files next to the database are set to mode `0600` once WAL is on. The dummy
-  hash for a missing name (§7.1) is made when the database is opened. The connection uses a
+  `-wal` and `-shm` files next to the database are set to mode `0600` once WAL is on. Opening runs
+  no password hash: the dummy for a missing name (§7.1) costs none to make, so `gowui user list`
+  pays no scrypt for a hash it never uses. The connection uses a
   `busy_timeout` of 5 seconds, so the server and a `gowui user` command can write the same file.
-  Expired logins are purged when the database is opened and when a sign-in stores a new token. A
+  Expired logins are purged when the database is opened, when a sign-in stores a new token, and in
+  the periodic pass of §8.2 while a server runs. A
   cookie lookup never purges: it only reads the unexpired row, so the identity check on the event
   loop (§6.2) writes nothing.
 - **Restore on start.** Nothing is loaded when the server starts: an account's space is created
@@ -1786,7 +1831,14 @@ One SQLite file, `GOWUI_DB`, holds five tables:
   collide with a real account's.
 - **Saving** a `local:` key writes only while the account with that id exists, in one statement,
   for the snapshot and for the preferences alike.
-  A save for a removed account writes nothing and is not an error. The snapshot JSON is written
+  A save for a removed account writes nothing and is not an error. An `sso:` key is written with no
+  such check, and that is deliberate: an SSO account is made at the identity provider, never by
+  `gowui user` (§7.3), so it has no `users` row to require and none to cascade from. Its `states`
+  and `preferences` rows outlive any one session on purpose — that is how the account finds its
+  boards, its language and its presets after a restart — and gowui cannot know that a name the
+  provider stopped sending will never come back. Retiring an SSO name therefore leaves its two rows
+  behind; a deployment that wants them gone deletes them from the database by hand, since
+  `gowui user remove` covers password accounts only (§9). The snapshot JSON is written
   with `ensure_ascii=True`, as for the local state file (§8.3): SQLite stores text as UTF-8, which
   cannot hold a lone surrogate, so a board name such as `"x\ud800y"` is saved as an escape and
   restored unchanged after a restart.
@@ -1819,6 +1871,14 @@ exactly two keys:
 | `gowui.userPresets` | JSON list of `{"name": <str>, "tuple": <object>}` (§3.8); an unreadable value counts as an empty list, and an entry without a name, with a name §4.1 refuses, or with a tuple §2.5 refuses (checked as if searching, as Import does) is dropped when the list is read |
 
 Nothing else — no board, setting, engine address or identity — is stored in the browser.
+
+**The account takes the keys over.** The page does not merely stop reading the two keys when the
+first `state` carrying a `preferences` object arrives (§3.8 "Preferences"): it removes both, so a
+language and a preset list this browser saved before — in local mode, or under another account on
+a shared machine — do not linger for the next person to read out of storage. The page keeps
+nothing of its own to put back: a later session that the policy leaves to the browser starts from
+the defaults of §3.8, the language `navigator.language` chooses and no presets of its own, which
+is what a browser that had never run gowui starts from too.
 
 ## 9. Command line
 
@@ -1878,7 +1938,10 @@ One command, `gowui`:
     hash and ends every session of the account (§7.2); `remove` deletes the account, its sessions,
     its saved boards and its preferences (§8.4). `list` prints one name per line, sorted, and nothing for an empty
     database; a database file that is not there counts as empty and is *not* created, so listing
-    never leaves a stray database behind a mistyped `GOWUI_DB`. `add`, `passwd` and `remove` open
+    never leaves a stray database behind a mistyped `GOWUI_DB`. No `user` command pays a password
+    hash it does not use: opening the database runs no scrypt (§7.1, §8.4), so `list` and `remove`
+    are immediate and only `add` and `passwd` spend the roughly 0.2 s of a hash.
+    `add`, `passwd` and `remove` open
     the database, creating it when missing, as the server does (§8.4). `add`, `passwd` and
     `remove` print `ok` on success. The account id is never printed.
   - **Refusals.** An invalid name, a password outside 8–256 characters, mismatched prompts, an
@@ -1899,7 +1962,7 @@ Server mode reads only environment variables; local mode reads none of them.
 | `GOWUI_TRUSTED_PROXIES` | comma-separated IPs/CIDRs of proxies whose headers are believed (§7.3, §7.10); required for `header` | — |
 | `GOWUI_LOGOUT_URL` | where log-out sends SSO users | — (no SSO log-out) |
 | `GOWUI_SESSION_DAYS` | password session lifetime, days | `14` |
-| `GOWUI_COOKIE_SECURE` | `auto` (Secure when the request came over https), `1`, `0` | `auto` |
+| `GOWUI_COOKIE_SECURE` | `auto` (Secure when the request came over https), `1` (Secure, and the cookie takes the `__Host-` name, §7.2), `0` | `auto` |
 | `GOWUI_ENGINES` | JSON list of catalog entries `{id, label?, protocol, host, port, console?}` | `[]` |
 | `GOWUI_IDLE_MINUTES` | release a space after this long with no tab | `10` |
 

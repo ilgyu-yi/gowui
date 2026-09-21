@@ -61,6 +61,10 @@ class StoragePolicy(Protocol):
     language and the tuple presets (§4.1). Only a policy that does needs ``load_preferences`` and
     ``save_preferences``; a storage without the field keeps none, and the page then keeps both in
     the browser (§8.5).
+
+    A policy may also offer ``sweep()``, its own periodic work, which the registry's save pass
+    calls in a worker thread (§8.2): server mode purges expired logins there (§7.2). A policy
+    without the method has none, and the pass does nothing for it.
     """
 
     keeps_preferences: bool

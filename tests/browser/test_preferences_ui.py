@@ -143,13 +143,53 @@ def test_a_refusal_puts_the_preset_menu_back_to_what_the_account_holds(start_ser
     sign_in(open_page, app, g=g)
     expect(g.page.locator("#human-preset")).to_be_visible()
 
+    since = g.mark()
     g.page.locator("#human-preset").select_option("builtin:flat")
     g.page.once("dialog", lambda dialog: dialog.accept("ghost"))
     g.page.locator("#preset-save").click()
     expect(g.page.locator("#status.error")).to_have_text(REFUSAL)
 
+    # The recorder sits on the socket the page itself holds (browser_kit.py "Frame recorder"), so
+    # a frame the route drops is recorded as sent all the same, and one the route makes up is
+    # recorded as received.
+    assert g.wait_sent("preferences", since)["presets"] == [
+        {"name": "ghost", "tuple": {"temperature": 1.5}}]
+    assert [frame["message"] for frame in g.received(since, "error")] == [REFUSAL]
+
     expect(g.page.locator("#human-preset option[value='user:ghost']")).to_have_count(0)
     assert g.state()["preferences"] == {"lang": None, "presets": []}
+
+
+LOCAL_PRESET = [{"name": "local", "tuple": {"temperature": 0.5}}]
+
+
+def test_the_account_taking_over_clears_both_browser_keys(start_server_app, open_page):
+    """§8.5: the page does not merely stop reading the two keys when the account's preferences
+    arrive — it removes both, so nothing this browser saved before lingers for the next person."""
+    app = start_server_app(engines=HANDOL, users={"alice": "password one"})
+    g = open_page(app, storage={"gowui.lang": "ko",
+                                "gowui.userPresets": json.dumps(LOCAL_PRESET)})
+    sign_in(open_page, app, g=g)
+    expect(g.page.locator("#human-preset")).to_be_visible()
+
+    assert (stored(g, "gowui.lang"), stored(g, "gowui.userPresets")) == (None, None)
+    expect(g.page.locator("#human-preset option[value='user:local']")).to_have_count(0)
+
+
+def test_the_preset_menu_holds_no_preset_of_its_own_before_the_first_state(start_app, open_page):
+    """§3.8 "Preferences": the menu holds the built-in presets alone until the first `state` says
+    whose own presets go under them. The route here never reaches the server, so no `state`
+    arrives and the moment before one lasts as long as the test needs."""
+    app = start_app()
+    g = open_page(app, storage={"gowui.userPresets": json.dumps(LOCAL_PRESET)})
+    g.page.route_web_socket(re.compile(r".*/ws$"), lambda route: route.on_message(lambda m: None))
+    g.goto("/")
+
+    g.page.locator("#protocol").select_option("handol")
+    expect(g.page.locator("#human-preset")).to_be_visible()
+    expect(g.page.locator("#human-preset option[value^='builtin:']")).not_to_have_count(0)
+    expect(g.page.locator("#human-preset option[value^='user:']")).to_have_count(0)
+    assert json.loads(stored(g, "gowui.userPresets")) == LOCAL_PRESET, "nothing was stored over"
 
 
 def test_local_mode_keeps_the_language_and_the_presets_in_the_browser(start_app, open_page):

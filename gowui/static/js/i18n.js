@@ -531,6 +531,9 @@
   // account's choice — when it names a table — replaces the page's initial one (§3.8).
   function useAccountLang(saved) {
     inBrowser = false;
+    // Not merely "stops storing": the key goes, so a language saved here before — in local mode,
+    // or under another account on a shared machine — lingers for nobody (§8.5).
+    try { global.localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
     switchTo(saved);
   }
 

@@ -916,7 +916,13 @@ class GameSession:
                 problem = _preset_problem(entry)
                 if problem is not None:
                     raise _Refused(problem)
-            preferences["presets"] = [_stored_preset(p) for p in presets]
+            stored = [_stored_preset(p) for p in presets]
+            names = {p["name"] for p in stored}
+            if len(names) != len(stored):
+                # The page keys presets by name, so a duplicate would be deleted with the one it
+                # shadows (§4.1); only a crafted frame or a hand-edited row can hold one.
+                raise _Refused("two presets have the same name")
+            preferences["presets"] = stored
         self._preferences = preferences
         self._emit_state()
 

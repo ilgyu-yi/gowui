@@ -92,6 +92,13 @@ def test_the_spec_says_the_page_holds_the_same_bounds():
     assert "over 40 characters" in section and "65th preset" in section
 
 
+def test_the_spec_refuses_two_presets_of_one_name():
+    """§4.1: the page keys presets by name, so a duplicate would be deleted with the one it
+    shadows; the message that would store one is refused."""
+    section = spec_section("### 4.1")
+    assert "same `name` once trimmed" in section
+
+
 def test_the_spec_says_a_refusal_puts_the_menu_back():
     """§3.8: after an `error` the page shows what the account holds, not a phantom entry."""
     section = spec_section("### 3.8")
@@ -190,6 +197,21 @@ def test_removing_an_account_removes_its_preferences(tmp_path):
         assert store.load_preferences(key) is None
     finally:
         store.close()
+
+
+def test_an_sso_key_is_written_with_no_owning_account_row(tmp_path):
+    """§8.4: an SSO account is made at the identity provider, never by `gowui user`, so its
+    preferences are written with no `users` row to require — and none to cascade from. The rows
+    outlive the session on purpose; retiring the name leaves them, and the SPEC says so."""
+    store = open_store(tmp_path / "gowui.db")
+    try:
+        store.save_preferences("sso:alice", {"lang": "ko", "presets": [preset("mine")]})
+        store.save_state("sso:alice", {"version": 1})
+        assert store.list_users() == []
+        assert store.load_preferences("sso:alice") == {"lang": "ko", "presets": [preset("mine")]}
+    finally:
+        store.close()
+    assert "`sso:` key is written with no" in spec_section("### 8.4")
 
 
 def test_a_preferences_save_for_a_removed_account_writes_nothing(tmp_path):
@@ -298,6 +320,8 @@ REFUSED = [
     ("a tuple is out of range", {"presets": [preset("mine", {"min_p": 2})]}),
     ("a tuple has an unknown key", {"presets": [preset("mine", {"nonsense": 1})]}),
     ("a tuple is not an object", {"presets": [preset("mine", "warm")]}),
+    ("two entries share a name", {"presets": [preset("mine"), preset("mine", LAMBDA)]}),
+    ("two names are equal once trimmed", {"presets": [preset("mine"), preset("  mine ")]}),
     ("the message is oversized", {"lang": "en", "presets": [], "filler": "x" * 70_000}),
 ]
 

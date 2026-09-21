@@ -110,12 +110,13 @@ def test_only_a_drawn_candidate_previews_its_pv(start_app, open_page):
 
 
 # -- engine parameters (§3.8 "Controls") ---------------------------------------------------------
-@pytest.mark.parametrize("typed", ["", "0"])
+@pytest.mark.parametrize("typed", ["", "0", "1.9"])
 def test_a_visits_field_without_a_usable_number_sends_no_visit_change(start_app, open_page,
                                                                       typed):
     """§3.8: an empty Visits field, or one that is not a whole number of at least 1, sends no
     visit change; the setting keeps its value and the field is filled again from the next
-    ``state``."""
+    ``state``. A typed ``1.9`` is such a field: it is not truncated to 1, a number the user
+    never typed."""
     g = open_page(start_app()).open()
     was = g.state()["settings"]["maxVisits"]
     field = g.page.locator("#max-visits")
@@ -130,6 +131,40 @@ def test_a_visits_field_without_a_usable_number_sends_no_visit_change(start_app,
     g.fence()
     assert g.state()["settings"]["maxVisits"] == was
     expect(field).to_have_value(str(was), timeout=QUICK)
+
+
+@pytest.mark.parametrize("typed", ["", "0"])
+def test_an_every_field_without_a_usable_number_sends_no_interval_change(start_app, open_page,
+                                                                         typed):
+    """§3.8: the Every field is held like Visits — an empty one, or a ``0``, sends no interval
+    change instead of the page's own 0.4, so the setting keeps the value it had."""
+    g = open_page(start_app()).open()
+    was = g.state()["settings"]["reportInterval"]
+    field = g.page.locator("#interval")
+
+    field.fill(typed)
+    since = g.mark()
+    field.dispatch_event("change")
+    frame = g.wait_sent("engine_params", since)
+    assert "reportInterval" not in frame
+    assert "includeOwnership" in frame, "the frame's other fields still go"
+
+    field.blur()
+    g.fence()
+    assert g.state()["settings"]["reportInterval"] == was
+    expect(field).to_have_value(str(was), timeout=QUICK)
+
+
+def test_an_every_field_with_a_number_still_sends_it(start_app, open_page):
+    g = open_page(start_app()).open()
+    field = g.page.locator("#interval")
+    field.fill("0.8")
+    since = g.mark()
+    field.dispatch_event("change")
+    assert g.wait_sent("engine_params", since)["reportInterval"] == 0.8
+    field.blur()
+    g.fence()
+    assert g.state()["settings"]["reportInterval"] == 0.8
 
 
 def test_a_visits_field_with_a_number_still_sends_it(start_app, open_page):

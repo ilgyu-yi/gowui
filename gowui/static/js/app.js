@@ -162,7 +162,11 @@
   // (§3.8 "Preferences"); this browser then stores neither (§8.5).
   function applyPreferences(kept) {
     preferences = kept && typeof kept === 'object' ? kept : null;
-    if (!preferences) return;
+    if (!preferences) {
+      // This browser keeps them: the menu reads the stored list now, not at mount (§3.8, §8.5).
+      tupleEditor.useBrowserPresets();
+      return;
+    }
     var text = JSON.stringify(preferences);
     if (text === preferencesShown) return;
     preferencesShown = text;
@@ -778,16 +782,29 @@
   $('black-style').onchange = function () { send({ type: 'players', blackStyle: this.value }); };
   $('white-style').onchange = function () { send({ type: 'players', whiteStyle: this.value }); };
 
+  // The Visits field as a setting: a whole number of at least 1, else 0 for "no usable number".
+  // Read as a whole, never truncated: a typed 1.9 names no setting rather than 1, a number the
+  // user did not type (§3.8).
+  function typedVisits() {
+    var visits = Number($('max-visits').value);
+    return isFinite(visits) && visits >= 1 && visits === Math.floor(visits) ? visits : 0;
+  }
+
+  // The Every field as a setting: a number above 0, else 0. A usable number out of range is sent
+  // and clamped by the settings (§3.4); only an unusable one is left out (§3.8).
+  function typedInterval() {
+    var interval = Number($('interval').value);
+    return isFinite(interval) && interval > 0 ? interval : 0;
+  }
+
   function pushEngineParams() {
-    // An empty Visits field, or one that is not a whole number of at least 1, names no setting.
-    // Undefined is left out of the JSON, so the frame carries no maxVisits (each field is
-    // optional, §4.1): the server keeps the value it has and the next state fills the field
-    // again (§3.8).
-    var visits = parseInt($('max-visits').value, 10);
+    // A field holding no usable number names no setting. Undefined is left out of the JSON, so
+    // the frame carries neither key (each field is optional, §4.1): the server keeps the value it
+    // has and the next state fills the field again (§3.8).
     send({
       type: 'engine_params',
-      maxVisits: !isNaN(visits) && visits >= 1 ? visits : undefined,
-      reportInterval: parseFloat($('interval').value) || 0.4,
+      maxVisits: typedVisits() || undefined,
+      reportInterval: typedInterval() || undefined,
       includeOwnership: $('show-ownership').checked
     });
   }
@@ -810,10 +827,8 @@
     board.setOptions({ labelMode: 'prior', showPolicy: true });
   }
 
-  function currentVisits() { return parseInt($('max-visits').value, 10) || 0; }
-
   var tupleEditor = humanTuple.mount({
-    visits: currentVisits,
+    visits: typedVisits,
     onChange: function (pair) {
       send({ type: 'human_params', policy: pair.policy, compare: pair.compare });
     },
