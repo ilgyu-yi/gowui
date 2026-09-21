@@ -327,7 +327,7 @@ async def test_a_move_whose_after_is_not_an_integer_is_refused(h, value):
     """§4.1: an ``after`` that is not an integer gets "after must be a board id or null", a
     whole-valued float included."""
     first, _second, _third = await three_boards(h)
-    assert await refused(h, {"type": "board_move", "id": first, "after": 1.5}) == \
+    assert await refused(h, {"type": "board_move", "id": first, "after": value}) == \
         ("after must be a board id or null", True)
 
 
@@ -350,7 +350,7 @@ async def test_a_move_whose_id_is_not_an_integer_is_refused(h, value):
     """§4.1: an ``id`` that is not an integer gets "id must be a board id", a whole-valued float
     included."""
     _first, _second, third = await three_boards(h)
-    assert await refused(h, {"type": "board_move", "id": 1.5, "after": third}) == \
+    assert await refused(h, {"type": "board_move", "id": value, "after": third}) == \
         ("id must be a board id", True)
 
 
