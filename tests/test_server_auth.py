@@ -514,9 +514,10 @@ def _digest_length(stored: str) -> int:
 
 
 def test_the_digest_length_is_asked_for_not_inherited(monkeypatch):
-    """§7.1: a written hash and the dummy have to be the same length — the dummy is what a
-    missing name is verified against. They agree today only because `hashlib.scrypt`'s default
-    `dklen` happens to be the 64 `DIGEST_LENGTH` names, so the call names it."""
+    """§7.1: the stored format pins the digest length, so `hash` and `dummy` ask for it instead of
+    inheriting `hashlib.scrypt`'s default — 64 today, the same number `DIGEST_LENGTH` names.
+    `verify` asks for `dklen=len(expected)` and adapts to any row, which is precisely why a moved
+    default would change the shape of every newly written hash with nothing failing."""
     import hashlib
 
     from gowui.store import DIGEST_LENGTH, Scrypt

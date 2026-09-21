@@ -84,10 +84,16 @@ def valid_password(password: Any) -> bool:
 #: The most hashing memory one call may ask for (§7.1). A setting above it is refused when a hash
 #: is written, and a stored hash that asks for it is an error, never a quiet "wrong password".
 MAX_HASH_MEMORY = 1024 * 1024 * 1024
-#: The digest length of a stored hash, and of the dummy. Asked for on every call, not inherited:
-#: it is ``hashlib.scrypt``'s default today, and the day that default moves a written hash would
-#: stop matching the dummy a missing name is verified against (§7.1). A hash already stored keeps
-#: verifying whatever this is, since ``verify`` reads the length from the hash itself.
+#: The digest length of a stored hash, and of the dummy. Asked for on every call rather than
+#: inherited from ``hashlib.scrypt``, whose default this happens to be today: format stability.
+#: ``verify`` asks for ``dklen=len(expected)``, so it adapts to whatever a row holds and nothing
+#: would fail on the day that default moved — every newly written hash would quietly change shape,
+#: and if the default moved down, quietly lose strength, while every old row went on verifying.
+#: Pinning the number is what makes such a move visible here instead of silent in the rows.
+#: (Timing is a separate matter and not this constant's job: the digest length only changes the
+#: final PBKDF2 pass, far below the noise of one scrypt. The timing difference that is real —
+#: a missing name and a legacy-cost account do not cost the same, since the dummy carries the
+#: current parameters and ``verify`` reads the stored row's — is issue #58.)
 DIGEST_LENGTH = 64
 
 
