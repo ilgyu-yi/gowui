@@ -386,9 +386,43 @@ def test_the_throttle_client_is_the_last_valid_forwarded_for_from_a_trusted_peer
     assert client_address(scope("192.0.2.9", "5.6.7.8"), proxies) == "192.0.2.9"
 
 
+@pytest.mark.parametrize("lines,https", [(["wss"], True), (["WSS"], True), (["ws"], False),
+                                         (["http, wss"], True), (["wss, http"], False)],
+                         ids=["wss", "upper", "ws", "last-wss", "last-http"])
+def test_a_forwarded_wss_counts_as_https(lines, https):
+    """§7.10: the header carries a URL scheme, and a TLS-terminating proxy writes `wss` for a
+    WebSocket upgrade. Reading only `https` leaves every socket behind such a proxy counting as
+    plain, which the origin rule of §7.4 then refuses on the port."""
+    import ipaddress
+
+    from gowui.guard import request_is_https
+
+    scope = {"client": ("10.1.1.1", 5000), "scheme": "ws",
+             "headers": [(b"x-forwarded-proto", line.encode()) for line in lines]}
+    assert request_is_https(scope, (ipaddress.ip_network("10.1.0.0/16"),)) is https
+
+
+def test_an_untrusted_peers_forwarded_wss_is_still_ignored():
+    """§7.10 reads a forwarded header only from a trusted peer, `wss` no differently."""
+    import ipaddress
+
+    from gowui.guard import request_is_https
+
+    scope = {"client": ("192.0.2.9", 5000), "scheme": "ws",
+             "headers": [(b"x-forwarded-proto", b"wss")]}
+    assert request_is_https(scope, (ipaddress.ip_network("10.1.0.0/16"),)) is False
+
+
 async def test_cookie_secure_follows_a_trusted_forwarded_proto(serve, tmp_path):
     server = await start(serve, tmp_path, trusted_proxies="127.0.0.1/32")
     response, _ = await login(server.running, "alice", headers={"X-Forwarded-Proto": "https"})
+    assert "secure" in response.headers["set-cookie"].lower()
+
+
+async def test_cookie_secure_follows_a_trusted_forwarded_wss(serve, tmp_path):
+    """The same rule, for the scheme a proxy writes on an upgrade (§7.10)."""
+    server = await start(serve, tmp_path, trusted_proxies="127.0.0.1/32")
+    response, _ = await login(server.running, "alice", headers={"X-Forwarded-Proto": "wss"})
     assert "secure" in response.headers["set-cookie"].lower()
 
 
