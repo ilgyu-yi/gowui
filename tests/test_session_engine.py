@@ -730,6 +730,21 @@ async def test_lowering_max_visits_under_a_tuple_that_needs_a_search_is_refused(
     assert state["settings"]["maxVisits"] != 1
 
 
+async def test_a_refused_max_visits_keeps_the_fields_sent_with_it(h):
+    """§3.4: `engine_params` is refused whole. The report interval and the ownership flag the
+    page sends in the same frame are not applied either, although neither is refused."""
+    await h.send({"type": "human_params",
+                  "policy": {"lambda_utility": 1, "trust_mu": 1, "fill_kappa": 0}})
+    before = (await h.fresh_state())["settings"]
+    start = h.rec.mark()
+    await h.send({"type": "engine_params", "maxVisits": 1, "reportInterval": 2.5,
+                  "includeOwnership": not before["includeOwnership"]})
+    error = await h.rec.wait_error(start)
+    after = (await h.fresh_state())["settings"]
+    keys = ("maxVisits", "reportInterval", "includeOwnership")
+    assert error is not None and [after[k] for k in keys] == [before[k] for k in keys]
+
+
 async def test_lowering_max_visits_is_allowed_without_such_a_tuple(h):
     await h.send({"type": "human_params", "policy": {"temperature": 2}})
     start = h.rec.mark()
@@ -898,6 +913,19 @@ async def test_scrubbing_still_takes_the_host_and_the_host_port(make_session, fa
                        "for my-katago.example, could not reach [engine].")
     assert leaks(h.rec.frames + h.session.attach_frames(), f"{WORD_HOST}:", server.port) == []
 
+
+async def test_scrubbing_takes_a_printed_address_tuple_whole(make_session, fake_engine,
+                                                             monkeypatch):
+    """§7.7: an address printed as a Python tuple goes whole, its port with it, and the
+    four-element form an IPv6 address takes goes the same way."""
+    h, catalog = await hidden_session(make_session, monkeypatch)
+    server = await fake_engine("gtp")
+    server.options.replies["version"] = (f"1.0 at ('{SENTINEL_HOST}', {server.port}) "
+                                         f"and at ('{SENTINEL_HOST}', {server.port}, 0, 0)")
+    catalog.add("kata", "gtp", server.port, console=False)
+    state = await h.connect({"engineId": "kata"})
+    assert state["engine"]["version"] == "1.0 at [engine] and at [engine]"
+    assert leaks(h.rec.frames + h.session.attach_frames(), SENTINEL_HOST, server.port) == []
 
 
 # -- review round 1: containment, lifecycle, result grammar (§3.2, §3.5, §4.1, §6.3, §7.7) ---------

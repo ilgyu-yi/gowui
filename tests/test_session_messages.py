@@ -302,3 +302,46 @@ async def test_a_refusal_quotes_little_of_an_oversize_value(h, message):
     await h.send(message)
     error = await h.rec.wait_error(start)
     assert error is not None and len(error) <= 200
+
+
+# -- names the page and the server must trim alike (§4.1) ----------------------------------------
+BOM = "﻿"
+
+
+async def test_a_preset_name_is_trimmed_as_the_page_trims_it(make_session):
+    """§4.1 stores the trimmed name. The page trims with JavaScript's `trim()`, which takes
+    U+FEFF, so a name ending in one must not be stored with it still there."""
+    h = make_session(preferences={})
+    await h.send({"type": "preferences",
+                  "presets": [{"name": f"{BOM} opening {BOM}", "tuple": {"temperature": 2}}]})
+    state = await h.fresh_state()
+    assert [p["name"] for p in state["preferences"]["presets"]] == ["opening"]
+
+
+async def test_a_board_name_is_trimmed_as_the_page_trims_it(h):
+    """§3.3 trims a board name with the same rules."""
+    board = h.rec.state()["activeBoard"]
+    await h.send({"type": "board_rename", "id": board, "name": f"{BOM} study {BOM}"})
+    state = await h.fresh_state()
+    assert [b["name"] for b in state["boards"]] == ["study"]
+
+
+async def test_a_board_rename_holding_only_a_bom_is_ignored(h):
+    board = h.rec.state()["activeBoard"]
+    before = h.rec.state()["boards"][0]["name"]
+    await h.send({"type": "board_rename", "id": board, "name": BOM * 3})
+    assert (await h.fresh_state())["boards"][0]["name"] == before
+
+
+async def test_a_later_preferences_change_leaves_a_frame_already_sent_alone(make_session):
+    """§4.2: a `state` carries the preferences of the moment it was made, so the frame may share
+    the stored value instead of copying it on every emission (the value is replaced, not
+    changed in place)."""
+    h = make_session(preferences={})
+    await h.send({"type": "preferences", "lang": "ko",
+                  "presets": [{"name": "first", "tuple": {"temperature": 2}}]})
+    frame = h.session.attach_frames()[0]
+    await h.send({"type": "preferences", "lang": "en",
+                  "presets": [{"name": "second", "tuple": {"temperature": 2}}]})
+    assert (frame["preferences"]["lang"],
+            [p["name"] for p in frame["preferences"]["presets"]]) == ("ko", ["first"])

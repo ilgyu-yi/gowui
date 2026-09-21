@@ -170,6 +170,21 @@ async def test_deleting_the_last_board_leaves_it_in_place(h):
     assert board_ids(await h.fresh_state()) == [board]
 
 
+async def test_a_deleted_boards_id_is_not_given_to_a_later_board(h):
+    """The page matches a tile by its id (§3.8), so an id a delete freed must not come back to
+    stand for another board while the space is live."""
+    seen = [h.rec.state()["activeBoard"]]
+    for _ in range(3):
+        seen.append((await duplicate(h))["activeBoard"])
+    for board in (seen[3], seen[1]):
+        await h.send({"type": "board_delete", "id": board})
+    await h.fresh_state()
+    for _ in range(3):
+        fresh = (await duplicate(h))["activeBoard"]
+        assert fresh not in seen, f"board id {fresh} was given out a second time"
+        seen.append(fresh)
+
+
 # -- human settings belong to a board --------------------------------------------------------------
 async def test_human_settings_travel_with_their_board(h):
     await human(h, profile="rank_5k")
