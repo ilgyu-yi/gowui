@@ -77,6 +77,10 @@ PRESET_VISITS = 2
 #: confirmation dialogs (§3.8). A language name is a token and holds no space at all; the server
 #: holds no list of languages, and a name no table of the page knows is ignored there (§8.5).
 BAD_NAME_CHAR = re.compile(r"[\x00-\x1f\x7f-\x9f\ud800-\udfff]|[^\S ]")
+#: Trimmed off a name beside the whitespace ``str.strip`` knows: the page trims with JavaScript's
+#: ``trim()``, which takes a byte-order mark, so a name ending in one would otherwise be stored
+#: with it on one side and without it on the other (§3.3, §4.1).
+TRIM_ALSO = "﻿"
 #: Thumbnail heatmaps are rounded to keep ``state`` small.
 THUMB_DECIMALS = 3
 #: How long closing an engine may take before the session stops waiting for it.
@@ -248,6 +252,15 @@ def _profile_ok(value: Any) -> bool:
     return isinstance(value, str) and PROFILE_PATTERN.fullmatch(value) is not None
 
 
+def _trim(value: str) -> str:
+    """``value`` without the leading and trailing space the page's ``trim()`` also takes off."""
+    previous = None
+    while previous != value:
+        previous = value
+        value = value.strip().strip(TRIM_ALSO)
+    return value
+
+
 def _name_ok(value: Any, limit: int, *, spaces: bool = False) -> bool:
     """A name as §4.1 takes one: 1 to ``limit`` characters, none of them refused."""
     if not isinstance(value, str) or not 1 <= len(value) <= limit:
@@ -267,22 +280,22 @@ def _preset_problem(entry: Any) -> str | None:
     if not isinstance(entry, dict) or set(entry) != {"name", "tuple"}:
         return "a preset is an object with a name and a tuple only"
     name = entry["name"]
-    if not isinstance(name, str) or not name.strip():
+    if not isinstance(name, str) or not _trim(name):
         return "a preset needs a name"
-    if len(name.strip()) > MAX_PRESET_NAME:
+    if len(_trim(name)) > MAX_PRESET_NAME:
         return f"a preset name is at most {MAX_PRESET_NAME} characters"
-    if not _name_ok(name.strip(), MAX_PRESET_NAME, spaces=True):
+    if not _name_ok(_trim(name), MAX_PRESET_NAME, spaces=True):
         return ("a preset name holds no control character, no lone surrogate and no whitespace "
                 "beyond a plain space")
     problem = tuple_problem(entry["tuple"], PRESET_VISITS)
     if problem is not None:
-        return f"refused the preset {name.strip()[:ECHO]!r}: {problem}"
+        return f"refused the preset {_trim(name)[:ECHO]!r}: {problem}"
     return None
 
 
 def _stored_preset(entry: dict) -> dict:
     """One preset as it is stored: the trimmed name and a copy of its tuple."""
-    return {"name": entry["name"].strip(), "tuple": copy.deepcopy(entry["tuple"])}
+    return {"name": _trim(entry["name"]), "tuple": copy.deepcopy(entry["tuple"])}
 
 
 def clean_preferences(value: Any) -> dict:
@@ -425,7 +438,9 @@ class GameSession:
             quoted = re.escape(host)
             for pattern in (rf"\[{quoted}\]:{port}(?!\d)",
                             rf"(?<!{_HOST_EDGE}){quoted}:{port}(?!\d)",
-                            rf"\('{quoted}', {port}\)",
+                            # A printed address tuple, with the flow info and scope id an IPv6
+                            # address adds: matched whole, so no port survives the host (§7.7).
+                            rf"\('{quoted}', {port}(?:, \d+)*\)",
                             rf"(?<!{_HOST_EDGE}){quoted}(?![0-9A-Za-z_\-]|\.[0-9A-Za-z])"):
                 text = re.sub(pattern, HIDDEN, text, flags=re.IGNORECASE)
         return text
@@ -542,7 +557,10 @@ class GameSession:
                 "humanPolicy": copy.deepcopy(slot.policy),
                 "humanCompare": copy.deepcopy(slot.compare),
             },
-            "preferences": copy.deepcopy(self._preferences),
+            # Shared, not copied: the frame is serialised straight after, and ``_preferences`` is
+            # replaced by a change, never changed in place, so a frame already made keeps what it
+            # carried (§4.2).
+            "preferences": self._preferences,
             "status": self.status,
             "thinking": self.thinking,
             "boards": [self._thumbnail(s) for s in self.boards],
@@ -971,7 +989,7 @@ class GameSession:
 
     def _msg_board_rename(self, message: dict) -> None:
         board_id = _board_id(message)
-        name = _string(message, "name").strip()[:MAX_NAME]
+        name = _trim(_string(message, "name"))[:MAX_NAME]
         slot = self._slot(board_id)
         if slot is None:
             raise _Refused(f"no board {str(board_id)[:ECHO]}")
