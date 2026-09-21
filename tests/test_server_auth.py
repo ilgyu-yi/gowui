@@ -14,7 +14,7 @@ import pytest
 
 from app_helpers import refusal_code
 from helpers import HANG, wait_for
-from server_helpers import (PASSWORD, CountingHasher, config, cookie_header, get,
+from server_helpers import (PASSWORD, CountingHasher, config, cookie_header, cookie_set, get,
                             location_error, login, start, ws_headers)
 
 
@@ -430,10 +430,14 @@ async def test_cookie_secure_follows_a_trusted_forwarded_wss(serve, tmp_path):
 HOST_COOKIE = "__Host-gowui_session"
 
 
-def cookie_set(response) -> tuple[str, str]:
-    """The name and the value of the cookie the answer sets."""
-    name, _, rest = response.headers["set-cookie"].partition("=")
-    return name, rest.split(";")[0]
+async def test_the_sign_in_helper_reads_the_cookie_in_force(serve, tmp_path):
+    """§7.2: the token a sign-in gives back is the one the server set, under whichever name is in
+    force — reading the plain name under `cookie_secure=1` answers `None` and says nothing."""
+    secure = await start(serve, tmp_path, cookie_secure="1")
+    response, token = await login(secure.running, "alice")
+    assert cookie_set(response) == (HOST_COOKIE, token)
+    assert (await get(secure.running, "/api/health",
+                      Cookie=f"{HOST_COOKIE}={token}")).status_code == 200
 
 
 async def test_the_cookie_takes_the_host_prefix_when_it_is_secure(serve, tmp_path):
@@ -501,6 +505,35 @@ def test_a_hash_written_with_an_older_cost_still_verifies():
     stored = Scrypt(n=2 ** 4, r=1, p=1).hash(PASSWORD)
     assert stored.startswith("scrypt$16$1$1$")
     assert Scrypt().verify(PASSWORD, stored) and not Scrypt().verify("wrong", stored)
+
+
+def _digest_length(stored: str) -> int:
+    import base64
+
+    return len(base64.b64decode(stored.split("$")[5]))
+
+
+def test_the_digest_length_is_asked_for_not_inherited(monkeypatch):
+    """§7.1: a written hash and the dummy have to be the same length — the dummy is what a
+    missing name is verified against. They agree today only because `hashlib.scrypt`'s default
+    `dklen` happens to be the 64 `DIGEST_LENGTH` names, so the call names it."""
+    import hashlib
+
+    from gowui.store import DIGEST_LENGTH, Scrypt
+
+    real = hashlib.scrypt
+    asked = []
+
+    def elsewhere(*args, dklen=None, **kw):
+        """A stdlib whose default `dklen` is not 64."""
+        asked.append(dklen)
+        return real(*args, dklen=32 if dklen is None else dklen, **kw)
+
+    monkeypatch.setattr(hashlib, "scrypt", elsewhere)
+    hasher = Scrypt(n=2 ** 4, r=1, p=1)
+    stored = hasher.hash(PASSWORD)
+    assert asked == [DIGEST_LENGTH]
+    assert _digest_length(stored) == _digest_length(hasher.dummy()) == DIGEST_LENGTH
 
 
 # -- §7.5: a failure inside the guard --------------------------------------------------------------
