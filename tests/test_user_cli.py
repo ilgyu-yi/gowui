@@ -236,3 +236,109 @@ def test_a_cookie_lookup_leaves_the_purge_to_the_sign_in(user):
             assert db.execute("SELECT count(*) FROM logins").fetchone()[0] == 1
     finally:
         store.close()
+
+
+# -- what a command pays in scrypt (§7.1, §8.4, §9) ------------------------------------------------
+@pytest.fixture
+def scrypt_calls(monkeypatch):
+    """Every ``hashlib.scrypt`` call the store makes, as its keyword arguments."""
+    import hashlib
+
+    from gowui import store as store_module
+
+    calls: list[dict] = []
+    real = hashlib.scrypt
+
+    def counting(password, **kwargs):
+        calls.append(kwargs)
+        return real(password, **kwargs)
+
+    monkeypatch.setattr(store_module.hashlib, "scrypt", counting)
+    return calls
+
+
+def cheap():
+    """The real hasher at a cost a test can afford; the parameters are not what is pinned here."""
+    from gowui.store import Scrypt
+
+    return Scrypt(n=2 ** 4, r=1, p=1)
+
+
+def test_opening_the_database_runs_no_password_hash(tmp_path, scrypt_calls):
+    """§8.4, §9: the dummy for a missing name costs no scrypt to make, so `gowui user list`
+    pays none for a hash it never uses."""
+    from gowui.store import Store
+
+    store = Store(tmp_path / "data" / "gowui.db", hasher=cheap())
+    try:
+        assert store.list_users() == []
+        assert scrypt_calls == []
+    finally:
+        store.close()
+
+
+def test_a_missing_name_costs_the_same_one_hash_a_wrong_password_costs(tmp_path, scrypt_calls):
+    """§7.1: not two (a dummy built on the spot), not none (no dummy at all) — the one scrypt a
+    real check costs, on the first missing name as on every later one."""
+    from gowui.store import Store
+
+    store = Store(tmp_path / "data" / "gowui.db", hasher=cheap())
+    try:
+        store.add_user("alice", "password one")
+        scrypt_calls.clear()
+        assert store.check_password("ghost", "password one") is None
+        missing_first = len(scrypt_calls)
+        assert store.check_password("ghost", "password one") is None
+        missing_again = len(scrypt_calls) - missing_first
+        assert store.check_password("alice", "password two") is None
+        wrong = len(scrypt_calls) - missing_first - missing_again
+        assert (missing_first, missing_again, wrong) == (1, 1, 1)
+    finally:
+        store.close()
+
+
+def test_the_memory_cap_follows_the_parameters_of_the_stored_hash(monkeypatch):
+    """§7.1: a hash written under a costlier setting still verifies. A fixed cap would fail it
+    closed — silently, so raising the cost past N = 2^17, r = 8 would lock every account out."""
+    import base64
+
+    from gowui import store as store_module
+    from gowui.store import Scrypt
+
+    seen: dict = {}
+
+    def fake_scrypt(password, **kwargs):
+        seen.update(kwargs)
+        return b"\x00" * kwargs["dklen"]
+
+    monkeypatch.setattr(store_module.hashlib, "scrypt", fake_scrypt)
+    b64 = base64.b64encode
+    stored = (f"scrypt${2 ** 18}$8$1${b64(b'x' * 16).decode()}"
+              f"${b64(bytes(64)).decode()}")
+    assert Scrypt().verify("password one", stored) is True
+    assert (seen["n"], seen["r"], seen["p"]) == (2 ** 18, 8, 1)
+    assert seen["maxmem"] >= 128 * seen["r"] * (seen["n"] + seen["p"] + 2)
+
+
+def test_a_setting_past_the_budget_is_refused_before_a_hash_is_written(scrypt_calls):
+    """§7.1: above 1 GiB the hash is refused instead of run, so no account is left with a hash
+    this build cannot verify — and the refusal is the budget's, not whatever the library says
+    about a cap it was handed."""
+    from gowui.store import Scrypt
+
+    with pytest.raises(ValueError):
+        Scrypt(n=2 ** 24, r=8, p=1).hash("password one")
+    assert scrypt_calls == []
+
+
+def test_a_stored_hash_past_the_budget_is_answered_no_and_logged(caplog):
+    """§7.1: never a quiet wrong password."""
+    import base64
+
+    from gowui.store import Scrypt
+
+    b64 = base64.b64encode
+    stored = (f"scrypt${2 ** 24}$8$1${b64(b'x' * 16).decode()}${b64(bytes(64)).decode()}")
+    with caplog.at_level("ERROR", logger="gowui"):
+        assert Scrypt().verify("password one", stored) is False
+    assert caplog.records, "the lockout was silent"
