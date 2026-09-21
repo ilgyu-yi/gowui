@@ -285,10 +285,14 @@
     var stone = this.state.stones[point.y * m.size + point.x];
     if (!stone) return '';
     var ctx = this.ctx;
-    // Thick enough to read at a 240px board (cell ≈ 12 device px) and held back from bloating
-    // at a 900px one; the ring's outer edge sits on the stone's, so it stays clear of the
-    // number's centre and reads against both stone colours in the same red as the old dot.
-    var width = Math.min(3.5, Math.max(1.25, m.cell * 0.085));
+    // A fixed share of the stone, floored and capped so it neither vanishes on a 240px board nor
+    // bloats on a 900px one. The share needs no scaling - m.cell is already in device pixels - but
+    // the floor and the cap are sizes a person sees, so they are CSS pixels: left in device pixels
+    // they would halve the ring's weight on a display that packs two device pixels to one CSS.
+    // The ring's outer edge sits on the stone's, so it stays clear of the number's centre and
+    // reads against both stone colours in the same red as the old dot.
+    var ratio = this.pixelRatio || 1;
+    var width = Math.min(3.5 * ratio, Math.max(1.25 * ratio, m.cell * 0.085));
     ctx.save();
     ctx.lineWidth = width;
     ctx.strokeStyle = stone === 1 ? '#ff6b5e' : '#d63b2c';
