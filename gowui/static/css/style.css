@@ -141,7 +141,10 @@ details > .row:first-of-type { margin-top: 8px; }
 }
 
 /* handol-mux (human) controls */
-.row label.grow { flex: 1; display: flex; gap: 6px; align-items: center; }
+/* min-width: 0 — the field is as wide as its row allows; without it the select's own min-content
+   width pushes the label past the column, which a scrolling column turns into a sideways
+   scrollbar (SPEC §3.8 "Scrolling"). */
+.row label.grow { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: center; }
 .row label.grow input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
 input.invalid { outline: 2px solid var(--bad); }
 .hint { margin: 2px 0 6px; font-size: 12px; color: var(--muted); }
@@ -165,8 +168,20 @@ details.advanced { margin-top: 4px; }
 details.advanced > summary { font-size: 12px; color: var(--muted); cursor: pointer; }
 
 /* thumbnail strip */
-.boards { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 80px); overflow-y: auto; }
+/* min-width: 0 — the strip is as wide as its column, never as wide as its tiles: without it a
+   grid item is at least its content's min-content width, and the narrow strip (a row of
+   fixed-width tiles) would widen the page instead of scrolling sideways within itself. */
+.boards { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .board-list { display: flex; flex-direction: column; gap: 8px; }
+/* The strip's scrollbar stays visible rather than fading, so a strip holding more tiles than fit
+   says so without being touched first (SPEC §3.8 "Board strip"). The standard properties are what
+   current engines read; the ::-webkit-scrollbar rules below are the fallback for the ones that
+   read neither, and they also take the bar off the overlay layer that fades. */
+.boards, .board-list { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.boards::-webkit-scrollbar, .board-list::-webkit-scrollbar { width: 8px; height: 8px; }
+.boards::-webkit-scrollbar-thumb, .board-list::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: 4px;
+}
 .thumb { position: relative; border: 2px solid transparent; border-radius: 6px; padding: 4px; cursor: pointer;
          background: rgba(255, 255, 255, 0.03); }
 .thumb:hover { background: rgba(255, 255, 255, 0.07); }
@@ -184,20 +199,47 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .thumb:hover .thumb-close { opacity: 0.85; }
 #board-duplicate { font-size: 12px; }
 @media (max-width: 980px) {
-  .boards { max-height: none; }
   .board-list { flex-direction: row; overflow-x: auto; }
   .thumb { width: 112px; flex: none; }
+}
+
+/* Wide: the page is exactly the viewport and each column scrolls inside itself (SPEC §3.8
+   "Scrolling"). Scoped to the wide side of the 980px breakpoint, so none of it reaches the
+   narrow layout, which scrolls as one column. No rule names the top bar's height: it wraps, so
+   it is flex: none and takes what it measures, and the columns share what is left. */
+@media (min-width: 981px) {
+  body {
+    height: 100vh;          /* fallback for engines without dvh */
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .topbar { flex: none; }
+  main { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+  /* align-items: stretch, not start: a start-aligned column is as tall as its content, so
+     scrolling it scrolls main and drags the board with it. */
+  .boards, .board-pane, .side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  /* Each column is itself a flex column: its children keep their own height instead of being
+     squeezed to fit, which is what gives the column something to scroll. */
+  .boards > *, .board-pane > *, .side > * { flex: none; }
+  .side { scrollbar-gutter: stable; }
 }
 
 /* Class display rules (.tabs, .row label, ...) must not override the hidden attribute. */
 [hidden] { display: none !important; }
 
 /* "?" beside the profile field */
-.help-anchor { position: relative; display: inline-flex; }
+.help-anchor { display: inline-flex; }
+/* The card hangs from the row, not from the 18px "?": the side panel scrolls inside itself
+   (SPEC §3.8 "Scrolling"), and a scrolling box clips what hangs outside it, so a card aligned to
+   the "?" would lose its left half. Aligned to the row's right edge it is 320px inside a 380px
+   column, and nothing sticks out sideways. */
+.side .row { position: relative; }
 .help-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
             border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); font-size: 11px;
             cursor: help; }
-.help-pop { position: absolute; top: 100%; right: -8px; z-index: 21; width: 320px; margin-top: 6px;
+.help-pop { position: absolute; top: 100%; right: 0; z-index: 21; width: 320px; margin-top: 6px;
             padding: 8px 10px; font-size: 12px; line-height: 1.45; background: #16181d;
             border: 1px solid #3a3f4b; border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
 .help-pop .help-title { font-weight: 600; margin-bottom: 2px; }
