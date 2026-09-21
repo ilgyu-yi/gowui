@@ -562,6 +562,14 @@ fail. Only the active board's tuples are checked, the ones the change is made ag
 left behind with tuples the new value refuses reports it through its own failed analysis when it
 is switched to.
 
+A refused `engine_params` changes nothing at all — the `reportInterval` and `includeOwnership` the
+page sends in the same frame (§3.8) are not applied either, although nothing about them is refused.
+That is what "refused" means for every message of §4.1, and applying the fields that pass while
+refusing only max visits would make this one message the exception, and would leave the page
+holding a Visits value the server refused while the two settings beside it moved. The page refills
+its Visits field from the next `state` (§3.8), so the cost is that a report interval or an
+ownership flag sent in the frame that carried the refused value has to be sent again.
+
 The session always passes an explicit max visits, clamped to §7.6, with every search and engine
 move — never leaving it to the engine's previous setting — and hands a handol-mux engine the
 active board's settings (profile, tuples, eval visits, max visits, move styles) on connect, on
@@ -1028,8 +1036,15 @@ The transport gives each space one **hub**, whose `broadcast` is the one the ses
   one `analysis`. Going to the end can put an `analysis` before the `state` for its position
   (`[state1, analysis1]` with `state2` arriving leaves `[analysis1, state2]`), so the page can
   get an `analysis` for a position its `state` has not reached; it ignores an `analysis` whose
-  `cursor` is not the current one (§3.8), so the cost is a dropped frame, never a board drawn
-  for the wrong position.
+  `cursor` is not the current one (§3.8), so the usual cost is a dropped frame. The guard is
+  cursor equality alone, so it tells apart only positions that differ in their cursor: two
+  positions can share one — a fresh game and a handicap setup both stand at cursor 0 — and an
+  `analysis` for the one can still be drawn on the other. The wider test is the page's own
+  `positionKey` (size, move count, cursor, komi, rules, handicap and setup stones), which it
+  already computes to decide whether an arriving `state` clears the analysis shown (§3.8); the
+  page cannot apply it here, because an `analysis` frame carries `cursor` and `toPlay` only
+  (§4.2). Closing the gap therefore means carrying a position token on the `analysis` frame for
+  the page to compare against that key — a protocol change, and its own issue.
 - **Log folding.** A frame that would overflow a tab's queue — a `state`, `analysis`, `log` or
   `log_history` with no same-type frame to supersede — is not refused at once: every `log` frame
   queued for that tab, and a queued `log_history` if there is one, is removed, and one
@@ -1494,7 +1509,8 @@ the served policy and fails on any `securitypolicyviolation` event or console er
 | Open WebSockets per identity | 32 (a further handshake is closed with `4429`, §4.3) |
 
 Out-of-range numbers are clamped and board names truncated; other oversize input is refused with
-an error.
+an error. In local mode every client is the one owner identity (§6.2), so the socket cap is a
+per-process cap there, not a per-user one.
 
 How the transport enforces the size limits:
 
@@ -1527,14 +1543,25 @@ for everything it sends: a log line containing the engine's host (matched case-i
 and `state.engine.name` / `version`. Scrubbing matches `host:port` and the bare host on host
 boundaries: a neighbouring letter, digit, `.`, `-` or `_` means the text names something else
 (`katagonaut` or `my-katago.example` is left alone when the catalog host is `katago`), while
-`katago:6363`, `[::1]:6363` and the host standing alone are replaced. A host that is also an
+`katago:6363`, `[::1]:6363` and the host standing alone are replaced. An address printed as a
+Python tuple is replaced whole, its port with it — `('katago', 6363)` and the four-element form
+an IPv6 address takes, `('::1', 6363, 0, 0)`. A host that is also an
 ordinary word therefore still costs that word — `KataGo` becomes `[engine]` for a catalog host
 named `katago` — because the address must never appear. Withholding a whole log line stays a
 plain case-insensitive containment test, so no log line can carry the address through a form the
 scrubber does not know. This covers text the engine itself supplied, such as
 handol-mux error messages (§2.5). `state.engine.request` carries only the policy's echo (§4.2),
 and engine text that is not an SGF result never becomes the game's result (§3.5), so it cannot
-reach `state.game`, the snapshot's SGF or a saved SGF. Snapshots store only the `engineId` (§8.1). A catalog entry
+reach `state.game`, the snapshot's SGF or a saved SGF. Snapshots store only the `engineId` (§8.1).
+
+What is hidden is the address the request resolved to (§6.3), the configured host and its port. An
+address the name service resolved that host to is not: a line naming the engine's IP address
+rather than its name is neither withheld nor scrubbed. A connection failure carries none, because
+the transport never copies OS error text, which is where the resolved address would appear (§2.1);
+text the engine itself supplies could. Hiding it as well would mean the transport handing the
+session the peer address it actually connected to, to hide beside the configured one.
+
+A catalog entry
 with `"console": true` gives every signed-in user raw GTP access to that engine, including KataGo
 commands that read or write files on the engine host (`loadsgf`, `printsgf`); enable it only for
 engines whose operator accepts that.
