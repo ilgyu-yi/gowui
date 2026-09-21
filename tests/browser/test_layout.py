@@ -245,7 +245,9 @@ def test_the_page_never_scrolls_across(start_app, open_page):
 def test_one_long_control_does_not_widen_the_page(start_app, open_page):
     """§3.8 "Scrolling": a control whose own content is wider than the window narrows rather than
     pushing the page across. The engine picker in server mode is the one that can reach this — a
-    catalog label is whatever the deployment named its engine (§6.3).
+    catalog label is whatever the deployment named its engine (§6.3). The protocol select stands in
+    for it here: the catalog picker is `hidden` outside server mode, and the same
+    `.engine-line select` rule covers both.
 
     This is a pair, not two guards: the row is a flex item of the top bar, so `min-width: 0` on the
     row is what lets the row narrow, and only then can `min-width: 0` on the fields narrow the

@@ -32,7 +32,7 @@ body {
 }
 .topbar h1 { font-size: 16px; margin: 0; letter-spacing: 0.06em; }
 /* Three declarations, and the last two only work as a pair — measured at a 320px window with a
-   53-character engine label: neither alone moves the page off 410px, both together bring it to
+   56-character engine label: neither alone moves the page off 410px, both together bring it to
    320. The row is a flex item of .topbar, so its own automatic minimum is its min-content width:
    `min-width: 0` on the row is what lets the row narrow, and only then does `min-width: 0` on the
    fields let the picker narrow inside it. `flex-wrap` is the separate case — a row of ordinary
