@@ -149,13 +149,15 @@
         <label><input type="checkbox" id="show-policy"> <span data-i18n="analysis.heatmap">Raw policy heatmap</span></label>
         <label><input type="checkbox" id="show-numbers"> <span data-i18n="analysis.numbers">Move numbers</span></label>
       </div>
-      <table class="candidates">
-        <thead><tr>
-          <th data-i18n="col.move">Move</th><th data-i18n="col.win">Win</th><th data-i18n="col.score">Score</th>
-          <th data-i18n="col.visits">Visits</th><th data-i18n="col.policy">Policy</th>
-        </tr></thead>
-        <tbody id="candidates"></tbody>
-      </table>
+      <div class="candidates-box">
+        <table class="candidates">
+          <thead><tr>
+            <th data-i18n="col.move">Move</th><th data-i18n="col.win">Win</th><th data-i18n="col.score">Score</th>
+            <th data-i18n="col.visits">Visits</th><th data-i18n="col.policy">Policy</th>
+          </tr></thead>
+          <tbody id="candidates"></tbody>
+        </table>
+      </div>
     </details>
 
     <details open>

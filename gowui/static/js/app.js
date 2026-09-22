@@ -893,11 +893,9 @@
   function setTableHead(keys) {
     var row = document.querySelector('table.candidates thead tr');
     var mode = keys.join(',');
-    // The eight comparing columns are narrower than the six of the other modes, and the widths
-    // that make them fit are in the stylesheet: the class is all the page writes (§3.8 "Candidate
-    // table", §7.5).
-    document.querySelector('table.candidates').classList.toggle(
-      'comparing', keys.indexOf('col.delta') >= 0);
+    // No mode class: the columns take their contents' widths in every mode, and the eight
+    // comparing ones are served by the box's sideways scrolling rather than by a narrower rule
+    // the page would have to switch on (§3.8 "Candidate table", §7.5).
     if (row.dataset.mode === mode) return;
     row.dataset.mode = mode;
     row.replaceChildren();
