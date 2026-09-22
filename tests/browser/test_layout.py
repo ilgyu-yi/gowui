@@ -475,11 +475,15 @@ def where_the_value_is(g: Gowui, label: str) -> dict:
             const c = cell.getBoundingClientRect();
             return c.left >= b.left - 0.5 && c.right <= b.right + 0.5;
         };
+        const style = getComputedStyle(box);
         const marked = box.dataset.more || '';
-        const faded = getComputedStyle(box).maskImage !== 'none';
+        const faded = style.maskImage !== 'none';
         const unscrolled = box.scrollLeft < 0.5 && inside();
         box.scrollLeft = box.scrollWidth;
-        const scrolled = inside();
+        // Whether the person can scroll the box, not merely whether this test can: a box with
+        // `overflow: hidden` still takes a scrollLeft from script, and reading the Value out of it
+        // that way would be a reading nobody but the test can make.
+        const scrolled = ['auto', 'scroll'].includes(style.overflowX) && inside();
         box.scrollLeft = 0;
         return {onLine: onLine, unscrolled: unscrolled, scrolled: scrolled, marked: marked,
                 faded: faded, needs: Math.round(box.scrollWidth),
