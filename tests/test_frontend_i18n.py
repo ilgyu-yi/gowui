@@ -239,14 +239,32 @@ def test_each_script_but_board_js_translates_through_t(name):
 
 
 def test_the_candidate_table_header_keys_are_in_both_tables():
+    """§3.8 "Candidate table": Value (`utility`) is a column of every mode, so `col.value` joins
+    the header keys."""
     keys = {"col.move", "col.win", "col.score", "col.visits", "col.policy", "col.prob", "col.a",
-            "col.b", "col.delta"}
+            "col.b", "col.delta", "col.value"}
     en, ko = table("en"), table("ko")
     assert sorted(k for k in keys if k not in en or k not in ko) == []
 
 
 def test_the_candidate_table_header_keys_are_used():
-    assert sorted({"col.prob", "col.a", "col.b", "col.delta"} - used_keys()) == []
+    assert sorted({"col.prob", "col.a", "col.b", "col.delta", "col.value"} - used_keys()) == []
+
+
+# -- the candidate readout (§3.8 "Candidate readout") -------------------------------------------------
+#: The readout's own texts: the mark on the best candidate (shown when nothing is hovered, "so it
+#: is not mistaken for something hovered") and the line's text with no analysis, or none with
+#: candidates. Its field labels are the table's own ``col.*`` keys, by §3.8's one rule.
+READOUT_KEYS = {"readout.best", "readout.none"}
+
+
+def test_the_readout_keys_are_in_both_tables():
+    en, ko = table("en"), table("ko")
+    assert sorted(k for k in READOUT_KEYS if k not in en or k not in ko) == []
+
+
+def test_the_readout_keys_are_used():
+    assert sorted(READOUT_KEYS - used_keys()) == []
 
 
 # -- texts §3.8 requires ------------------------------------------------------------------------------

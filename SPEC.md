@@ -24,54 +24,54 @@
 | §2 | Engine protocols | 204 |
 | &nbsp;&nbsp;§2.1 | Transport | 206 |
 | &nbsp;&nbsp;§2.2 | Shared analysis shape | 247 |
-| &nbsp;&nbsp;§2.3 | GTP | 269 |
-| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 314 |
-| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 331 |
-| &nbsp;&nbsp;§2.6 | Fake engine | 414 |
-| §3 | Session and boards | 441 |
-| &nbsp;&nbsp;§3.1 | Spaces | 443 |
-| &nbsp;&nbsp;§3.2 | Engine play and analysis | 470 |
-| &nbsp;&nbsp;§3.3 | Boards | 536 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 568 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 594 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 609 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 613 |
-| &nbsp;&nbsp;§3.8 | The page | 622 |
-| §4 | WebSocket protocol | 1006 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1010 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1117 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1159 |
-| §5 | HTTP routes | 1253 |
-| §6 | Launch modes and policies | 1328 |
-| &nbsp;&nbsp;§6.1 | The rule | 1330 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1366 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1406 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1439 |
-| §7 | Authentication and security | 1481 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1483 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1547 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1583 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1603 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1651 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1672 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1718 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1752 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1766 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1775 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1811 |
-| §8 | Persistence | 1830 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1832 |
-| &nbsp;&nbsp;§8.2 | Saving | 1868 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1901 |
-| &nbsp;&nbsp;§8.4 | Server database | 1943 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2007 |
-| §9 | Command line | 2034 |
-| §10 | Configuration (server) | 2104 |
-| &nbsp;&nbsp;§10.1 | Container | 2142 |
-| §11 | Feature inventory | 2230 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2237 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2275 |
-| §12 | Non-goals | 2293 |
+| &nbsp;&nbsp;§2.3 | GTP | 278 |
+| &nbsp;&nbsp;§2.4 | KataGo analysis engine | 323 |
+| &nbsp;&nbsp;§2.5 | handol-mux human-policy surface | 340 |
+| &nbsp;&nbsp;§2.6 | Fake engine | 423 |
+| §3 | Session and boards | 450 |
+| &nbsp;&nbsp;§3.1 | Spaces | 452 |
+| &nbsp;&nbsp;§3.2 | Engine play and analysis | 479 |
+| &nbsp;&nbsp;§3.3 | Boards | 545 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 577 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 603 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 618 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 622 |
+| &nbsp;&nbsp;§3.8 | The page | 631 |
+| §4 | WebSocket protocol | 1152 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1156 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1263 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1305 |
+| §5 | HTTP routes | 1399 |
+| §6 | Launch modes and policies | 1474 |
+| &nbsp;&nbsp;§6.1 | The rule | 1476 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1512 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1552 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1585 |
+| §7 | Authentication and security | 1627 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1629 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1693 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1729 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1749 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1797 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1818 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1864 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1898 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1912 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1921 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1957 |
+| §8 | Persistence | 1976 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1978 |
+| &nbsp;&nbsp;§8.2 | Saving | 2014 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2047 |
+| &nbsp;&nbsp;§8.4 | Server database | 2089 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2153 |
+| §9 | Command line | 2180 |
+| §10 | Configuration (server) | 2250 |
+| &nbsp;&nbsp;§10.1 | Container | 2288 |
+| §11 | Feature inventory | 2376 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2383 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2421 |
+| §12 | Non-goals | 2439 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -255,6 +255,15 @@ policy: [..], turn, complete, source, currentPlayer, compare}`
 Numbers are Black's perspective (§0). `prior` is the raw policy probability; `policy` is the full
 board of priors when the protocol provides one (otherwise empty and the browser falls back to the
 candidates' `prior`). `compare` is used by handol-mux only (§2.5).
+
+`utility` and `utilityLcb` are Black's view like the rest, and they flip the way a **score** does
+— negated, not complemented — because a utility is a signed quantity centred on zero and not a
+probability. It is worth saying because the two arrive from different places and **every client negates**,
+for its own reason: KataGo reports them from the side to move (§2.3 sets
+`reportAnalysisWinratesAs = SIDETOMOVE`), and handol-mux's plain answers arrive from White's view
+(§2.5). A field whose meaning depended on which protocol filled it would make every reading of it
+ambiguous, which is what it was: the handol client negated these two and the two KataGo clients
+passed them through.
 
 Engine output is untrusted and is sanitised on the way in, so `analysis` is always valid JSON:
 
@@ -662,8 +671,8 @@ for a control beside it.
 - **The page scrolls down, never across.** From 320px wide up, the document gains no horizontal
   scrolling: the board takes the width its column offers and no more, and a row of controls too
   wide for the window wraps instead of pushing past it. Nothing may be reached only by scrolling
-  **the page** sideways — the board strip scrolls sideways within itself, which is its own
-  scrolling and not the page's.
+  **the page** sideways — the board strip and the candidate table's box (§3.8 "Candidate table")
+  scroll sideways within themselves, which is their own scrolling and not the page's.
   The floor is 320px because the board canvas is never drawn narrower than 240px (§3.8 "Board"),
   and under about 260px that floor plus the layout's padding no longer fits the window; below it
   the page does scroll across, and that is accepted rather than designed around.
@@ -741,19 +750,144 @@ finally either the PV preview or the candidates.
   circle coloured from red (little weight) to green (the most), where the weight is the visits,
   or the absolute prior when no candidate has visits. The first is ringed in white. A second,
   smaller line shows the visits when the candidates have visits.
+  **A count some candidates carry and others do not is a case, not an edge.** While comparing, the
+  drawn candidates are the shown tuple's own `moveInfos`, and B's are merged with A's candidate
+  for the same move (§3.8 "Compare views"), so a move B names that A's search never reached has no
+  count while its neighbours do. The one without weighs
+  nothing — it does not make the shade a `NaN`, which is not a colour and would leave the circle
+  the previous one's fill, saying the wrong weight rather than none. It takes no second line
+  either, and its main label in the `visits` mode is the `-` of "Label modes" above and not the
+  word `undefined`.
 - **Candidate table.** The first 10 `moveInfos`, with the columns Move, Win (from the side
-  searched for), Score (signed), Visits and Policy. For a handol-mux analysis (`source` is
-  `handol`) the columns are Move, Win, Score and Prob; while comparing they are Move, Win, Score,
-  A, B and Δ (the move's probability under each tuple, and B − A signed). The first row is marked
-  as the best. Hovering a row previews its PV; clicking it plays the move for the side to move.
+  searched for), Score (signed), Visits, Policy and Value. For a handol-mux analysis (`source` is
+  `handol`) the columns are Move, Win, Score, Visits, Prob and Value; while comparing they are
+  Move, Win, Score, Visits, A, B, Δ and Value (the move's probability under each tuple, and
+  B − A signed). Visits is in every mode: it is what the search spent, and dropping it left the
+  count reachable only by hovering a candidate — the one gesture that covers the position. Value is
+  `utility`, signed, two decimals. The first row is marked as the best. Hovering a row previews
+  its PV; clicking it plays the move for the side to move.
+  **No numeric cell is ever cut**, at every width §3.8 "The page scrolls down, never across"
+  supports and in every mode. A truncated signed decimal is worse than a missing one: it still
+  reads as a number, and it is off by an order of magnitude — `-12…` for `-123.4`.
+  Each column takes its own contents' width, and the table sits in a **box of its own that scrolls
+  sideways** when they come to more than the panel offers. That is what makes the guarantee
+  unconditional: a column is never smaller than the number in it, so there is no share for a value
+  to be too wide for and nothing for an ellipsis to cut. Where the columns fit, the table is
+  stretched over the panel and the box does not scroll; below that width the surplus is reached by
+  the box's own sideways scrolling, which is the box's and not the page's — the standing the board
+  strip has in §3.8 "The page scrolls down, never across". The table is set at the body size in
+  every mode; nothing is bought by shrinking the type.
+  **The side panel is 424px wide, and the box runs to the section's inner edge** (the 10px of
+  padding on each side is given back with a negative margin), so the box is 422px. That is what
+  the widest of the three column sets needs: the eight comparing columns measure 401px at the body
+  size with a full winrate, a three-figure loss, a seven-figure visit count, a policy at either
+  end and a signed utility in every row. The 21px left over is comfort, not a guarantee: it is the
+  same bet on unpinned font metrics the rejected alternative below lost with single-digit slack,
+  and a value §2.2 sends that no column could have been sized for (`1234500.0M`) overflows any box
+  whatever the metrics. What the width buys — measured on macOS Chromium, where the box keeps all
+  422px — is that the **ordinary** comparing table needs no scrolling at any window the wide layout
+  covers. A platform that draws classic scrollbars spends some of that room on the panel's own
+  reserved gutter (§3.8 "Scrolling"), and a font stack that runs wider spends the rest; what holds
+  everywhere is not the fit but the fade below. **424px is the pinned number, not the fit it
+  buys.** It is paid for out of the board column's slack, and where the board has no slack to give it
+  costs nothing. Measured at 1400px wide: the board loses 16px at a 1000px-tall window (780 → 764)
+  and **nothing at all** at 926px and below, because a short window caps the board at 78vh long
+  before its column does — and a short window is exactly where the readout starts losing fields
+  (§3.8 "Candidate readout"). The cost falls at the narrow end of the wide layout, where the board
+  is only as wide as its column allows: 389 → 345 at a 981px window, 11%, against a board that is
+  never drawn under 240px. Three drawn quantities step a pixel across that pair, because every font
+  size is a **rounded** fraction of the cell rather than a fraction of it: the stone move numbers
+  7 → 6, a candidate circle's visits line 5 → 4, and a three-digit PV number 6 → 5. The coordinates
+  (7) and the candidate label (6) do not. Two of the three line widths are unchanged because they sit
+  on their floors at both extents — the grid's at 1 and the best candidate's outline at 1.5 — while
+  the last-move ring's is in its interpolating band and simply scales, 1.66 → 1.47. Those are
+  device pixels at a ratio of 1. The rest is size, not detail.
+  **Where the box does clip, the clipped edge says so.** The edge with content past it is faded
+  out over 24px — both edges once the box has been scrolled off its start, and the start edge
+  alone at its end. A reserved scrollbar track cannot carry this: where the platform draws overlay
+  scrollbars nothing is reserved (`offsetHeight - clientHeight` is 0 at every width, macOS
+  Chromium), the bar appears only under the pointer, and a column cut off at the box's edge is
+  indistinguishable from a column the table does not have. A half-column of affordance is not
+  available either — the surplus can end exactly at the edge, as it did at 1400x900 before the
+  panel was widened, where the Value sat at 1373–1416 against an edge of 1373.
+  The rejected alternative is on the record because it was tried: sharing the panel's width
+  between the columns, with a measured share per column and the comparing table one step smaller.
+  It buys the guarantee with pixels. Eight measured shares left single-digit slack against an
+  unpinned `system-ui` stack, and the same table that fit on macOS cut `100.0%` in two columns on
+  Linux, by one pixel. A guarantee that a font stack nobody pinned can turn false is not one.
+- **Candidate readout.** One line under the board, above the navigation row, always present so the
+  controls below it do not move as it fills. It carries the **fields of the table's current mode,
+  plus Visits and Value** — one rule, so the line and the table cannot come to disagree — with
+  `utilityLcb` beside the Value. It shows the candidate under the pointer, whether that pointer is
+  on a circle or on a table row; with no pointer on either it shows the best candidate, marked as
+  such so it is not mistaken for something hovered. With no analysis, or none with candidates, it
+  says so. A value the engine did not report is `-`, never a zero (§2.2 turns a non-finite number
+  into `null`, so every field can take that path, `visits` included).
+  Every field that has a perspective names its side, so the line cannot contradict the circle it
+  describes: the winrate is the side the engine searched for, as the circle's label is, and the
+  score and the Value are Black's view in the `B+` / `W+` form the score line already uses.
+  **A utility is comparable between the candidates of one position and not between positions** —
+  its score part is recentred on the position's own expected score — so the line is built from the
+  current `analysis` and nothing else: no history, no sparkline, no phrasing that reads as a change
+  over time. The weights that make it up are the engine's; gowui neither reads nor ships them.
+  The line follows the **pointer only**. The table's rows are not focusable and §3.7 defines no
+  candidate-focus concept; making ten of them focusable would add ten tab stops to the side panel
+  and raise what a keyboard activation means, since clicking a row plays its move. That is a
+  deliberate gap with a shape, not an oversight.
+  This is the only place a candidate's full set is written: a preview puts no second copy of these
+  numbers on the board.
+  **What a small window costs it.** The line keeps its fields at their own width and never wraps,
+  so a window too small for all of them loses whole fields off the **end** — the fields are in
+  the table's column order, so the Value with its bound goes first, then Δ, B and A. A field the
+  line's edge crosses is dropped **whole**, not cut where the edge falls: a number shown short of
+  its last digits still reads as a number and is off by an order of magnitude, which is the same
+  reason §3.8 "Candidate table" cuts no cell.
+  **The room it has is governed by the viewport's height, not its width.** The line is as wide as
+  the board above it — `min(78vh, 900px)`, capped by the board column — so it is a **short**
+  window that loses fields, and a wide one is no protection. Measured while comparing, where the
+  eight fields need 722px, at 1400px wide: 764px of room at a 1000px-tall window and nothing lost;
+  722px at 926px, the exact threshold; 702px at 900px, which loses the Value; 546px at 700px,
+  which loses Δ with it. A narrow window loses them by the other term of the same minimum: 468px
+  at 500x700, which loses B as well, and 328px at 360x700, which is down to the Move, the Win and
+  the Score.
+  Losing the end is the choice on the record, not an accident: wrapping would move the controls
+  below the line, which is the one thing its fixed height exists to prevent; scrolling across is
+  refused everywhere (§3.8 "Scrolling");
+  a `title` is reachable by neither keyboard nor touch; and reordering the fields to save the
+  Value would break the rule that the line and the table cannot come to disagree.
+  **Where the Value is reachable.** The line and the table are one story, so the answer is per
+  window and not per surface. Measured with the comparing table at its widest:
+
+  | Window | On the line | In the table |
+  |---|---|---|
+  | 1400x1000 | yes | yes, unscrolled |
+  | 1400x926 | yes, at the threshold | yes, unscrolled |
+  | 1400x900, 1400x700, 1100x560, 1000x700, 981x700 | no | yes, unscrolled |
+  | 500x700 | no | yes, unscrolled |
+  | 400x700, 360x700, 320x700 | no | yes, by the box's own sideways scrolling, with the clipped edge faded |
+
+  What is lost off the line is therefore always in the table beside the board, which cuts no
+  column at any width — never by the page's scrolling (§3.8 "Candidate table"). Before the panel
+  was widened this was false where it mattered most: at 1400x900 the eight columns wanted 401px in
+  a 358px box, the Value sat entirely past the box's edge, and the platform reserved no scrollbar
+  track to say so, so the field this line exists to surface was on neither surface.
 - **PV preview.** Hovering a drawn candidate on the board (a `moveInfos` entry past the drawn
   ones is not on the board and previews nothing), or its table row, draws the first 20 moves
   of its `pv` as numbered stones, alternating colours from the side searched for and numbered
   from the cursor + 1, so the numbers continue the game's move numbers. A pass in the PV takes its
   number and draws nothing; a point that recurs is drawn once, with its first number. The
-  candidate circles are hidden during a preview, and a caption at the bottom left gives the move,
-  its label (with `%` in the `winrate` and `prior` modes) and its visits when it has any. Leaving
-  the candidate or the row clears the preview.
+  candidate circles are hidden during a preview; what they would have said is in the readout line,
+  which is why there is no caption on the board. Leaving the candidate or the row clears the
+  preview and restores the board exactly.
+- **The position recedes while a preview is up.** The variation is drawn at full strength and the
+  position behind it is dimmed — not the other way round: fading the variation would blur the very
+  thing being read. With it recede the things that belong to those stones — their move numbers,
+  the last-move ring, and the faint stone under the pointer, which says "you could play here" about
+  a position that is no longer the subject. The wood, the grid and the coordinates do not move, and
+  neither do the **heatmap and the ownership squares**: both carry their value *in their opacity*,
+  so dimming them would not make them quieter, it would make them say something else.
+  The inversion is what marks the two apart at a glance: at full strength a stone carries a shadow
+  and a dimmed one does not, so the variation gains the shadow the position loses.
 - **Raw policy heatmap.** A purple square on each point whose `policy` entry is above 0.0005,
   more opaque the closer it is to the largest entry. With an empty `policy` (§2.2) no heatmap is
   drawn; the candidates' `prior` labels remain.
@@ -982,8 +1116,19 @@ shows the newest `state` as soon as it is ready for one, never a backlog of stal
 attribute, and no `data:` or `javascript:` URL; the icon is `/favicon.svg`. Scripts build the DOM
 with `createElement`, `textContent` and `replaceChildren`, and never use `innerHTML`,
 `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function`. The only style
-writes are CSSOM properties (the canvas size, the winrate bar's width, a help card's position),
-which the policy allows.
+writes are three things — the canvas's size, the winrate bar's width, and the hover card's
+position — which the policy allows. They are four CSSOM properties over six lines
+(`grep -rn --binary-files=text '\.style\.' gowui/static/js/`): the canvas takes `width` and
+`height` together, since one scale factor maps clicks to rows and a non-square element would map
+them to the wrong one; the bar's `width` is written from both arms of the winrate branch — the flat
+50% with no winrate to show, and the winrate itself; and the hover card takes `left` and `top`,
+because it is placed against whichever field the pointer is on and flips side when it would run off
+the edge. Everything else a script changes about how the page looks it changes by adding or
+removing a class, so a new appearance costs a rule and not a write.
+
+`--binary-files=text` is load-bearing, not decoration: `tuple.js` holds literal control bytes in a
+character-class regex, so a plain `grep` reads it as binary and drops its two lines — silently on
+some builds. A count taken without that flag has been wrong here more than once.
 
 **Test observability.** Each draw of the board canvas records what it drew on the canvas's
 `dataset`, which the page's own logic never reads:
@@ -999,6 +1144,7 @@ which the policy allows.
 | `ownership` | `on` when ownership squares were drawn, else `off` |
 | `numbers` | `on` when move numbers were drawn, else `off` |
 | `lastMoveRing` | the point the last-move ring went round, or empty |
+| `positionDim` | the strength the position's stones were drawn at: `1`, or the dim while a preview is up. Read back off the **drawing context** — `globalAlpha` after the stone's fill and before the state is popped — not off the painted pixels: it is the alpha the fill went on at, so a stone painter that ignored its argument is caught, while one that painted the alpha somewhere the stone is not is not. With no stones on the board there is nothing to observe and it is the strength the draw asked for |
 
 Each thumbnail canvas records `draws` the same way. `window.__lastAnalysis` holds the payload of
 the last `analysis` frame applied.

@@ -383,6 +383,17 @@ async def test_the_candidate_winrates_are_flipped_to_black(handol_server, connec
     assert got and got == pytest.approx({k: 1 - white[k] for k in got})
 
 
+async def test_the_candidate_utilities_are_negated_to_black(handol_server, connect):
+    """§2.2 with §2.5 "Perspective": `utility` is Black's view in every protocol and is signed,
+    so the plain answer's White-view value is negated, not complemented. This client already
+    flips it; the flip is what keeps the field meaning one thing on every protocol."""
+    analysis, raw = await evaluated(handol_server, connect)
+    white = {key(m["move"]): m["utility"] for m in raw["moveInfos"]}
+    assert any(white.values()), "the fake's plain answer carries no non-zero utility to flip"
+    got = {key(m.move): m.utility for m in analysis.move_infos if key(m.move) in white}
+    assert got and got == pytest.approx({k: -white[k] for k in got})
+
+
 async def test_the_winrates_are_merged_into_the_compare_candidates(handol_server, connect):
     analysis, raw = await evaluated(handol_server, connect, compare={"distance_slope": 1})
     white = winrates(raw["moveInfos"])

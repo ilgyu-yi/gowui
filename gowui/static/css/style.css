@@ -55,7 +55,7 @@ body {
 
 main {
   display: grid;
-  grid-template-columns: 148px minmax(320px, 1fr) 380px;
+  grid-template-columns: 148px minmax(320px, 1fr) 424px;
   gap: 16px;
   padding: 16px;
   align-items: start;
@@ -69,6 +69,28 @@ main {
               min-width: 0; }
 #board-wrap { width: 100%; max-width: min(78vh, 900px); }
 #board { width: 100%; height: auto; display: block; border-radius: 6px; cursor: pointer; }
+
+/* SPEC §3.8 "Candidate readout": one line under the board, above the navigation row. It holds its
+   height whether it is full or empty and never wraps, so the controls below it do not move as it
+   fills; what does not fit the column is clipped rather than pushed past it, since nothing may be
+   reached by scrolling the page sideways (§3.8 "The page scrolls down, never across"). */
+.readout {
+  display: flex; gap: 10px; align-items: baseline;
+  width: 100%; max-width: min(78vh, 900px); min-width: 0;
+  min-height: 22px;
+  white-space: nowrap; overflow: hidden;
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+/* flex: none, not min-width: 0 — the fields keep their own width. A flex item squeezed below its
+   content does not cut its text: it paints it over the field beside it, so a line too narrow for
+   all of them would become unreadable from end to end instead of losing its end. What it loses,
+   and why that end, is SPEC §3.8 "Candidate readout" ("What a narrow window costs it"). */
+.readout .field { display: flex; gap: 4px; align-items: baseline; flex: none; }
+.readout .num { color: var(--text); }
+.readout .mark { color: var(--accent); font-weight: 600; }
+/* The parentheses are the mark of a bound, not words: they read the same in every language. */
+.readout .lcb::before { content: "("; }
+.readout .lcb::after { content: ")"; }
 
 .board-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; max-width: min(78vh, 900px); }
 .board-controls .spacer { flex: 1; }
@@ -88,7 +110,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 input[type=number] { width: 78px; }
 
-.side { display: flex; flex-direction: column; gap: 10px; }
+/* min-width: 0 — the panel is as wide as its column, never as wide as its contents, the same
+   floor .board-pane above needs and for the same reason. Below the 980px breakpoint the panel is
+   the sole `1fr` track, whose automatic minimum is its content's min-content width; without this
+   the candidate table's own width would become that floor and push the *page* sideways instead of
+   scrolling inside its box (§3.8 "The page scrolls down, never across"). */
+.side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 details {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -121,9 +148,48 @@ details > .row:first-of-type { margin-top: 8px; }
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
 
+/* The table sits in a box of its own that scrolls sideways (SPEC §3.8 "Candidate table"). That
+   box is what makes "no numeric cell is ever cut" hold at every width the page supports, instead
+   of holding at the widths a set of measured column shares happened to reach: the columns take
+   their contents' widths, so there is no share for a number to be too wide for, and below the
+   width they fit in the surplus is the box's own sideways scrolling — which is the box's and not
+   the page's, the same standing the board strip has (§3.8 "The page scrolls down, never across").
+   The alternative, sharing the panel's width between the columns, buys the guarantee with pixels:
+   eight columns of measured shares left single-digit slack, and the same table cut two columns on
+   Linux font metrics that it fit on macOS, at one pixel. An unpinned `system-ui` stack is not a
+   thing to hold a guarantee against by three pixels.
+   min-width: 0 — the box is as wide as its column and never as wide as its table: a grid or flex
+   item is at least its content's min-content width without it, and the box would widen the panel
+   rather than scroll within itself. */
+/* The box runs to the section's inner edge: the 10px of padding on each side was the difference
+   between the eight comparing columns fitting the panel and scrolling, and keeping text off the
+   border is already the cells' own padding's job (§3.8 "Candidate table"). */
+.candidates-box { overflow-x: auto; min-width: 0; margin: 0 -10px; }
+/* Where the box does clip, the clipped edge says so: the last column fades out instead of ending
+   at a hard edge that looks like the end of the table. A reserved scrollbar track cannot carry
+   this — on the platforms that draw overlay scrollbars no track is reserved at all, so a column
+   cut off at the box's edge is indistinguishable from no column (§3.8 "Candidate table"). The
+   edges that have content past them are `data-more`, written by app.js from the box's own
+   scrollLeft, so the fade is on the side there is more to see. */
+.candidates-box[data-more="end"] {
+  mask-image: linear-gradient(to left, transparent, #000 24px);
+}
+.candidates-box[data-more="start"] {
+  mask-image: linear-gradient(to right, transparent, #000 24px);
+}
+.candidates-box[data-more="both"] {
+  mask-image: linear-gradient(to right, transparent, #000 24px,
+                              #000 calc(100% - 24px), transparent);
+}
+/* width: 100% stretches the table over the panel when its columns fit in less, so a wide window
+   looks as it did. Where they do not fit, the table takes their width and overflows the box. */
 .candidates { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .candidates th { text-align: right; color: var(--muted); font-weight: 500; padding: 3px 4px; }
 .candidates th:first-child, .candidates td:first-child { text-align: left; }
+/* nowrap and no ellipsis: an auto table gives every column at least its widest cell, so there is
+   nothing left for an ellipsis to cut. Cutting is not merely avoided here, it is unavailable —
+   which is the form the §3.8 guarantee has to take to hold on font metrics nobody pinned. */
+.candidates th, .candidates td { white-space: nowrap; }
 .candidates td { text-align: right; padding: 3px 4px; border-top: 1px solid var(--line); }
 .candidates tr { cursor: pointer; }
 .candidates tr:hover td { background: var(--panel-2); }
@@ -149,7 +215,7 @@ details > .row:first-of-type { margin-top: 8px; }
 
 @media (max-width: 980px) {
   main { grid-template-columns: 1fr; }
-  #board-wrap, .board-controls { max-width: 100%; }
+  #board-wrap, .board-controls, .readout { max-width: 100%; }
 }
 
 /* handol-mux (human) controls */
@@ -193,9 +259,14 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
    Neither path makes an overlay scrollbar persist: where the platform draws overlay bars, this
    styles the bar that appears and nothing more. Reserving a permanent track (overflow: scroll)
    would take room from every strip to serve the full one, which is the worse trade. */
-.boards, .board-list { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
-.boards::-webkit-scrollbar, .board-list::-webkit-scrollbar { width: 8px; height: 8px; }
-.boards::-webkit-scrollbar-thumb, .board-list::-webkit-scrollbar-thumb {
+.boards, .board-list, .candidates-box {
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.boards::-webkit-scrollbar, .board-list::-webkit-scrollbar, .candidates-box::-webkit-scrollbar {
+  width: 8px; height: 8px;
+}
+.boards::-webkit-scrollbar-thumb, .board-list::-webkit-scrollbar-thumb,
+.candidates-box::-webkit-scrollbar-thumb {
   background: var(--line); border-radius: 4px;
 }
 .thumb { position: relative; border: 2px solid transparent; border-radius: 6px; padding: 4px; cursor: pointer;
@@ -279,7 +350,7 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .help-anchor { display: inline-flex; }
 /* The card hangs from the row, not from the 18px "?": the side panel scrolls inside itself
    (SPEC §3.8 "Scrolling"), and a scrolling box clips what hangs outside it, so a card aligned to
-   the "?" would lose its left half. Aligned to the row's right edge it is 320px inside a 380px
+   the "?" would lose its left half. Aligned to the row's right edge it is 320px inside a 424px
    column, and nothing sticks out sideways. */
 .side .row { position: relative; }
 .help-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;

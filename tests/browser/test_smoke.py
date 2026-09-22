@@ -241,6 +241,114 @@ def test_hovering_a_candidate_row_previews_its_pv(start_engine, start_app, open_
     g.expect_dataset("previewStones", "0")
 
 
+# -- the candidate readout (#44; §3.8 "Candidate readout", "The position recedes…") --------------
+#: The one line under the board. Its fields are named ``data-field`` so a test can read one
+#: without pinning the order or the wording of the line around it.
+READOUT = "#candidate-readout"
+
+
+def analysing(start_engine, start_app, open_page, played: str | None = None):
+    """A connected page with analysis on, the candidates drawn and the table filled — and, when
+    ``played`` names a point, a stone on the board before any of it."""
+    g = connected(start_engine, start_app, open_page)
+    if played:
+        g.act({"type": "play", "color": "black", "vertex": played})
+    g.page.locator("#analysis-on").check()
+    g.expect_dataset("candidates", re.compile(r"^[1-9]\d*$"), timeout=ENGINE)
+    expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=ENGINE)
+    return g
+
+
+def shown(g):
+    """The readout line itself, asserted to be on the page: the premise a field reading needs,
+    since a field of a line that is not there would read ``None`` for the wrong reason."""
+    expect(g.page.locator(READOUT)).to_be_visible()
+
+
+def field(g, name: str):
+    """The readout's ``name`` field, or ``None`` when the line has no such field."""
+    return g.page.evaluate("""(name) => {
+        const node = document.querySelector('#candidate-readout [data-field="' + name + '"]');
+        return node ? node.textContent.trim() : null;
+    }""", name)
+
+
+def row_move(g, index: int) -> str:
+    """The move in row ``index`` of the candidate table."""
+    cell = g.page.locator("#candidates tr").nth(index).locator("td").first
+    return (cell.text_content() or "").strip()
+
+
+def a_number(text) -> bool:
+    return bool(text) and bool(re.search(r"\d", text))
+
+
+def dim(g):
+    """``positionDim`` (§3.8 "Test observability"), or ``None`` when the draw recorded none."""
+    try:
+        return float(g.dataset("positionDim"))
+    except (TypeError, ValueError):
+        return None
+
+
+def test_the_readout_names_the_best_candidate(start_engine, start_app, open_page):
+    """§3.8 "Candidate readout": with no pointer on a circle or a row the line shows the best
+    candidate — the move of the table's first row, the one marked as the best."""
+    g = analysing(start_engine, start_app, open_page)
+    shown(g)
+    assert field(g, "move") == row_move(g, 0)
+
+
+def test_the_readout_shows_visits_and_value_as_numbers(start_engine, start_app, open_page):
+    """§3.8 "Candidate readout": the line carries the table mode's fields plus Visits and Value.
+    A value the engine did not report reads ``-``; the fake engine (§2.6) reports both a visit
+    count and a `utility`, so on this page neither field is a dash."""
+    g = analysing(start_engine, start_app, open_page)
+    shown(g)
+    visits, value = field(g, "visits"), field(g, "value")
+    assert (a_number(visits), a_number(value)) == (True, True), (visits, value)
+
+
+def test_hovering_a_row_moves_the_readout_and_leaving_puts_it_back(start_engine, start_app,
+                                                                   open_page):
+    """§3.8 "Candidate readout" and "PV preview": the line shows the candidate under the pointer,
+    on a row as on a circle, and with no pointer on either it is back on the best candidate —
+    the same line in both cases, with and without a preview up."""
+    g = analysing(start_engine, start_app, open_page)
+    shown(g)
+    best, hovered = row_move(g, 0), row_move(g, 1)
+    assert best != hovered, f"the first two candidates are the same move ({best})"
+
+    before = (field(g, "move"), g.dataset("preview"))
+    g.page.locator("#candidates tr").nth(1).hover()
+    g.expect_dataset("preview", hovered)
+    during = (field(g, "move"), g.dataset("preview"))
+    g.page.mouse.move(0, 0)
+    g.expect_dataset("preview", "")
+    after = (field(g, "move"), g.dataset("preview"))
+    assert (before, during, after) == ((best, ""), (hovered, hovered), (best, ""))
+
+
+def test_the_position_recedes_while_a_preview_is_up(start_engine, start_app, open_page):
+    """§3.8 "The position recedes while a preview is up": the variation is drawn at full strength
+    and the position behind it is dimmed — so ``positionDim`` is 1 with no preview, below 1 while
+    one is up, and 1 again once it is gone.
+
+    The board needs a stone on it for that to be worth reading: the record is the strength the
+    stones were painted at, taken off the canvas, and an empty board paints none to take it from
+    (§3.8 "Test observability"). On an empty board the record can only be the strength the draw
+    asked for, which is the draw talking about itself."""
+    g = analysing(start_engine, start_app, open_page, played="D4")
+    full = dim(g)
+    g.page.locator("#candidates tr").first.hover()
+    g.expect_dataset("preview", re.compile(r"^[A-HJ-T]\d{1,2}$"))
+    dimmed = dim(g)
+    g.page.mouse.move(0, 0)
+    g.expect_dataset("preview", "")
+    assert (full, dimmed is not None and dimmed < 1, dim(g)) == (1.0, True, 1.0), \
+        f"positionDim went {full} -> {dimmed} -> {dim(g)}"
+
+
 def test_arrow_left_steps_back_unless_an_input_has_focus(start_app, open_page):
     """B28 (§3.7): ``ArrowLeft`` sends ``navigate`` one move back; typing in a field does not."""
     g = open_page(start_app()).open()

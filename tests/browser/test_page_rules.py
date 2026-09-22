@@ -261,3 +261,189 @@ def test_a_stored_preset_the_tuple_rules_refuse_is_dropped(start_app, open_page)
     values = g.page.eval_on_selector_all(
         "#human-preset option", "options => options.map((option) => option.value)")
     assert [v for v in values if v.startswith("user:")] == ["user:keeps", "user:lambda"]
+
+
+# -- the candidate table and the readout (§3.8 "Candidate table", "Candidate readout") -----------
+def head_fields(g: Gowui) -> list[str]:
+    """The current head's column keys, without their ``col.`` prefix — the table's own order, so
+    a cell is read by the field it holds and not by a number the test would have to keep."""
+    return g.page.evaluate("""() => [...document.querySelectorAll('table.candidates thead th')]
+        .map((th) => th.getAttribute('data-i18n').slice(4))""")
+
+
+def table_cells(g: Gowui, move: str) -> dict[str, str]:
+    """The row for ``move``, by column key. Empty when the table has no such row."""
+    texts = g.page.evaluate("""(move) => {
+        const row = [...document.querySelectorAll('#candidates tr')].find(
+            (tr) => tr.cells[0].textContent.trim() === move);
+        return row ? [...row.cells].map((c) => c.textContent.trim()) : [];
+    }""", move)
+    return dict(zip(head_fields(g), texts))
+
+
+def readout_field(g: Gowui, name: str):
+    """The readout's ``name`` field, or ``None`` when the line has no such field."""
+    return g.page.evaluate("""(name) => {
+        const node = document.querySelector('#candidate-readout [data-field="' + name + '"]');
+        return node ? node.textContent.trim() : null;
+    }""", name)
+
+
+def show_view(g: Gowui, view: str) -> None:
+    """Switch the comparison view through the page's own select (§3.8). Its row is hidden until a
+    handol-mux engine turns comparing on, which an injected frame does not do, so the test unhides
+    the row and then uses the control."""
+    g.page.evaluate("""() => {
+        document.querySelectorAll('.human-only').forEach((section) => {
+            section.hidden = false;
+            section.open = true;
+        });
+        document.getElementById('compare-view-wrap').hidden = false;
+    }""")
+    g.page.locator("#compare-view").select_option(view)
+
+
+def test_a_visit_count_the_engine_did_not_report_is_a_dash(start_app, open_page):
+    """§3.8 "Candidate readout": a value the engine did not report is ``-``, never a zero — and
+    never the word ``null``. The abbreviation the table and the line share is written for a
+    number, and hands back whatever it is given as a string, so a missing count has to be caught
+    before it: `visits` takes that path like every other field."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    size = g.state()["game"]["size"]
+    move = vertex(0, 0, size)
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [move_info(move, visits=None)])))
+    expect(g.page.locator("#candidates tr")).to_have_count(1, timeout=QUICK)
+
+    assert table_cells(g, move)["visits"] == "-", table_cells(g, move)
+    assert readout_field(g, "visits") == "-"
+
+
+def test_every_view_shows_a_candidate_the_search_it_had(start_app, open_page):
+    """§3.8 "Candidate table": Visits is in every mode — it is what the search spent, and the
+    search spent it on the position, not on a view of the position. So a candidate the search
+    knows carries the same visits, Value and bound under A, under B and under B − A; only the
+    columns the view is about (A, B, Δ) change. A point the search never looked at carries ``-``,
+    which is the same rule: a value the engine did not report is never a zero."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    size = g.state()["game"]["size"]
+    known, unknown = vertex(0, 0, size), vertex(5, 5, size)
+    searched = {**move_info(known, visits=1000, prior=0.2),
+                "utility": 0.42, "utilityLcb": 0.31}
+    a = [0.0] * (size * size + 1)
+    b = [0.0] * (size * size + 1)
+    a[0], b[0] = 0.2, 0.9                       # the known candidate: Δ +70.0%, the largest
+    b[5 * size + 5] = 0.5                       # a point tuple B likes and the search never saw
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [searched], source="handol", policy=a,
+        # Tuple B is a distribution, not a search: it reports no visit count of its own, so what
+        # the line shows for it can only be the search that was run (§3.8).
+        compare={"policy": b, "moveInfos": [{**move_info(known, visits=None, prior=0.9),
+                                             "utility": None, "utilityLcb": None}]})))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+
+    seen = {}
+    for view in ("A", "B", "diff"):
+        show_view(g, view)
+        expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=QUICK)
+        seen[view] = table_cells(g, known)
+    assert [seen[view].get("visits") for view in ("A", "B", "diff")] == ["1.0k"] * 3, seen
+    assert [seen[view].get("value") for view in ("A", "B", "diff")] == ["+0.42"] * 3, seen
+
+    # Still in B − A: the point only tuple B likes, and the line on the candidate it does know.
+    assert table_cells(g, unknown)["visits"] == "-", table_cells(g, unknown)
+    assert table_cells(g, unknown)["value"] == "-", table_cells(g, unknown)
+    assert (readout_field(g, "move"), readout_field(g, "visits"),
+            readout_field(g, "value"), readout_field(g, "valueLcb")) == (
+        known, "1.0k", "B+0.42", "B+0.31")
+
+
+# -- what the candidate circles paint (§3.8 "Top candidates") ------------------------------------
+#: Wrap `fillText` and the `fillStyle` setter on the 2D context prototype, so a draw's text and
+#: colours can be read back. A canvas is otherwise write-only to a test: `-` and `undefined` are
+#: both "some white pixels" to a screenshot, and an invalid colour is *no* pixels at all — the
+#: assignment is ignored and the shape keeps the previous fill, which is the failure that lies.
+#: The assigned value is recorded, not the property afterwards, for exactly that reason.
+RECORDER = """() => {
+    const proto = CanvasRenderingContext2D.prototype;
+    window.__paint = {text: [], fill: []};
+    const fillText = proto.fillText;
+    proto.fillText = function (text) {
+        if (this.canvas.id === 'board' && window.__paint) {
+            window.__paint.text.push([String(text), String(this.fillStyle)]);
+        }
+        return fillText.apply(this, arguments);
+    };
+    const own = Object.getOwnPropertyDescriptor(proto, 'fillStyle');
+    Object.defineProperty(proto, 'fillStyle', {
+        configurable: true,
+        get: own.get,
+        set: function (value) {
+            if (this.canvas.id === 'board' && window.__paint) {
+                window.__paint.fill.push(String(value));
+            }
+            own.set.call(this, value);
+        },
+    });
+}"""
+
+#: The two fills the candidate labels are painted in: the main line and the second, smaller one.
+#: Everything else the board writes — the coordinates — is painted in the wood's brown, so the
+#: fill separates the circles' text from the grid's without the test knowing either font.
+LABEL_FILLS = ("#ffffff", "rgba(255, 255, 255, 0.85)")
+
+
+def label_text(g: Gowui) -> list[str]:
+    """What the last draw wrote on the candidate circles, in the order it wrote it."""
+    return [text for text, fill in g.page.evaluate("() => window.__paint.text")
+            if fill in LABEL_FILLS]
+
+
+def test_a_candidate_the_other_tuple_never_searched_is_drawn_whole(start_app, open_page):
+    """§3.8 "Top candidates": a count some candidates carry and others do not is a case, not an
+    edge — while comparing, B's candidates are its own moves, and a move A's search never reached
+    has no count while its neighbours do.
+
+    Three guards hold the circle for that move together, and none of them is reachable through the
+    DOM: the main label is the `-` of "Label modes" and not the word `undefined`; there is no
+    second line, rather than a second line reading `undefined`; and the weight is nothing rather
+    than a `NaN`, which is not a colour — the browser drops an invalid `fillStyle`, so the circle
+    would silently keep the *previous* candidate's fill and say the wrong weight instead of none.
+    """
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    size = g.state()["game"]["size"]
+    known, only_b = vertex(0, 0, size), vertex(5, 5, size)
+    a = [0.0] * (size * size + 1)
+    b = [0.0] * (size * size + 1)
+    a[0], b[0] = 0.9, 0.4
+    b[5 * size + 5] = 0.6
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [move_info(known, visits=1000, prior=0.9)], source="handol", policy=a,
+        # B names a second move, and the search that ran on the position never evaluated it: the
+        # merge leaves its visits undefined, where its neighbour's is a thousand.
+        compare={"policy": b, "moveInfos": [move_info(known, visits=None, prior=0.4),
+                                            move_info(only_b, visits=None, prior=0.6)]})))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+    g.page.locator("#label-mode").select_option("visits")
+
+    g.page.evaluate(RECORDER)
+    before = g.draws()
+    show_view(g, "B")
+    after_a_draw(g, before)
+    g.expect_dataset("candidates", "2")
+
+    # The known move's main line and its second line, then the one B alone names — which takes the
+    # dash and no second line at all.
+    assert label_text(g) == ["1.0k", "1.0k", "-"], (
+        f"the circles wrote {label_text(g)}, not the known move's count twice and a dash for the "
+        f"move {only_b} that A's search never reached")
+    invalid = [fill for fill in g.page.evaluate("() => window.__paint.fill") if "NaN" in fill]
+    assert invalid == [], (
+        f"the draw asked for {len(invalid)} colours a browser cannot parse: {invalid} — an "
+        "ignored fillStyle leaves the circle the previous one's colour, so the shade lies")

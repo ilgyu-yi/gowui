@@ -380,7 +380,8 @@ async def test_a_raising_callback_does_not_kill_the_reader(gtp_server, connect):
 
 # -- perspective -------------------------------------------------------------------------------
 OWNERSHIP_81 = "ownership 0.5" + " 0" * 80
-KATA_LINE = ("info move E5 visits 100 winrate 0.7 scoreLead 3 scoreMean 2 prior 0.2 order 0 "
+KATA_LINE = ("info move E5 visits 100 winrate 0.7 scoreLead 3 scoreMean 2 utility 0.1 "
+             "utilityLcb 0.09 prior 0.2 order 0 "
              "pv E5 D4 rootInfo visits 100 winrate 0.7 scoreLead 3 scoreMean 2 " + OWNERSHIP_81)
 
 
@@ -429,6 +430,21 @@ async def test_black_to_move_numbers_are_unchanged(fake_engine, connect):
     report = await black_to_move_report(fake_engine, connect)
     assert (report.move_infos[0].winrate, report.move_infos[0].score_lead,
             report.ownership[0]) == (pytest.approx(0.7), pytest.approx(3.0), pytest.approx(0.5))
+
+
+async def test_white_to_move_utility_is_negated_to_black(fake_engine, connect):
+    """§2.2: `utility` is Black's view like the rest, and it flips the way a score does —
+    negated, not complemented, because it is signed and centred on zero. The GTP client reads it
+    from a side-to-move report (§2.3), so a White-to-move 0.1 reaches the browser as -0.1."""
+    report = await white_to_move_report(fake_engine, connect)
+    assert report.move_infos[0].utility == pytest.approx(-0.1)
+
+
+async def test_white_to_move_utility_lcb_is_negated_to_black(fake_engine, connect):
+    """§2.2: `utilityLcb` takes the same flip as `utility`; a bound left in the other view would
+    not bound the number it sits beside."""
+    report = await white_to_move_report(fake_engine, connect)
+    assert report.move_infos[0].utility_lcb == pytest.approx(-0.09)
 
 
 async def test_prior_is_not_flipped(fake_engine, connect):
