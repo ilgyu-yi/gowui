@@ -7,12 +7,18 @@ the side panel still reaches every control, by a column's scrolling and never by
 980px and below the page scrolls as one column while the board strip scrolls sideways within
 itself; and from 320px up the page scrolls down and never across (issue #48).
 
-Two more come from what a column's width costs its contents (§3.8 "Candidate table", "Candidate
-readout"; issue #44): the comparing table's eight columns fit the side panel without cutting a
-number, and the readout loses whole fields off its end rather than shrinking them into each other.
-Both are measured per box — a cell's or a field's own `scrollWidth` against its `clientWidth` —
-because a screenshot cannot tell `100.0%` from `100…` at a glance and a green page cannot tell
-either.
+More come from what a column's width costs its contents (§3.8 "Candidate table", "Candidate
+readout"; issue #44): the table cuts no number in any mode, at any supported width, or with a
+value no column could have been sized for; its surplus width is its own box's sideways scrolling
+and never the panel's or the page's; and the readout loses whole fields off its end rather than
+shrinking them into each other. All of it is measured per box — a cell's or a field's own
+`scrollWidth` against its `clientWidth` — because a screenshot cannot tell `100.0%` from `100…` at
+a glance and a green page cannot tell either.
+
+The table's checks sweep 1400 / 500 / 400 / 360 / 320px instead of measuring one width. A
+guarantee §3.8 states unconditionally has to be tested unconditionally: the columns-share-a-width
+layout these replace passed at the one width its shares were measured at, cut seven of eight at
+360px, and cut two on Linux font metrics that it fit on macOS.
 
 The viewport here is deliberately shorter than the shared context's 1400x1000, because the rule is
 only visible in a window the content does not fit. Every read after a viewport change waits on a
@@ -163,17 +169,18 @@ def test_a_short_window_still_reaches_every_control(start_app, open_page):
         f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways")
 
 
-def comparing_at_its_widest(g: Gowui, visits: int = 1234567) -> None:
+def comparing_at_its_widest(g: Gowui, **wide) -> None:
     """Inject a comparing analysis whose every column carries the widest value it can hold
     (§3.8 "Candidate table"): a full winrate, a three-figure loss, a seven-figure visit count, a
-    policy that moves nearly the whole way between the two tuples, and a signed utility.
+    policy that moves nearly the whole way between the two tuples, and a signed utility. A ``wide``
+    field replaces one of them with a value no column could have been sized for.
 
     Narrower data would not test the layout: candidates with two-digit visits and no utility fit a
     table that takes its columns from its contents, so the table would sit inside the panel however
     the columns were shared out and both checks below would pass on a page that cuts numbers."""
     size = g.state()["game"]["size"]
-    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=visits),
-              "utility": -1.23, "utilityLcb": -1.23} for x in range(10)]
+    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=1234567),
+              "utility": -1.23, "utilityLcb": -1.23, **wide} for x in range(10)]
     a = [0.0] * (size * size + 1)
     b = [0.0] * (size * size + 1)
     # The two ends of Δ, on the first two candidates: all of A's weight on one and all of B's on
@@ -186,10 +193,22 @@ def comparing_at_its_widest(g: Gowui, visits: int = 1234567) -> None:
     expect(g.page.locator("#candidates tr")).to_have_count(10, timeout=QUICK)
 
 
+def default_at_its_widest(g: Gowui, **wide) -> None:
+    """The six-column table with the widest value every column can hold, the same bar
+    ``comparing_at_its_widest`` sets for the eight. A ``wide`` field replaces one of them with a
+    value no column could have been sized for (§2.2 takes whatever the engine sends)."""
+    size = g.state()["game"]["size"]
+    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=1234567,
+                          prior=1.0), "utility": -1.23, "utilityLcb": -1.23, **wide}
+             for x in range(10)]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, infos)))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(6, timeout=QUICK)
+
+
 def column_fit(g: Gowui) -> list[list]:
     """Per column: its header, the widest text in it, and that cell's ``scrollWidth`` against its
-    ``clientWidth``. A cell whose content is wider than its box is the one the ellipsis rule cuts,
-    which no reading of the rendered text can see — `100…` is a string the page never composed."""
+    ``clientWidth``. A cell whose content is wider than its box is a cut one, which no reading of
+    the rendered text can see — `100…` is a string the page never composed."""
     return g.page.evaluate("""() => {
         const head = [...document.querySelectorAll('table.candidates thead th')];
         return head.map((th, i) => {
@@ -202,88 +221,138 @@ def column_fit(g: Gowui) -> list[list]:
     }""")
 
 
-def test_the_comparing_columns_do_not_widen_the_side_panel(start_app, open_page):
-    """§3.8 "The page scrolls down, never across" with "Candidate table": while comparing, the
-    table carries eight columns. A column that scrolls vertically treats a horizontal overflow as
-    scrollable too, so a table wider than the side panel hands the panel a sideways scrollbar —
-    and nothing may be reached only by scrolling across."""
-    g = open_page(start_app())
-    g.proxy_ws()
-    g.open()
-    resized(g, SHORT)
-    comparing_at_its_widest(g)
+def cut_columns(g: Gowui) -> list[str]:
+    """The columns whose widest cell does not fit its box, named with the numbers that say so."""
+    return [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
+            for head, text, scroll, client in column_fit(g) if scroll > client]
 
-    room = g.page.evaluate("() => { const side = document.querySelector('.side');"
-                           " return [side.scrollWidth, side.clientWidth]; }")
-    assert room[0] == room[1], (
-        f"the side panel is {room[0]}px wide inside a {room[1]}px column and scrolls sideways "
-        "with the comparing table's eight columns")
+
+def sideways(g: Gowui) -> dict:
+    """What scrolls across at the current width: the document, the side panel, and the candidate
+    table's own box. The first two must not (§3.8 "The page scrolls down, never across"); the
+    third is the one box allowed to, and is where the surplus width goes."""
+    return g.page.evaluate("""() => {
+        const across = (el) => el && [el.scrollWidth, el.clientWidth];
+        return {page: across(document.documentElement),
+                side: across(document.querySelector('.side')),
+                box: across(document.querySelector('.candidates-box'))};
+    }""")
+
+
+#: The widths §3.8 "The page scrolls down, never across" supports, from a window wider than the
+#: layout needs down to its 320px floor. Swept in one page rather than parametrised: the rule is
+#: about what a *width* costs the table, so the first width that breaks it is the report.
+CANDIDATE_WIDTHS = (1400, 500, 400, 360, 320)
+
+
+def candidates_swept(g: Gowui, fill) -> list[tuple]:
+    """Apply ``fill`` at each of ``CANDIDATE_WIDTHS`` and collect (width, cut columns, boxes)."""
+    swept = []
+    for width in CANDIDATE_WIDTHS:
+        resized(g, {"width": width, "height": 700})
+        fill(g)
+        swept.append((width, cut_columns(g), sideways(g)))
+    return swept
 
 
 def test_no_comparing_cell_cuts_a_number(start_app, open_page):
-    """§3.8 "Candidate table": no numeric cell is ever cut. The columns share the panel's width
-    instead of taking their contents', so a share too small for `100.0%` renders `100…` — which
-    still reads as a number and is off by an order of magnitude. Measured per cell at the 380px
-    side panel, with the widest value each column can hold."""
+    """§3.8 "Candidate table": no numeric cell is ever cut, at every width §3.8 supports and with
+    the widest value each column can hold. A column narrower than its number renders `100…`, which
+    still reads as a number and is off by an order of magnitude.
+
+    Swept rather than measured at one width because the guarantee §3.8 makes is unconditional: a
+    table whose columns share a fixed width passes at the width its shares were measured at and
+    cuts seven of its eight columns at 360px, and a test at one width calls that a pass."""
     g = open_page(start_app())
     g.proxy_ws()
     g.open()
-    resized(g, SHORT)
-    comparing_at_its_widest(g)
 
-    cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
-           for head, text, scroll, client in column_fit(g) if scroll > client]
-    assert cut == [], f"the comparing table cuts {len(cut)} of its columns: {cut}"
+    swept = candidates_swept(g, comparing_at_its_widest)
+    cut = [(width, columns) for width, columns, _ in swept if columns]
+    assert cut == [], f"the comparing table cuts a number at {len(cut)} of its widths: {cut}"
 
 
 def test_the_six_column_modes_do_not_cut_a_number_either(start_app, open_page):
-    """§3.8 "Candidate table": the six columns of the other modes fit an even share at the body
-    size — the same bar, so the comparing rules cannot be tightened at their expense."""
+    """§3.8 "Candidate table": the same bar in the six-column modes, over the same widths — the
+    guarantee is per mode, so the comparing rules cannot be bought at the other modes' expense."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+
+    swept = candidates_swept(g, default_at_its_widest)
+    cut = [(width, columns) for width, columns, _ in swept if columns]
+    assert cut == [], f"the default table cuts a number at {len(cut)} of its widths: {cut}"
+
+
+def test_the_table_is_at_the_body_size_in_every_mode(start_app, open_page):
+    """§3.8 "Candidate table": the table is set at the body size in every mode; nothing is bought
+    by shrinking the type. The eight comparing columns used to be paid for with a step down, which
+    left the table the smallest text on the page and still did not make the guarantee hold."""
     g = open_page(start_app())
     g.proxy_ws()
     g.open()
     resized(g, SHORT)
-    size = g.state()["game"]["size"]
-    infos = [{**move_info(vertex(x, 0, size), winrate=1.0, score=-123.4, visits=1234567,
-                          prior=1.0), "utility": -1.23, "utilityLcb": -1.23} for x in range(10)]
-    g.inject(analysis_frame(g.state(), analysis_payload(size, infos)))
-    expect(g.page.locator("table.candidates thead th")).to_have_count(6, timeout=QUICK)
 
-    cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
-           for head, text, scroll, client in column_fit(g) if scroll > client]
-    assert cut == [], f"the default table cuts {len(cut)} of its columns: {cut}"
+    sizes = {}
+    for mode, fill in (("default", default_at_its_widest), ("comparing", comparing_at_its_widest)):
+        fill(g)
+        sizes[mode] = g.page.evaluate(
+            "() => [getComputedStyle(document.querySelector('table.candidates')).fontSize,"
+            " getComputedStyle(document.body).fontSize]")
+    assert [size[0] == size[1] for size in sizes.values()] == [True, True], (
+        f"the table is not at the body size in every mode: {sizes}")
 
 
-def test_one_over_wide_value_does_not_take_room_from_the_other_columns(start_app, open_page):
-    """§3.8 "Candidate table": the columns share the panel's width rather than take their
-    contents'. The values §3.8 names all fit their shares, so what this is for is the one that
-    does not — §2.2 takes whatever the engine sends, and a count no column could hold has to be
-    cut inside the panel rather than served by squeezing the columns beside it. A table that took
-    its contents' widths would answer by shrinking every other column towards its own text (Win to
-    within half a pixel of being cut, measured) and then growing past the panel anyway."""
+def test_the_table_scrolls_sideways_and_neither_the_panel_nor_the_page_does(start_app, open_page):
+    """§3.8 "The page scrolls down, never across" with "Candidate table": the table's surplus
+    width is reached by its **own box's** sideways scrolling, the standing the board strip has.
+    Neither the side panel — a box that scrolls vertically treats a horizontal overflow as
+    scrollable too — nor the document may gain sideways scrolling at any supported width.
+
+    The box is also asserted to actually scroll somewhere in the sweep: a table that fits every
+    width would pass the first two on a page that had quietly gone back to cutting."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+
+    swept = candidates_swept(g, comparing_at_its_widest)
+    across = [(width, boxes) for width, _, boxes in swept
+              if boxes["page"][0] > boxes["page"][1] or boxes["side"][0] > boxes["side"][1]]
+    assert across == [], (
+        f"the page or the side panel scrolls sideways at {len(across)} widths: {across}")
+    boxed = [width for width, _, boxes in swept if boxes["box"] is None]
+    assert boxed == [], ("the table has no box of its own to scroll, so its surplus width has "
+                        f"nowhere to go but the panel's or the page's: {boxed}")
+    scrolled = [width for width, _, boxes in swept if boxes["box"][0] > boxes["box"][1]]
+    assert scrolled, ("the table's box never scrolled in the sweep, so nothing here shows where "
+                      f"its surplus width goes: {[boxes for _, _, boxes in swept]}")
+
+
+@pytest.mark.parametrize("field, value", [
+    ("visits", 1_234_500_000_000),   # Visits: `1234500.0M`
+    ("utility", -12345.6789),         # Value:  `-12345.68`
+    ("scoreLead", -12345.6),          # Score:  `-12345.6`
+])
+def test_an_over_wide_value_is_not_cut_and_costs_no_other_column(start_app, open_page,
+                                                                 field, value):
+    """§3.8 "Candidate table": no numeric cell is **ever** cut — not only the values §3.8 names.
+    §2.2 takes whatever the engine sends, so a value no column could have been sized for has to
+    be shown whole too, and its width may not be taken from the columns beside it.
+
+    Three columns, not just Visits, and in the comparing table where the room is tightest: an
+    over-wide Value or Score is the same case, and the predicate that once let Visits through by
+    name would have let those two be cut in silence."""
     g = open_page(start_app())
     g.proxy_ws()
     g.open()
     resized(g, SHORT)
-    # 1.2345e12 visits: `1234500.0M`, 73px, wider than the widest share the table has (57px).
-    comparing_at_its_widest(g, visits=1_234_500_000_000)
+    comparing_at_its_widest(g, **{field: value})
 
-    # The table's own box against the room its section leaves it: a table that takes its
-    # contents' widths grows its box, so reading the table against itself would see nothing.
-    table, room = g.page.evaluate("""() => {
-        const t = document.querySelector('table.candidates');
-        const box = t.parentElement;
-        const style = getComputedStyle(box);
-        return [Math.round(t.getBoundingClientRect().width),
-                Math.round(box.clientWidth - parseFloat(style.paddingLeft)
-                           - parseFloat(style.paddingRight))];
-    }""")
-    assert table <= room, (f"one over-wide cell grew the table to {table}px in the {room}px its "
-                           "section leaves it, which the side panel can only offer sideways")
-    cut = [f"{head.strip()} {text.strip()!r} {scroll}>{client}"
-           for head, text, scroll, client in column_fit(g)
-           if scroll > client and head.strip() != g.t("col.visits")]
-    assert cut == [], f"one over-wide cell cost {len(cut)} other columns their number: {cut}"
+    assert cut_columns(g) == [], (
+        f"an over-wide {field} left {len(cut_columns(g))} columns cut: {cut_columns(g)}")
+    boxes = sideways(g)
+    assert boxes["side"][0] == boxes["side"][1] and boxes["page"][0] == boxes["page"][1], (
+        f"an over-wide {field} pushed the panel or the page sideways: {boxes}")
 
 
 def test_the_readout_loses_whole_fields_off_its_end(start_app, open_page):

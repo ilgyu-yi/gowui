@@ -360,3 +360,90 @@ def test_every_view_shows_a_candidate_the_search_it_had(start_app, open_page):
     assert (readout_field(g, "move"), readout_field(g, "visits"),
             readout_field(g, "value"), readout_field(g, "valueLcb")) == (
         known, "1.0k", "B+0.42", "B+0.31")
+
+
+# -- what the candidate circles paint (§3.8 "Top candidates") ------------------------------------
+#: Wrap `fillText` and the `fillStyle` setter on the 2D context prototype, so a draw's text and
+#: colours can be read back. A canvas is otherwise write-only to a test: `-` and `undefined` are
+#: both "some white pixels" to a screenshot, and an invalid colour is *no* pixels at all — the
+#: assignment is ignored and the shape keeps the previous fill, which is the failure that lies.
+#: The assigned value is recorded, not the property afterwards, for exactly that reason.
+RECORDER = """() => {
+    const proto = CanvasRenderingContext2D.prototype;
+    window.__paint = {text: [], fill: []};
+    const fillText = proto.fillText;
+    proto.fillText = function (text) {
+        if (this.canvas.id === 'board' && window.__paint) {
+            window.__paint.text.push([String(text), String(this.fillStyle)]);
+        }
+        return fillText.apply(this, arguments);
+    };
+    const own = Object.getOwnPropertyDescriptor(proto, 'fillStyle');
+    Object.defineProperty(proto, 'fillStyle', {
+        configurable: true,
+        get: own.get,
+        set: function (value) {
+            if (this.canvas.id === 'board' && window.__paint) {
+                window.__paint.fill.push(String(value));
+            }
+            own.set.call(this, value);
+        },
+    });
+}"""
+
+#: The two fills the candidate labels are painted in: the main line and the second, smaller one.
+#: Everything else the board writes — the coordinates — is painted in the wood's brown, so the
+#: fill separates the circles' text from the grid's without the test knowing either font.
+LABEL_FILLS = ("#ffffff", "rgba(255, 255, 255, 0.85)")
+
+
+def label_text(g: Gowui) -> list[str]:
+    """What the last draw wrote on the candidate circles, in the order it wrote it."""
+    return [text for text, fill in g.page.evaluate("() => window.__paint.text")
+            if fill in LABEL_FILLS]
+
+
+def test_a_candidate_the_other_tuple_never_searched_is_drawn_whole(start_app, open_page):
+    """§3.8 "Top candidates": a count some candidates carry and others do not is a case, not an
+    edge — while comparing, B's candidates are its own moves, and a move A's search never reached
+    has no count while its neighbours do.
+
+    Three guards hold the circle for that move together, and none of them is reachable through the
+    DOM: the main label is the `-` of "Label modes" and not the word `undefined`; there is no
+    second line, rather than a second line reading `undefined`; and the weight is nothing rather
+    than a `NaN`, which is not a colour — the browser drops an invalid `fillStyle`, so the circle
+    would silently keep the *previous* candidate's fill and say the wrong weight instead of none.
+    """
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    size = g.state()["game"]["size"]
+    known, only_b = vertex(0, 0, size), vertex(5, 5, size)
+    a = [0.0] * (size * size + 1)
+    b = [0.0] * (size * size + 1)
+    a[0], b[0] = 0.9, 0.4
+    b[5 * size + 5] = 0.6
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [move_info(known, visits=1000, prior=0.9)], source="handol", policy=a,
+        # B names a second move, and the search that ran on the position never evaluated it: the
+        # merge leaves its visits undefined, where its neighbour's is a thousand.
+        compare={"policy": b, "moveInfos": [move_info(known, visits=None, prior=0.4),
+                                            move_info(only_b, visits=None, prior=0.6)]})))
+    expect(g.page.locator("table.candidates thead th")).to_have_count(8, timeout=QUICK)
+    g.page.locator("#label-mode").select_option("visits")
+
+    g.page.evaluate(RECORDER)
+    before = g.draws()
+    show_view(g, "B")
+    after_a_draw(g, before)
+    g.expect_dataset("candidates", "2")
+
+    # The known move's main line and its second line, then the one B alone names — which takes the
+    # dash and no second line at all.
+    assert label_text(g) == ["1.0k", "1.0k", "-"], (
+        f"the circles wrote {label_text(g)}, not the known move's count twice and a dash for the "
+        f"move {only_b} that A's search never reached")
+    invalid = [fill for fill in g.page.evaluate("() => window.__paint.fill") if "NaN" in fill]
+    assert invalid == [], (
+        f"the draw asked for {len(invalid)} colours a browser cannot parse: {invalid} — an "
+        "ignored fillStyle leaves the circle the previous one's colour, so the shade lies")
