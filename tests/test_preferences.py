@@ -138,9 +138,10 @@ def test_the_spec_set_covers_what_the_page_trims():
     from an equality claim, so a paragraph that kept this list and went back to saying the two sets
     are the same would pass every other assertion here.
     """
-    section = spec_section("### 4.1")
-    assert "does not equal it" in section
-    assert "strict superset by those five" in section
+    section = " ".join(spec_section("### 4.1").split())
+    assert "does not equal it" in section, "§4.1 must not claim the two trim sets are equal"
+    assert "strict superset by those five" in section, \
+        "§4.1 must name the five codepoints added by the server"
     page = set("\t\n\v\f\r       　﻿")
     page.update(chr(point) for point in range(0x2000, 0x200B))
     written = spec_trim_set()

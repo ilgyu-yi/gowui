@@ -11,7 +11,7 @@ import re
 import pytest
 
 from frontend_helpers import (SCRIPTS, SOCKET_SEND, SWITCH_TYPE, all_js, read_js, read_static,
-                              run_node, static_file, strip_js_comments)
+                              run_node, spec_section, static_file, strip_js_comments)
 
 
 def index() -> str:
@@ -137,29 +137,48 @@ def test_no_script_writes_a_style_attribute(name):
     assert found == []
 
 
-#: Every CSSOM property a script writes, as §7.5 "Rendering safety" enumerates them: the file it
-#: lives in, the property, and how many lines write it.
-STYLE_WRITES = {
-    ("board.js", "width"): 1, ("board.js", "height"): 1,
-    ("app.js", "width"): 2,
-    ("tuple.js", "left"): 1, ("tuple.js", "top"): 1,
-}
+STYLE_CLAIM = re.compile(r"`([^`]+\.js)` writes ([^;.]+)")
+STYLE_PROPERTY = re.compile(r"`([A-Za-z]\w*)` (once|twice)")
+
+
+def spec_style_writes() -> dict[tuple[str, str], int]:
+    """The file, property and assignment count written in §3.8 "Rendering safety"."""
+    section = spec_section("### 3.8")
+    paragraph = " ".join(
+        section[section.index("**Rendering safety**"):].split("\n\n")[0].split())
+    counts = {"once": 1, "twice": 2}
+    return {(name, prop): counts[count]
+            for name, claims in STYLE_CLAIM.findall(paragraph)
+            for prop, count in STYLE_PROPERTY.findall(claims)}
 
 
 def test_the_style_writes_are_the_ones_section_7_5_names():
     """§7.5 enumerates the CSSOM property writes, because they are the page's whole style surface
     under the policy — a new one is a new thing the CSP has to allow.
 
-    That sentence has been wrong four times, three of them from a ``grep`` census. The reason is
-    worth the pin: ``tuple.js`` holds literal control bytes in a character-class regex, so a plain
-    ``grep`` treats it as binary and drops its two writes — on some builds without even saying so.
-    This reads the sources as text, so it cannot miss a file for being binary.
+    Every ``.style`` access must be a direct dotted assignment. That makes a bracketed property,
+    a dynamic property, an alias and ``Object.assign(el.style, ...)`` fail instead of escaping the
+    property census. The expected map is read from the SPEC rather than repeated in this file.
     """
     found: dict[tuple[str, str], int] = {}
+    accesses = 0
     for name in SCRIPTS:
-        for prop in re.findall(r"\.style\.([A-Za-z]\w*)", strip_js_comments(read_js(name))):
+        code = strip_js_comments(read_js(name))
+        accesses += len(re.findall(r"\.style\b", code))
+        for prop in re.findall(r"\.style\.([A-Za-z]\w*)\s*=", code):
             found[(name, prop)] = found.get((name, prop), 0) + 1
-    assert found == STYLE_WRITES
+    assert sum(found.values()) == accesses, \
+        "every .style access must be a direct dotted assignment the census can name"
+    assert found == spec_style_writes(), "the CSSOM assignments and §3.8 disagree"
+
+
+def test_the_preset_name_control_range_is_written_as_escapes():
+    """The rule stays visible to text tools; literal NUL/C1 bytes made ``tuple.js`` binary."""
+    source = read_js("tuple.js")
+    found = re.search(r"var BAD_NAME_CHAR = /(.+)/;", source)
+    assert found is not None, "tuple.js has no BAD_NAME_CHAR regex"
+    assert found.group(1) == r"[\x00-\x1f\x7f-\x9f]|[^\S ]", \
+        "the preset-name C0/C1 and whitespace rule changed or contains literal control bytes"
 
 
 # -- the candidate readout (§3.8 "Candidate readout", "PV preview") -----------------------------------
