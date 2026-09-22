@@ -55,7 +55,7 @@ body {
 
 main {
   display: grid;
-  grid-template-columns: 148px minmax(320px, 1fr) 380px;
+  grid-template-columns: 148px minmax(320px, 1fr) 424px;
   gap: 16px;
   padding: 16px;
   align-items: start;
@@ -161,7 +161,26 @@ details > .row:first-of-type { margin-top: 8px; }
    min-width: 0 — the box is as wide as its column and never as wide as its table: a grid or flex
    item is at least its content's min-content width without it, and the box would widen the panel
    rather than scroll within itself. */
-.candidates-box { overflow-x: auto; min-width: 0; }
+/* The box runs to the section's inner edge: the 10px of padding on each side was the difference
+   between the eight comparing columns fitting the panel and scrolling, and keeping text off the
+   border is already the cells' own padding's job (§3.8 "Candidate table"). */
+.candidates-box { overflow-x: auto; min-width: 0; margin: 0 -10px; }
+/* Where the box does clip, the clipped edge says so: the last column fades out instead of ending
+   at a hard edge that looks like the end of the table. A reserved scrollbar track cannot carry
+   this — on the platforms that draw overlay scrollbars no track is reserved at all, so a column
+   cut off at the box's edge is indistinguishable from no column (§3.8 "Candidate table"). The
+   edges that have content past them are `data-more`, written by app.js from the box's own
+   scrollLeft, so the fade is on the side there is more to see. */
+.candidates-box[data-more="end"] {
+  mask-image: linear-gradient(to left, transparent, #000 24px);
+}
+.candidates-box[data-more="start"] {
+  mask-image: linear-gradient(to right, transparent, #000 24px);
+}
+.candidates-box[data-more="both"] {
+  mask-image: linear-gradient(to right, transparent, #000 24px,
+                              #000 calc(100% - 24px), transparent);
+}
 /* width: 100% stretches the table over the panel when its columns fit in less, so a wide window
    looks as it did. Where they do not fit, the table takes their width and overflows the box. */
 .candidates { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }

@@ -1040,7 +1040,61 @@
       }
       line.appendChild(field);
     });
+    fitLater();
   }
+
+  /* -- what each surface can hold at this window (§3.8 "Candidate table", "Candidate readout") -- */
+  // Neither surface is guessed at: the table's box says which of its edges clip, and the readout
+  // drops the fields it cannot show whole. Both read the layout, so they run once per animation
+  // frame and not once per analysis frame - a fast engine would otherwise lay the page out on
+  // every frame it sends, the same cost `scrollLater` above avoids for the same reason.
+  var fitDue = false;
+  function fitLater() {
+    if (fitDue) return;
+    fitDue = true;
+    requestAnimationFrame(function () {
+      fitDue = false;
+      markTableEdges();
+      trimReadout();
+    });
+  }
+
+  // The box's surplus width is reached by scrolling the box, and on a platform that draws overlay
+  // scrollbars nothing says it is there: no track is reserved, so a column clipped at the box's
+  // edge is indistinguishable from a column the table does not have. `data-more` names the edges
+  // that have content past them; the fade over them is CSS (§3.8 "Candidate table").
+  function markTableEdges() {
+    var box = document.querySelector('.candidates-box');
+    var slack = box.scrollWidth - box.clientWidth;
+    var start = box.scrollLeft > 1;
+    var end = slack - box.scrollLeft > 1;
+    var edges = slack < 1 ? '' : (start ? (end ? 'both' : 'start') : 'end');
+    if (edges) box.dataset.more = edges;
+    else delete box.dataset.more;
+  }
+
+  // The line loses whole fields off its end rather than cutting one in half: a field the line's
+  // edge crosses is hidden, so a number is never shown short of its last digits - a truncated
+  // signed decimal still reads as a number and is off by an order of magnitude (§3.8 "Candidate
+  // readout"). Every field is shown before anything is measured, so a window that grew gives its
+  // fields back; the tail is hidden after every read, so hiding one moves nothing before it.
+  function trimReadout() {
+    var line = $('candidate-readout');
+    var fields = line.querySelectorAll('.field');
+    var over = [];
+    var i;
+    for (i = 0; i < fields.length; i++) fields[i].hidden = false;
+    var edge = line.getBoundingClientRect().right;
+    for (i = 0; i < fields.length; i++) {
+      over.push(fields[i].getBoundingClientRect().right > edge + 0.5);
+    }
+    for (i = 0; i < fields.length; i++) fields[i].hidden = over[i];
+  }
+
+  // A resize changes what both surfaces hold and re-renders neither; scrolling the box changes
+  // which of its edges has content past it.
+  window.addEventListener('resize', fitLater);
+  document.querySelector('.candidates-box').addEventListener('scroll', fitLater);
 
   function appendLog(line) {
     var log = $('log');
