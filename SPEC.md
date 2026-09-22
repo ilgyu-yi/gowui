@@ -559,9 +559,8 @@ same key. A space is created in four steps:
 - **Select** switches boards (also `[` / `]`). **Rename** trims the name (the set of §4.1),
   ignores an empty one, truncates it to 40 characters (§7.6) and trims again — the cut falls
   wherever the 40th character is, so it can leave the space that was between two words at the end,
-  and a name a **rename** stores ends in nothing that set takes off, whatever its length. Other
-  paths that write a board name are not bound by this bullet — restoring a snapshot is §8.1. **Move** puts a board after
-  another, or at the head, and changes nothing else (§4.1).
+  and a stored board name ends in nothing that set takes off, whatever its length. **Move** puts a
+  board after another, or at the head, and changes nothing else (§4.1).
 - **Delete** removes a board, switching to a neighbour when it was active. Deleting the **last**
   board is accepted and **resets it in place** instead: the board keeps its id, its place and its
   active status, and becomes a fresh board — so its game, name, last analysis, profile and tuples
@@ -1134,18 +1133,14 @@ attribute, and no `data:` or `javascript:` URL; the icon is `/favicon.svg`. Scri
 with `createElement`, `textContent` and `replaceChildren`, and never use `innerHTML`,
 `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function`. The only style
 writes are three things — the canvas's size, the winrate bar's width, and the hover card's
-position — which the policy allows. They are four CSSOM properties over six lines
-(`grep -rn --binary-files=text '\.style\.' gowui/static/js/`): the canvas takes `width` and
-`height` together, since one scale factor maps clicks to rows and a non-square element would map
-them to the wrong one; the bar's `width` is written from both arms of the winrate branch — the flat
-50% with no winrate to show, and the winrate itself; and the hover card takes `left` and `top`,
-because it is placed against whichever field the pointer is on and flips side when it would run off
-the edge. Everything else a script changes about how the page looks it changes by adding or
-removing a class, so a new appearance costs a rule and not a write.
-
-`--binary-files=text` is load-bearing, not decoration: `tuple.js` holds literal control bytes in a
-character-class regex, so a plain `grep` reads it as binary and drops its two lines — silently on
-some builds. A count taken without that flag has been wrong here more than once.
+position — which the policy allows. They are four CSSOM properties in six assignments: `board.js`
+writes `width` once and `height` once; `app.js` writes `width` twice; and `tuple.js` writes `left`
+once and `top` once. The canvas takes both dimensions together, since one scale factor maps clicks
+to rows and a non-square element would map them to the wrong one; the bar's width has a flat 50%
+case and the winrate itself; and the hover card takes both coordinates because it is placed against
+whichever field or knob the pointer is on and flips side when it would run off the edge. Everything
+else a script changes about how the page looks it changes by adding or removing a class, so a new
+appearance costs a rule and not a write.
 
 **Test observability.** Each draw of the board canvas records what it drew on the canvas's
 `dataset`, which the page's own logic never reads:
@@ -1271,8 +1266,8 @@ is a strict superset by those five. Covering is what the wire needs: a name the 
 out of the server's trim unchanged. The mark is in the set for that reason — `trim()` takes one,
 so a name ending in a mark would otherwise be stored with it on one side of the wire and without
 it on the other. The five the server takes off beyond the page's set are control characters (C0 or
-C1) that no name may hold anywhere in any case, by the rule above. A board name a **rename**
-stores is trimmed with the same set (§3.3).
+C1) that no name may hold anywhere in any case, by the rule above. A stored board name is trimmed
+with the same set (§3.3).
 
 What is stored goes to every tab of the identity in the next `state` (§4.2) and is written by the
 same saves as the snapshot (§8.2).
@@ -1665,7 +1660,7 @@ printable characters without surrounding spaces; passwords have 8–256 characte
   raise opens a window in; issue #58 holds the decision that closes it. The dummy is a hash in
   stored form carrying the current parameters, a random salt and a random digest no password
   matches, so making it runs no scrypt at all: opening the database costs no hash (§8.4), and a
-  missing name always costs the one scrypt a real check costs — never two, never none.
+  missing name always runs the one scrypt a real check runs.
 - **Memory cap.** Each call caps scrypt's memory at what its own parameters need
   (128·r·(N + p + 2), plus a megabyte of slack), so a hash written under a costlier setting is
   verified rather than refused above a fixed cap: raising the cost past N = 2^17, r = 8 must not
@@ -2015,8 +2010,9 @@ disconnected and is dropped (the next snapshot stores `request: null`). A lost e
 stored as `connected: false`. A restored `request` must be a flat object of at most 16 entries,
 each a string key and a scalar value — a string of at most 256 characters, a number, a boolean or
 null; anything else is restored as `null`. Restore also enforces the limits of §7.6: only the first 64 boards are kept, a
-duplicate or non-positive board id is replaced by a fresh one, names are truncated, an invalid
-tuple becomes `{}` and an invalid profile the default. A snapshot whose `version` is not 1 is
+duplicate or non-positive board id is replaced by a fresh one, names are trimmed, truncated and
+trimmed again (§3.3), an invalid tuple becomes `{}` and an invalid profile the default. A snapshot
+whose `version` is not 1 is
 refused as a whole with a `ValueError`, so the storage policy sets it aside (§8.3); nothing else
 in a snapshot makes restore raise.
 

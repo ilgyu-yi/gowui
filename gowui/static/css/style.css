@@ -84,7 +84,7 @@ main {
 /* flex: none, not min-width: 0 — the fields keep their own width. A flex item squeezed below its
    content does not cut its text: it paints it over the field beside it, so a line too narrow for
    all of them would become unreadable from end to end instead of losing its end. What it loses,
-   and why that end, is SPEC §3.8 "Candidate readout" ("What a narrow window costs it"). */
+   and why that end, is SPEC §3.8 "Candidate readout" ("What a small window costs it"). */
 .readout .field { display: flex; gap: 4px; align-items: baseline; flex: none; }
 .readout .num { color: var(--text); }
 .readout .mark { color: var(--accent); font-weight: 600; }
