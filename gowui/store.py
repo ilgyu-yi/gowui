@@ -132,9 +132,10 @@ class Scrypt:
     def dummy(self) -> str:
         """A hash in stored form that no password matches, made without running scrypt (§7.1).
 
-        Verifying against it costs exactly the one scrypt a real check costs, so a missing name
-        takes what a wrong password takes, while opening the database costs no hash at all
-        (§8.4): a ``gowui user list`` pays nothing for a hash it never uses.
+        Verifying against it runs one scrypt with the current parameters, as a real check against
+        a hash carrying those parameters does. A legacy-cost account may differ (issue #58).
+        Opening the database costs no hash at all (§8.4): a ``gowui user list`` pays nothing for
+        a hash it never uses.
         """
         b64 = base64.b64encode
         return (f"scrypt${self.n}${self.r}${self.p}${b64(os.urandom(16)).decode()}"

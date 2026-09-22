@@ -150,6 +150,16 @@ async def test_a_restored_board_name_is_truncated_to_40_characters(h, make_sessi
     assert board_entry(state, 1)["name"] == "n" * 40
 
 
+@pytest.mark.parametrize(("name", "expected"), [
+    ("\ufeff study \ufeff", "study"),
+    ("x" * 39 + " word", "x" * 39),
+], ids=["trim-set", "trim-after-cut"])
+async def test_a_restored_board_name_is_trimmed_like_a_rename(h, make_session, name, expected):
+    data = with_boards(h.session.snapshot(), [board(1, name=name)])
+    state = await restored(make_session, data).fresh_state()
+    assert board_entry(state, 1)["name"] == expected
+
+
 @pytest.mark.parametrize("tuple_", [{"min_p": 5}, {"surprise": 1}, "wide", [1], None],
                          ids=["range", "unknown-key", "string", "list", "null"])
 async def test_an_invalid_restored_tuple_becomes_empty(h, make_session, tuple_):

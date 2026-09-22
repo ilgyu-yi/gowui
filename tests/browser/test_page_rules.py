@@ -245,6 +245,19 @@ def test_a_visits_field_with_a_number_still_sends_it(start_app, open_page):
     assert g.state()["settings"]["maxVisits"] == 700
 
 
+def test_an_unusable_visits_edit_checks_lambda_against_the_setting_in_force(start_app, open_page):
+    """The field names no setting while it is unusable, so lambda is checked against the last
+    ``state`` rather than against the field's temporary lack of a number."""
+    g = open_page(start_app()).open()
+    g.page.locator("#protocol").select_option("handol")
+    g.page.locator("#human-preset").select_option("builtin:lambdaLight")
+    expect(g.page.locator("#tuple-problem")).to_be_hidden()
+
+    g.page.locator("#max-visits").fill("1.9")
+    g.page.locator("#human-policy").dispatch_event("input")
+    expect(g.page.locator("#tuple-problem")).to_be_hidden()
+
+
 # -- stored presets (§8.5) -----------------------------------------------------------------------
 def test_a_stored_preset_the_tuple_rules_refuse_is_dropped(start_app, open_page):
     """§8.5: an entry without a name, or with a tuple §2.5 refuses, is dropped when the list is

@@ -170,7 +170,7 @@
   var MAX_PRESET_NAME = 40;
   // Whitespace other than a plain space, and a C0 or C1 control: a newline would let a name fake
   // a line of the confirmation dialogs below.
-  var BAD_NAME_CHAR = /[ --]|[^\S ]/;
+  var BAD_NAME_CHAR = /[\x00-\x1f\x7f-\x9f]|[^\S ]/;
 
   // Code points, as the server counts them: a name of 40 emoji is 40 characters, not 80 units.
   function nameLength(name) { return Array.from(name).length; }
@@ -226,7 +226,7 @@
   /**
    * Build the editor. ``opts.onChange({policy, compare})`` fires with a valid
    * pair (compare is null when comparison is off); ``opts.visits()`` gives the
-   * current Visits setting, which decides whether λ is usable.
+   * Visits setting in force, which decides whether λ is usable.
    *
    * ``opts.onPresets(list)`` fires instead of a write to browser storage once
    * ``usePresets`` has said the account keeps the presets (§8.5); the caller
@@ -251,6 +251,10 @@
     var timer = null;
     var fieldInputs = {};
     var knobParts = {};
+
+    ['preset-save', 'preset-delete', 'preset-export', 'preset-import'].forEach(function (id) {
+      $(id).disabled = true;
+    });
 
     /* -- build controls ------------------------------------------------ */
     FIELDS.forEach(function (field) {
@@ -441,7 +445,7 @@
       var mine = userPresets.filter(function (p) { return sameTuple(p.tuple, tuple); })[0];
       var builtIn = PRESETS.filter(function (p) { return sameTuple(p.tuple, tuple); })[0];
       $('human-preset').value = mine ? 'user:' + mine.name : builtIn ? 'builtin:' + builtIn.id : '';
-      $('preset-delete').disabled = !mine;
+      $('preset-delete').disabled = !presetsSettled || !mine;
     }
 
     /* -- state -> controls --------------------------------------------- */
@@ -665,6 +669,9 @@
       usePresets: function (list) {
         accountPresets = true;
         presetsSettled = true;
+        $('preset-save').disabled = false;
+        $('preset-export').disabled = false;
+        $('preset-import').disabled = false;
         // Not merely "stores none": the key goes, so a list saved here before lingers for nobody
         // (§8.5).
         clearUserPresets();
@@ -681,6 +688,9 @@
       useBrowserPresets: function () {
         if (presetsSettled) return;
         presetsSettled = true;
+        $('preset-save').disabled = false;
+        $('preset-export').disabled = false;
+        $('preset-import').disabled = false;
         userPresets = loadUserPresets();
         fillPresetMenu();
       },

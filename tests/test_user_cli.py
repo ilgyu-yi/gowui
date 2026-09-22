@@ -277,9 +277,9 @@ def test_opening_the_database_runs_no_password_hash(tmp_path, scrypt_calls):
         store.close()
 
 
-def test_a_missing_name_costs_the_same_one_hash_a_wrong_password_costs(tmp_path, scrypt_calls):
-    """§7.1: not two (a dummy built on the spot), not none (no dummy at all) — the one scrypt a
-    real check costs, on the first missing name as on every later one."""
+def test_a_missing_name_runs_one_hash_as_a_wrong_password_does(tmp_path, scrypt_calls):
+    """§7.1: a missing name and a wrong password each run one scrypt call. This pins the count,
+    not equal duration or parameters; a legacy-cost account is issue #58."""
     from gowui.store import Store
 
     store = Store(tmp_path / "data" / "gowui.db", hasher=cheap())
