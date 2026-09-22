@@ -165,7 +165,7 @@ def test_the_style_writes_are_the_ones_section_7_5_names():
     for name in SCRIPTS:
         code = strip_js_comments(read_js(name))
         accesses += len(re.findall(r"\.style\b", code))
-        for prop in re.findall(r"\.style\.([A-Za-z]\w*)\s*=", code):
+        for prop in re.findall(r"\.style\.([A-Za-z]\w*)\s*=(?!=)", code):
             found[(name, prop)] = found.get((name, prop), 0) + 1
     assert sum(found.values()) == accesses, \
         "every .style access must be a direct dotted assignment the census can name"
