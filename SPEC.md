@@ -671,8 +671,8 @@ for a control beside it.
 - **The page scrolls down, never across.** From 320px wide up, the document gains no horizontal
   scrolling: the board takes the width its column offers and no more, and a row of controls too
   wide for the window wraps instead of pushing past it. Nothing may be reached only by scrolling
-  **the page** sideways — the board strip scrolls sideways within itself, which is its own
-  scrolling and not the page's.
+  **the page** sideways — the board strip and the candidate table's box (§3.8 "Candidate table")
+  scroll sideways within themselves, which is their own scrolling and not the page's.
   The floor is 320px because the board canvas is never drawn narrower than 240px (§3.8 "Board"),
   and under about 260px that floor plus the layout's padding no longer fits the window; below it
   the page does scroll across, and that is accepted rather than designed around.
@@ -750,6 +750,14 @@ finally either the PV preview or the candidates.
   circle coloured from red (little weight) to green (the most), where the weight is the visits,
   or the absolute prior when no candidate has visits. The first is ringed in white. A second,
   smaller line shows the visits when the candidates have visits.
+  **A count some candidates carry and others do not is a case, not an edge.** While comparing, the
+  drawn candidates are the shown tuple's own `moveInfos`, and B's are merged with A's candidate
+  for the same move (§3.8 "Compare views"), so a move B names that A's search never reached has no
+  count while its neighbours do. The one without weighs
+  nothing — it does not make the shade a `NaN`, which is not a colour and would leave the circle
+  the previous one's fill, saying the wrong weight rather than none. It takes no second line
+  either, and its main label in the `visits` mode is the `-` of "Label modes" above and not the
+  word `undefined`.
 - **Candidate table.** The first 10 `moveInfos`, with the columns Move, Win (from the side
   searched for), Score (signed), Visits, Policy and Value. For a handol-mux analysis (`source` is
   `handol`) the columns are Move, Win, Score, Visits, Prob and Value; while comparing they are
@@ -758,17 +766,22 @@ finally either the PV preview or the candidates.
   count reachable only by hovering a candidate — the one gesture that covers the position. Value is
   `utility`, signed, two decimals. The first row is marked as the best. Hovering a row previews
   its PV; clicking it plays the move for the side to move.
-  **No numeric cell is ever cut.** The columns share the panel's width rather than take their
-  contents' (an eight-column table at its content width would hand the scrolling side panel a
-  sideways scrollbar, §3.8 "The page scrolls down, never across"), so the share has to hold the
-  widest value each column can carry: `100.0%`, `-123.4`, `1.2M`, `+99.7%`, `-1.23`. An even share
-  does not — the panel leaves the table 358px, an eighth of that is 45px, and `100.0%` needs 56px,
-  `-123.4` 50px, which the ellipsis rule then renders `100…` and `-12…`. A truncated signed
-  decimal is worse than a missing one: it still reads as a number, and it is off by an order of
-  magnitude. So while comparing, the columns take uneven shares — Visits, Value and Move less,
-  the four percentages more — and the table is set one step smaller than the body text, which is
-  what makes the eight of them fit. The six columns of the other modes fit an even share at the
-  body size and keep it.
+  **No numeric cell is ever cut**, at every width §3.8 "The page scrolls down, never across"
+  supports and in every mode. A truncated signed decimal is worse than a missing one: it still
+  reads as a number, and it is off by an order of magnitude — `-12…` for `-123.4`.
+  Each column takes its own contents' width, and the table sits in a **box of its own that scrolls
+  sideways** when they come to more than the panel offers. That is what makes the guarantee
+  unconditional: a column is never smaller than the number in it, so there is no share for a value
+  to be too wide for and nothing for an ellipsis to cut. Where the columns fit, the table is
+  stretched over the panel and the box does not scroll; below that width the surplus is reached by
+  the box's own sideways scrolling, which is the box's and not the page's — the standing the board
+  strip has in §3.8 "The page scrolls down, never across". The table is set at the body size in
+  every mode; nothing is bought by shrinking the type.
+  The rejected alternative is on the record because it was tried: sharing the panel's width
+  between the columns, with a measured share per column and the comparing table one step smaller.
+  It buys the guarantee with pixels. Eight measured shares left single-digit slack against an
+  unpinned `system-ui` stack, and the same table that fit on macOS cut `100.0%` in two columns on
+  Linux, by one pixel. A guarantee that a font stack nobody pinned can turn false is not one.
 - **Candidate readout.** One line under the board, above the navigation row, always present so the
   controls below it do not move as it fills. It carries the **fields of the table's current mode,
   plus Visits and Value** — one rule, so the line and the table cannot come to disagree — with
@@ -799,7 +812,9 @@ finally either the PV preview or the candidates.
   its fixed height exists to prevent; scrolling across is refused everywhere (§3.8 "Scrolling");
   a `title` is reachable by neither keyboard nor touch; and reordering the fields to save the
   Value would break the rule that the line and the table cannot come to disagree. What is lost
-  off the line is still in the table beside the board, whose own columns are never cut.
+  off the line is still in the table beside the board, which cuts no column at any width: at a
+  window too narrow for all eight of them the table is reached by its box's own sideways
+  scrolling, never by the page's (§3.8 "Candidate table").
 - **PV preview.** Hovering a drawn candidate on the board (a `moveInfos` entry past the drawn
   ones is not on the board and previews nothing), or its table row, draws the first 20 moves
   of its `pv` as numbered stones, alternating colours from the side searched for and numbered
@@ -1068,7 +1083,7 @@ line until the card moved into CSS; the sentence outlived it.)
 | `ownership` | `on` when ownership squares were drawn, else `off` |
 | `numbers` | `on` when move numbers were drawn, else `off` |
 | `lastMoveRing` | the point the last-move ring went round, or empty |
-| `positionDim` | the strength the position's stones were drawn at: `1`, or the dim while a preview is up. Read back off the canvas after the stones are painted, so it is what the draw did and not what it was asked for; with no stones on the board there is nothing to observe and it is the strength the draw asked for |
+| `positionDim` | the strength the position's stones were drawn at: `1`, or the dim while a preview is up. Read back off the **drawing context** — `globalAlpha` after the stone's fill and before the state is popped — not off the painted pixels: it is the alpha the fill went on at, so a stone painter that ignored its argument is caught, while one that painted the alpha somewhere the stone is not is not. With no stones on the board there is nothing to observe and it is the strength the draw asked for |
 
 Each thumbnail canvas records `draws` the same way. `window.__lastAnalysis` holds the payload of
 the last `analysis` frame applied.
