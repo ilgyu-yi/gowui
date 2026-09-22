@@ -529,6 +529,20 @@ def test_the_value_is_reachable_at_every_window(start_app, open_page):
     assert any(not seen["onLine"] and seen["unscrolled"] for _, seen in swept), (
         f"no shape reads the Value out of the table beside the board: {swept}")
 
+    # The unscrolled reading is bought with the side panel's own width, and nothing above pins it:
+    # with the clipped edge marked, a page that gave the table back the 358px box it had — where
+    # the Value sat entirely past the edge at every wide window — passes every assertion above.
+    # What is pinned is the track, not the fit it buys: 424px is a CSS fact on every platform,
+    # while how much of the box's 422px survives a classic scrollbar's gutter and a wider font
+    # stack is not (§3.8 "Candidate table").
+    resized(g, ROOMY)
+    track, room = g.page.evaluate("""() => [
+        getComputedStyle(document.querySelector('main')).gridTemplateColumns.split(' ').pop(),
+        Math.round(document.querySelector('.candidates-box').clientWidth)]""")
+    assert track == "424px", (
+        f"the wide layout's side panel is {track}, not the 424px the eight comparing columns "
+        f"were measured against; the table's box has {room}px of it")
+
 
 def edge_mark(g: Gowui) -> tuple[str, bool]:
     """The edges the table's box says have content past them, and whether the page fades one."""
