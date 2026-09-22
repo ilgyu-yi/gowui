@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 618 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 622 |
 | &nbsp;&nbsp;§3.8 | The page | 631 |
-| §4 | WebSocket protocol | 1145 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1149 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1256 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1298 |
-| §5 | HTTP routes | 1392 |
-| §6 | Launch modes and policies | 1467 |
-| &nbsp;&nbsp;§6.1 | The rule | 1469 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1505 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1545 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1578 |
-| §7 | Authentication and security | 1620 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1622 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1686 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1722 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1742 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1790 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1811 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1857 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1891 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1905 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1914 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1950 |
-| §8 | Persistence | 1969 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1971 |
-| &nbsp;&nbsp;§8.2 | Saving | 2007 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2040 |
-| &nbsp;&nbsp;§8.4 | Server database | 2082 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2146 |
-| §9 | Command line | 2173 |
-| §10 | Configuration (server) | 2243 |
-| &nbsp;&nbsp;§10.1 | Container | 2281 |
-| §11 | Feature inventory | 2369 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2376 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2414 |
-| §12 | Non-goals | 2432 |
+| §4 | WebSocket protocol | 1152 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1156 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1263 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1305 |
+| §5 | HTTP routes | 1399 |
+| §6 | Launch modes and policies | 1474 |
+| &nbsp;&nbsp;§6.1 | The rule | 1476 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1512 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1552 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1585 |
+| §7 | Authentication and security | 1627 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1629 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1693 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1729 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1749 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1797 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1818 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1864 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1898 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1912 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1921 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1957 |
+| §8 | Persistence | 1976 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1978 |
+| &nbsp;&nbsp;§8.2 | Saving | 2014 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2047 |
+| &nbsp;&nbsp;§8.4 | Server database | 2089 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2153 |
+| §9 | Command line | 2180 |
+| §10 | Configuration (server) | 2250 |
+| &nbsp;&nbsp;§10.1 | Container | 2288 |
+| §11 | Feature inventory | 2376 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2383 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2421 |
+| §12 | Non-goals | 2439 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -798,8 +798,10 @@ finally either the PV preview or the candidates.
   never drawn under 240px. Three drawn quantities step a pixel across that pair, because every font
   size is a **rounded** fraction of the cell rather than a fraction of it: the stone move numbers
   7 → 6, a candidate circle's visits line 5 → 4, and a three-digit PV number 6 → 5. The coordinates
-  (7) and the candidate label (6) do not, and the line widths do not because they are already on
-  their floors. The rest is size, not detail.
+  (7) and the candidate label (6) do not. Two of the three line widths are unchanged because they sit
+  on their floors at both extents — the grid's at 1 and the best candidate's outline at 1.5 — while
+  the last-move ring's is in its interpolating band and simply scales, 1.66 → 1.47. Those are
+  device pixels at a ratio of 1. The rest is size, not detail.
   **Where the box does clip, the clipped edge says so.** The edge with content past it is faded
   out over 24px — both edges once the box has been scrolled off its start, and the start edge
   alone at its end. A reserved scrollbar track cannot carry this: where the platform draws overlay
@@ -1114,14 +1116,19 @@ shows the newest `state` as soon as it is ready for one, never a backlog of stal
 attribute, and no `data:` or `javascript:` URL; the icon is `/favicon.svg`. Scripts build the DOM
 with `createElement`, `textContent` and `replaceChildren`, and never use `innerHTML`,
 `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or `new Function`. The only style
-writes are two things — the canvas's size and the winrate bar's width — which the policy allows.
-They are three CSSOM properties over four lines (`grep -rn '\.style\.' gowui/static/js/`): the
-canvas takes `width` and `height` together, since one scale factor maps clicks to rows and a
-non-square element would map them to the wrong one, and the bar's `width` is written from both
-arms of the winrate branch — the flat 50% with no winrate to show, and the winrate itself.
-Everything else a script changes about how the page looks it changes by adding or removing
-a class, so a new appearance costs a rule and not a write. (A help card's position was a fourth
-line until the card moved into CSS; the sentence outlived it.)
+writes are three things — the canvas's size, the winrate bar's width, and the hover card's
+position — which the policy allows. They are four CSSOM properties over six lines
+(`grep -rn --binary-files=text '\.style\.' gowui/static/js/`): the canvas takes `width` and
+`height` together, since one scale factor maps clicks to rows and a non-square element would map
+them to the wrong one; the bar's `width` is written from both arms of the winrate branch — the flat
+50% with no winrate to show, and the winrate itself; and the hover card takes `left` and `top`,
+because it is placed against whichever field the pointer is on and flips side when it would run off
+the edge. Everything else a script changes about how the page looks it changes by adding or
+removing a class, so a new appearance costs a rule and not a write.
+
+`--binary-files=text` is load-bearing, not decoration: `tuple.js` holds literal control bytes in a
+character-class regex, so a plain `grep` reads it as binary and drops its two lines — silently on
+some builds. A count taken without that flag has been wrong here more than once.
 
 **Test observability.** Each draw of the board canvas records what it drew on the canvas's
 `dataset`, which the page's own logic never reads:

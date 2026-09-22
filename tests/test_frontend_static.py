@@ -137,6 +137,31 @@ def test_no_script_writes_a_style_attribute(name):
     assert found == []
 
 
+#: Every CSSOM property a script writes, as §7.5 "Rendering safety" enumerates them: the file it
+#: lives in, the property, and how many lines write it.
+STYLE_WRITES = {
+    ("board.js", "width"): 1, ("board.js", "height"): 1,
+    ("app.js", "width"): 2,
+    ("tuple.js", "left"): 1, ("tuple.js", "top"): 1,
+}
+
+
+def test_the_style_writes_are_the_ones_section_7_5_names():
+    """§7.5 enumerates the CSSOM property writes, because they are the page's whole style surface
+    under the policy — a new one is a new thing the CSP has to allow.
+
+    That sentence has been wrong four times, three of them from a ``grep`` census. The reason is
+    worth the pin: ``tuple.js`` holds literal control bytes in a character-class regex, so a plain
+    ``grep`` treats it as binary and drops its two writes — on some builds without even saying so.
+    This reads the sources as text, so it cannot miss a file for being binary.
+    """
+    found: dict[tuple[str, str], int] = {}
+    for name in SCRIPTS:
+        for prop in re.findall(r"\.style\.([A-Za-z]\w*)", strip_js_comments(read_js(name))):
+            found[(name, prop)] = found.get((name, prop), 0) + 1
+    assert found == STYLE_WRITES
+
+
 # -- the candidate readout (§3.8 "Candidate readout", "PV preview") -----------------------------------
 def test_board_js_takes_no_text_from_the_i18n_tables():
     """§3.8: the readout line is "the only place a candidate's full set is written: a preview puts
