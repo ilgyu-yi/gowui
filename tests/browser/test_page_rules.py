@@ -12,6 +12,7 @@ The frames the server would not send on cue (a reordered ``state``, an ``analysi
 from __future__ import annotations
 
 import json
+import math
 
 import pytest
 
@@ -398,18 +399,16 @@ def test_every_view_shows_a_candidate_the_search_it_had(start_app, open_page):
 
 
 # -- what the candidate circles paint (§3.8 "Top candidates") ------------------------------------
-#: Wrap `fillText` and the `fillStyle` setter on the 2D context prototype, so a draw's text and
-#: colours can be read back. A canvas is otherwise write-only to a test: `-` and `undefined` are
-#: both "some white pixels" to a screenshot, and an invalid colour is *no* pixels at all — the
-#: assignment is ignored and the shape keeps the previous fill, which is the failure that lies.
-#: The assigned value is recorded, not the property afterwards, for exactly that reason.
+#: Wrap `fillText` and the paint setters on the 2D context prototype, so a draw's text and colours
+#: can be read back. A canvas is otherwise write-only to a test: `-` and `undefined` are both
+#: merely pixels to a screenshot. The assigned value is recorded, not the normalised property.
 RECORDER = """() => {
     const proto = CanvasRenderingContext2D.prototype;
-    window.__paint = {text: [], fill: []};
+    window.__paint = {text: [], fill: [], stroke: [], arc: [], currentFill: '', currentStroke: ''};
     const fillText = proto.fillText;
     proto.fillText = function (text) {
         if (this.canvas.id === 'board' && window.__paint) {
-            window.__paint.text.push([String(text), String(this.fillStyle)]);
+            window.__paint.text.push([String(text), window.__paint.currentFill]);
         }
         return fillText.apply(this, arguments);
     };
@@ -420,16 +419,37 @@ RECORDER = """() => {
         set: function (value) {
             if (this.canvas.id === 'board' && window.__paint) {
                 window.__paint.fill.push(String(value));
+                window.__paint.currentFill = String(value);
             }
             own.set.call(this, value);
         },
     });
+    const stroke = Object.getOwnPropertyDescriptor(proto, 'strokeStyle');
+    Object.defineProperty(proto, 'strokeStyle', {
+        configurable: true,
+        get: stroke.get,
+        set: function (value) {
+            if (this.canvas.id === 'board' && window.__paint) {
+                window.__paint.stroke.push(String(value));
+                window.__paint.currentStroke = String(value);
+            }
+            stroke.set.call(this, value);
+        },
+    });
+    const arc = proto.arc;
+    proto.arc = function (x, y, radius, start, end, anticlockwise) {
+        if (this.canvas.id === 'board' && window.__paint) {
+            window.__paint.arc.push({start, end, anticlockwise: Boolean(anticlockwise),
+                                     stroke: window.__paint.currentStroke});
+        }
+        return arc.apply(this, arguments);
+    };
 }"""
 
-#: The two fills the candidate labels are painted in: the main line and the second, smaller one.
-#: Everything else the board writes — the coordinates — is painted in the wood's brown, so the
-#: fill separates the circles' text from the grid's without the test knowing either font.
-LABEL_FILLS = ("#ffffff", "rgba(255, 255, 255, 0.85)")
+#: Candidate text fills: the signed difference view's white pair, the policy/visits ring colours,
+#: and the neutral main label used by winrate and score modes.
+LABEL_FILLS = ("#ffffff", "rgba(255, 255, 255, 0.85)", "hsl(8, 80%, 34%)",
+               "hsl(218, 72%, 34%)", "#27313a")
 
 
 def label_text(g: Gowui) -> list[str]:
@@ -438,16 +458,37 @@ def label_text(g: Gowui) -> list[str]:
             if fill in LABEL_FILLS]
 
 
+def test_candidate_arcs_encode_policy_and_share_of_root_visits(start_app, open_page):
+    """The two half-rings start at six o'clock: policy climbs left and visits/root climbs right."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    g.page.locator("#label-mode").select_option("prior")
+    g.page.evaluate(RECORDER)
+    size = g.state()["game"]["size"]
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [move_info(vertex(0, 0, size), visits=20, prior=0.25)], visits=100)))
+    g.expect_dataset("candidates", "1")
+
+    arcs = g.page.evaluate("() => window.__paint.arc")
+    policy = next(a for a in arcs if a["stroke"] == "hsla(8, 88%, 48%, 0.98)")
+    visits = next(a for a in arcs if a["stroke"] == "hsla(218, 86%, 52%, 0.98)")
+    assert policy["start"] == pytest.approx(math.pi / 2)
+    assert policy["end"] - policy["start"] == pytest.approx(math.pi * 0.25)
+    assert policy["anticlockwise"] is False
+    assert visits["start"] == pytest.approx(math.pi / 2)
+    assert visits["start"] - visits["end"] == pytest.approx(math.pi * 0.20)
+    assert visits["anticlockwise"] is True
+
+
 def test_a_candidate_the_other_tuple_never_searched_is_drawn_whole(start_app, open_page):
     """§3.8 "Top candidates": a count some candidates carry and others do not is a case, not an
     edge — while comparing, B's candidates are its own moves, and a move A's search never reached
     has no count while its neighbours do.
 
-    Three guards hold the circle for that move together, and none of them is reachable through the
+    Three guards hold the ring for that move together, and none of them is reachable through the
     DOM: the main label is the `-` of "Label modes" and not the word `undefined`; there is no
-    second line, rather than a second line reading `undefined`; and the weight is nothing rather
-    than a `NaN`, which is not a colour — the browser drops an invalid `fillStyle`, so the circle
-    would silently keep the *previous* candidate's fill and say the wrong weight instead of none.
+    second line, rather than a second line reading `undefined`; and there is no blue visits arc.
     """
     g = open_page(start_app())
     g.proxy_ws()
@@ -478,7 +519,6 @@ def test_a_candidate_the_other_tuple_never_searched_is_drawn_whole(start_app, op
     assert label_text(g) == ["1.0k", "1.0k", "-"], (
         f"the circles wrote {label_text(g)}, not the known move's count twice and a dash for the "
         f"move {only_b} that A's search never reached")
-    invalid = [fill for fill in g.page.evaluate("() => window.__paint.fill") if "NaN" in fill]
-    assert invalid == [], (
-        f"the draw asked for {len(invalid)} colours a browser cannot parse: {invalid} — an "
-        "ignored fillStyle leaves the circle the previous one's colour, so the shade lies")
+    strokes = g.page.evaluate("() => window.__paint.stroke")
+    assert strokes.count("hsla(8, 88%, 48%, 0.98)") == 2
+    assert strokes.count("hsla(218, 86%, 52%, 0.98)") == 1

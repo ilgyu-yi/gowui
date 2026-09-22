@@ -746,17 +746,19 @@ finally either the PV preview or the candidates.
   "Policy %") — the raw policy as a percentage with one decimal; `score` — `scoreLead` with one
   decimal. A null value is shown as `-`.
 - **Top candidates.** At most the first 12 `moveInfos` are drawn (a pass has no point). Each is a
-  circle coloured from red (little weight) to green (the most), where the weight is the visits,
-  or the absolute prior when no candidate has visits. The first is ringed in white. A second,
-  smaller line shows the visits when the candidates have visits.
+  hollow ring, so the stones and grid remain legible while candidates are shown: from six o'clock
+  the vermilion left half rises by the absolute raw-policy probability, and the cobalt right half
+  rises by the move's share of `rootInfo.visits` (the sum of reported candidate visits when the
+  root count is absent). A low-contrast neutral track shows the unfilled part. A candidate without
+  visits has no cobalt arc. The first candidate has a separate white outer ring. The selected main
+  label remains the first line; in `prior` mode its vermilion text matches the policy arc, while
+  other main-label modes use neutral text (`visits` uses cobalt). A second, smaller cobalt line
+  shows the absolute visits when reported.
   **A count some candidates carry and others do not is a case, not an edge.** While comparing, the
   drawn candidates are the shown tuple's own `moveInfos`, and B's are merged with A's candidate
   for the same move (§3.8 "Compare views"), so a move B names that A's search never reached has no
-  count while its neighbours do. The one without weighs
-  nothing — it does not make the shade a `NaN`, which is not a colour and would leave the circle
-  the previous one's fill, saying the wrong weight rather than none. It takes no second line
-  either, and its main label in the `visits` mode is the `-` of "Label modes" above and not the
-  word `undefined`.
+  count while its neighbours do. The one without gets neither a cobalt arc nor a second line; its
+  main label in the `visits` mode is the `-` of "Label modes" above and not the word `undefined`.
 - **Candidate table.** The first 10 `moveInfos`, with the columns Move, Win (from the side
   searched for), Score (signed), Visits, Policy and Value. For a handol-mux analysis (`source` is
   `handol`) the columns are Move, Win, Score, Visits, Prob and Value; while comparing they are
