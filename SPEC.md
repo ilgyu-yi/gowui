@@ -926,8 +926,14 @@ browser's; §8.4, §8.5) with Save as…, Delete (own presets only), Export and 
 knobs (strength, locality, variety, tail cut) and "Apply while dragging"; and, under Raw values,
 the eight tuple fields of §2.5 and the JSON text. Knobs, fields and JSON are kept in step, and
 each knob and field shows a help card on hover. The tuples are checked with the rules of §2.5
-and the Visits field before anything is sent: the first problem is shown as text under the panel
-and nothing is sent. A valid pair is sent as `human_params` (`policy`, and `compare`, which is
+and the **visits in force** before anything is sent (§2.5 "Settings validation"): the first
+problem is shown as text under the panel and nothing is sent. The visits in force are the Visits
+field's number when it names a setting, and the last `state`'s `maxVisits` when it does not —
+a field holding no usable number sends no visit change (§3.8 "Controls"), so the setting it
+leaves standing is the one the query will carry. That is the one `lambda_utility` needs a search
+against (§2.5): an unusable keystroke in the Visits field names no setting and must not make λ
+read as a problem it would not be under the setting the engine still holds. A valid pair is sent
+as `human_params` (`policy`, and `compare`, which is
 null while comparing is off) 300 ms after the last knob or field change, or at once when a
 change is committed. Export downloads `gowui-presets.json`, `{"gowuiPresets": 1, "presets":
 [{"name", "tuple"}]}`; Import accepts that shape or a bare list, skips an entry without a name,
@@ -1068,6 +1074,17 @@ before that: the preset menu holds the built-in presets alone until the first `s
 own presets go under them, so a page the account keeps the presets for never shows this browser's
 presets, not even for the moment before the frame arrives. The first `state` carrying a
 `preferences` object also clears both keys (§8.5).
+
+**Before that frame the four preset-list controls are disabled** — Save as…, Delete, Export and
+Import. A list the page has not read is one it cannot add to, delete from or write out: a save
+would reach neither the account nor storage while the menu showed it saved, and an export would
+write a file holding no presets. Disabling is chosen over the two other answers because it
+answers before the gesture. A refusal shown as red status text (the answer the name and count
+rules take, above) arrives after it and reads as the person's own mistake, when nothing they can
+do shortens the window; a queue would have to be replayed into whichever list the first `state`
+names, merging a save made against the built-in presets alone into a list it was never made
+against. The window is one socket round trip, and it does not end at all where no `state` ever
+arrives.
 
 The page holds the bounds of §4.1 and §7.6 itself, before it sends, because `preferences` is
 refused whole: one entry the server would refuse would otherwise block every later save too.
@@ -2176,6 +2193,15 @@ a shared machine — do not linger for the next person to read out of storage. T
 nothing of its own to put back: a later session that the policy leaves to the browser starts from
 the defaults of §3.8, the language `navigator.language` chooses and no presets of its own, which
 is what a browser that had never run gowui starts from too.
+
+Removing a key empties the storage, not the page. The presets go with it — the menu takes the
+account's list whole — but a `lang` of `null` names no table and so is ignored, as a saved one
+that names none is (§3.8 "Preferences"), and the page goes on showing the language it started
+in for the rest of that session. On a shared browser that is the language the previous person
+chose. It is the account's own choice that is missing, and there is nothing to put in its place:
+the page would otherwise have to pick between `navigator.language` and what is on screen, and
+re-render into a language nobody asked for. The key is gone, so the next load starts from
+`navigator.language` rather than from either.
 
 ## 9. Command line
 
