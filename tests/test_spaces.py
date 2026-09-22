@@ -277,8 +277,8 @@ async def test_a_tab_gets_state_then_log_history_when_it_attaches(registries):
     registry = registries()
     tab = FakeTab()
     await registry.attach(owner(), tab.send, tab.close)
-    await wait_for(lambda: len(tab.texts) >= 2)
-    assert tab.types()[:2] == ["state", "log_history"]
+    await wait_for(lambda: len(tab.texts) >= 3)
+    assert tab.types()[:3] == ["state", "thumbnails", "log_history"]
 
 
 async def test_attaching_a_tab_gets_the_space_of_its_identity(registries):
@@ -307,7 +307,7 @@ async def test_a_broadcast_during_attach_reaches_the_tab_once_after_its_frames(r
     await registry.attach(owner(), tab.send, tab.close)
     await settle(0.3)
     markers = [f for f in tab.frames if f.get("type") == "log" and f["line"]["text"] == "marker"]
-    assert (tab.types()[:2], len(markers)) == (["state", "log_history"], 1)
+    assert (tab.types()[:3], len(markers)) == (["state", "thumbnails", "log_history"], 1)
 
 
 async def test_broadcast_is_synchronous(registries):
@@ -386,7 +386,7 @@ def marked(tab: FakeTab) -> list[dict]:
 async def test_a_stalled_tab_is_not_closed_by_state_and_analysis_frames(registries):
     """§4.3 Coalescing: a newer ``state`` or ``analysis`` supersedes the queued one, so a tab
     that does not read never overflows on them; it gets the newest of each and every log line."""
-    registry = registries(queue_size=8)
+    registry = registries(queue_size=9)
     tab, space = await stalled(registry)
     for n in range(500):
         space.hub.broadcast({"type": "state", "n": n})
@@ -404,6 +404,19 @@ async def test_a_stalled_tab_is_not_closed_by_state_and_analysis_frames(registri
     assert [f["line"]["text"] for f in got if f["type"] == "log"] == [
         "t0", "t100", "t200", "t300", "t400"]
     assert (tab.closed, tab.types().count("log_history")) == ([], 1)
+
+
+async def test_the_attach_thumbnail_snapshot_survives_state_coalescing(registries):
+    """§4.2, §4.3: a newer state may replace the waiting attach state, but not its one complete
+    thumbnail snapshot; the snapshot arrives before the newer state reconciles it."""
+    registry = registries(queue_size=8)
+    tab, space = await stalled(registry)
+    space.hub.broadcast({"type": "state", "n": 1})
+    unstick(tab)
+    await wait_for(lambda: any(f.get("n") == 1 for f in tab.frames))
+    snapshot = next(i for i, frame in enumerate(tab.frames) if frame["type"] == "thumbnails")
+    newest = next(i for i, frame in enumerate(tab.frames) if frame.get("n") == 1)
+    assert snapshot < newest
 
 
 async def acknowledging(registry) -> tuple[FakeTab, object, object]:

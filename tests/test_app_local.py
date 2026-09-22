@@ -193,10 +193,10 @@ async def test_a_tab_connects_by_typed_address_plays_and_receives_an_analysis_re
 
 
 # -- tabs share one space (§3.1, §4.2, §4.3) ------------------------------------------------------
-async def test_a_tab_is_sent_state_then_log_history_on_attach(local_app, tabs):
+async def test_a_tab_is_sent_state_thumbnails_then_log_history_on_attach(local_app, tabs):
     tab = await ready_tab(tabs, local_app)
-    await wait_for(lambda: len(tab.frames) >= 2)
-    assert [f["type"] for f in tab.frames[:2]] == ["state", "log_history"]
+    await wait_for(lambda: len(tab.frames) >= 3)
+    assert [f["type"] for f in tab.frames[:3]] == ["state", "thumbnails", "log_history"]
 
 
 async def test_a_move_played_in_one_tab_reaches_the_other_tab(local_app, tabs):

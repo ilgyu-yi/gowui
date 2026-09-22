@@ -59,8 +59,8 @@ def emitted() -> set[str]:
 
 
 def test_the_frame_walk_finds_the_session_frames():
-    """Count guard on the AST walk: the session builds all five frame types as literals."""
-    assert len(emitted()) >= 5
+    """Count guard on the AST walk: the session builds all six frame types as literals."""
+    assert len(emitted()) >= 6
 
 
 def page_sends() -> set[str]:
@@ -84,7 +84,8 @@ def test_the_server_dispatches_exactly_the_spec_browser_to_server_types():
 
 
 def test_the_spec_server_to_browser_table_names_the_known_types():
-    assert spec_table_types("### 4.2") == {"state", "analysis", "log", "log_history", "error"}
+    assert spec_table_types("### 4.2") == \
+        {"state", "thumbnails", "analysis", "log", "log_history", "error"}
 
 
 def test_the_server_emits_exactly_the_spec_server_to_browser_types():
@@ -163,8 +164,8 @@ def test_the_page_reads_many_state_fields():
 
 
 async def test_every_board_entry_field_of_the_spec_is_in_a_real_state_frame(h):
-    """§4.2 names each ``boards`` entry's fields; the page's board strip reads them."""
-    entry = (await h.fresh_state())["boards"][0]
+    """§4.2 names each complete thumbnail field; the page's board strip reads them."""
+    entry = next(f for f in h.session.attach_frames() if f["type"] == "thumbnails")["boards"][0]
     wanted = {"id", "name", "size", "stones", "lastMove", "cursor", "moveCount", "toPlay",
               "profile", "policy", "compare", "heat", "winrate"}
     assert sorted(wanted - set(entry)) == []

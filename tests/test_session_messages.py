@@ -249,8 +249,9 @@ async def test_load_sgf_is_parsed_off_the_event_loop(h, monkeypatch):
 
 
 # -- attach frames (§4.2) --------------------------------------------------------------------------
-async def test_attach_sends_state_then_log_history(h):
-    assert [f["type"] for f in h.session.attach_frames()] == ["state", "log_history"]
+async def test_attach_sends_state_thumbnails_then_log_history(h):
+    assert [f["type"] for f in h.session.attach_frames()] == \
+        ["state", "thumbnails", "log_history"]
 
 
 async def test_attach_state_is_the_current_state(h):
@@ -259,13 +260,32 @@ async def test_attach_state_is_the_current_state(h):
     assert frames[0]["game"] == (await h.fresh_state())["game"]
 
 
+async def test_repeated_state_carries_only_the_active_thumbnail(h):
+    """§4.2: inactive drawings arrive in the attach snapshot, not in every state. Every tile
+    keeps its lightweight fields there, while exactly the active entry has the drawing fields."""
+    await h.send({"type": "board_new"})
+    await h.send({"type": "board_new"})
+    state = await h.fresh_state()
+    complete = [entry for entry in state["boards"] if "stones" in entry]
+    summaries = [entry for entry in state["boards"] if "stones" not in entry]
+    assert [entry["id"] for entry in complete] == [state["activeBoard"]]
+    assert len(summaries) == 2
+    assert all({"id", "name", "size", "cursor", "moveCount", "profile", "policy", "compare"}
+               <= set(entry) for entry in summaries)
+
+    snapshot = next(f for f in h.session.attach_frames() if f["type"] == "thumbnails")
+    assert len(snapshot["boards"]) == 3
+    assert all({"stones", "lastMove", "toPlay", "heat", "winrate"} <= set(entry)
+               for entry in snapshot["boards"])
+
+
 async def test_attach_adds_the_analysis_that_describes_the_position(h, analysis_server):
     await h.connect_to(analysis_server)
     await h.send({"type": "analysis", "enabled": True})
     assert await h.rec.wait("analysis") is not None
     frames = h.session.attach_frames()
     assert ([f["type"] for f in frames], frames[-1].get("cursor")) == \
-        (["state", "log_history", "analysis"], 0)
+        (["state", "thumbnails", "log_history", "analysis"], 0)
 
 
 async def test_attach_leaves_out_an_analysis_of_another_position(h, fake_engine):
@@ -274,7 +294,8 @@ async def test_attach_leaves_out_an_analysis_of_another_position(h, fake_engine)
     await h.send({"type": "analysis", "enabled": True})
     assert await h.rec.wait("analysis") is not None
     await h.play("D4")
-    assert [f["type"] for f in h.session.attach_frames()] == ["state", "log_history"]
+    assert [f["type"] for f in h.session.attach_frames()] == \
+        ["state", "thumbnails", "log_history"]
 
 
 # -- every frame is JSON ---------------------------------------------------------------------------

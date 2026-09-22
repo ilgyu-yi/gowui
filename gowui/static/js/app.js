@@ -140,8 +140,12 @@
         window.__lastAnalysis = message.analysis;   // handy when debugging in the console
         state.searchedFor = searchedFor(message);
         board.setAnalysis(viewOf(message.analysis), state.searchedFor);
+        rememberActiveAnalysis();
         renderEvaluation();
         renderBoards();
+        break;
+      case 'thumbnails':
+        receiveThumbnails(message.boards || []);
         break;
       case 'log':
         appendLog(message.line);
@@ -223,7 +227,7 @@
     if (message.status && message.status !== state.lastStatus) setStatus(message.status);
     state.lastStatus = message.status;
 
-    state.boards = message.boards || [];
+    state.boards = mergeBoards(message.boards || []);
     state.activeBoard = message.activeBoard;
     board.setState(message.game);
     renderBoards();
@@ -389,6 +393,38 @@
   // Each board is drawn small with its stones and the heatmap of its last
   // analysis; the active one uses the live analysis instead of the stored one.
   var thumbSignatures = {};
+  var thumbnailCache = {};
+
+  function mergeBoards(entries) {
+    var live = {};
+    var merged = entries.map(function (entry) {
+      var key = String(entry.id);
+      live[key] = true;
+      thumbnailCache[key] = Object.assign({}, thumbnailCache[key] || {}, entry);
+      return thumbnailCache[key];
+    });
+    Object.keys(thumbnailCache).forEach(function (key) {
+      if (!live[key]) delete thumbnailCache[key];
+    });
+    return merged;
+  }
+
+  function receiveThumbnails(entries) {
+    entries.forEach(function (entry) {
+      thumbnailCache[String(entry.id)] = Object.assign({}, entry);
+    });
+    if (!state.boards) return;
+    state.boards = mergeBoards(state.boards);
+    renderBoards();
+  }
+
+  function rememberActiveAnalysis() {
+    var entry = (state.boards || []).filter(function (b) { return b.id === state.activeBoard; })[0];
+    if (!entry || !state.analysis) return;
+    entry.heat = (state.analysis.policy || []).slice(0, entry.size * entry.size);
+    entry.winrate = state.analysis.rootInfo ? state.analysis.rootInfo.winrate : null;
+    thumbnailCache[String(entry.id)] = entry;
+  }
 
   function thumbHeat(entry) {
     if (entry.id === state.activeBoard && state.analysis && state.game &&
@@ -537,6 +573,7 @@
       node.querySelector('.thumb-meta').textContent = thumbMeta(entry);
       node.querySelector('.thumb-tuple').textContent = tupleSummary(entry);
       node.querySelector('.thumb-tuple').title = tupleSummary(entry);
+      if (!entry.stones) return;  // the attach snapshot follows the first state (§4.2)
       var heat = thumbHeat(entry);
       var signature = entry.stones.join('') + '|' + entry.lastMove + '|' + heat.length + ':' +
         heat.reduce(function (acc, v, i) { return acc + v * (i + 1); }, 0).toFixed(4);
