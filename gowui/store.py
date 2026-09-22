@@ -84,7 +84,16 @@ def valid_password(password: Any) -> bool:
 #: The most hashing memory one call may ask for (§7.1). A setting above it is refused when a hash
 #: is written, and a stored hash that asks for it is an error, never a quiet "wrong password".
 MAX_HASH_MEMORY = 1024 * 1024 * 1024
-#: The digest length of a stored hash, and of the dummy: ``hashlib.scrypt``'s default ``dklen``.
+#: The digest length of a stored hash, and of the dummy. Asked for on every call rather than
+#: inherited from ``hashlib.scrypt``, whose default this happens to be today: format stability.
+#: ``verify`` asks for ``dklen=len(expected)``, so it adapts to whatever a row holds and nothing
+#: would fail on the day that default moved — every newly written hash would quietly change shape,
+#: and if the default moved down, quietly lose strength, while every old row went on verifying.
+#: Pinning the number is what makes such a move visible here instead of silent in the rows.
+#: (Timing is a separate matter and not this constant's job: the digest length only changes the
+#: final PBKDF2 pass, far below the noise of one scrypt. The timing difference that is real —
+#: a missing name and a legacy-cost account do not cost the same, since the dummy carries the
+#: current parameters and ``verify`` reads the stored row's — is issue #58.)
 DIGEST_LENGTH = 64
 
 
@@ -116,7 +125,7 @@ class Scrypt:
                              f"bytes, above the {MAX_HASH_MEMORY} this build allows")
         salt = os.urandom(16)
         digest = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=self.n, r=self.r,
-                                p=self.p, maxmem=budget)
+                                p=self.p, dklen=DIGEST_LENGTH, maxmem=budget)
         b64 = base64.b64encode
         return f"scrypt${self.n}${self.r}${self.p}${b64(salt).decode()}${b64(digest).decode()}"
 
@@ -297,8 +306,8 @@ class Store:
         """``(identity key, name)`` of an unexpired login of an existing account.
 
         A read only: an expired row gives no identity here and is purged when the database is
-        opened or a sign-in stores a token (§8.4), so the identity check on the event loop
-        (§6.2) never writes.
+        opened, when a sign-in stores a token, or by the periodic sweep that saves spaces
+        (§7.2, §8.2, §8.4), so the identity check on the event loop (§6.2) never writes.
         """
         if not token:
             return None

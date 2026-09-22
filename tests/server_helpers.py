@@ -113,9 +113,23 @@ async def start(serve, tmp_path: Path, *, users=("alice", "bob"), hasher=None,
     return Server(running, store, hasher, db)
 
 
+def cookie_set(response) -> tuple[str, str] | None:
+    """The name and the value of the cookie a response sets, or ``None`` when it sets none.
+
+    Read off the response rather than by a fixed name: under ``GOWUI_COOKIE_SECURE=1`` the cookie
+    in force is ``__Host-gowui_session`` (``server_mode.cookie_name``, §7.2), so a helper asking
+    for the plain name would quietly answer ``None`` and a test would read that as "no cookie".
+    """
+    header = response.headers.get("set-cookie")
+    if not header:
+        return None
+    name, _, rest = header.partition("=")
+    return name, rest.split(";")[0]
+
+
 async def login(running, name: str, password: str = PASSWORD, *, headers: dict | None = None,
                 client=None):
-    """POST the sign-in form; ``(response, token or None)``."""
+    """POST the sign-in form; ``(response, token or None)`` — the token under either name (§7.2)."""
     own = client is None
     client = client or running.client()
     try:
@@ -126,7 +140,8 @@ async def login(running, name: str, password: str = PASSWORD, *, headers: dict |
     finally:
         if own:
             await client.aclose()
-    return response, response.cookies.get(COOKIE)
+    cookie = cookie_set(response)
+    return response, cookie[1] if cookie else None
 
 
 def cookie_header(token: str) -> dict:
