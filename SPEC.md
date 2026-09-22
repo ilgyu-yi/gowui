@@ -777,6 +777,31 @@ finally either the PV preview or the candidates.
   the box's own sideways scrolling, which is the box's and not the page's — the standing the board
   strip has in §3.8 "The page scrolls down, never across". The table is set at the body size in
   every mode; nothing is bought by shrinking the type.
+  **The side panel is 424px wide, and the box runs to the section's inner edge** (the 10px of
+  padding on each side is given back with a negative margin), so the box is 422px. That is what
+  the widest of the three column sets needs: the eight comparing columns measure 401px at the body
+  size with a full winrate, a three-figure loss, a seven-figure visit count, a policy at either
+  end and a signed utility in every row. The 21px left over is comfort, not a guarantee: it is the
+  same bet on unpinned font metrics the rejected alternative below lost with single-digit slack,
+  and a value §2.2 sends that no column could have been sized for (`1234500.0M`) overflows any box
+  whatever the metrics. What the width buys
+  is that the **ordinary** comparing table needs no scrolling at any window the wide layout covers.
+  It is paid for out of the board column's slack, and where the board has no slack to give it
+  costs nothing. Measured at 1400px wide: the board loses 16px at a 1000px-tall window (780 → 764)
+  and **nothing at all** at 926px and below, because a short window caps the board at 78vh long
+  before its column does — and a short window is exactly where the readout starts losing fields
+  (§3.8 "Candidate readout"). The cost falls at the narrow end of the wide layout, where the board
+  is only as wide as its column allows: 389 → 345 at a 981px window, 11%, against a board that is
+  never drawn under 240px. Nothing in the board's drawing steps at that width — every line width
+  and font is a fraction of the cell — so what it loses is size, not detail.
+  **Where the box does clip, the clipped edge says so.** The edge with content past it is faded
+  out over 24px — both edges once the box has been scrolled off its start, and the start edge
+  alone at its end. A reserved scrollbar track cannot carry this: where the platform draws overlay
+  scrollbars nothing is reserved (`offsetHeight - clientHeight` is 0 at every width, macOS
+  Chromium), the bar appears only under the pointer, and a column cut off at the box's edge is
+  indistinguishable from a column the table does not have. A half-column of affordance is not
+  available either — the surplus can end exactly at the edge, as it did at 1400x900 before the
+  panel was widened, where the Value sat at 1373–1416 against an edge of 1373.
   The rejected alternative is on the record because it was tried: sharing the panel's width
   between the columns, with a measured share per column and the comparing table one step smaller.
   It buys the guarantee with pixels. Eight measured shares left single-digit slack against an
@@ -803,18 +828,41 @@ finally either the PV preview or the candidates.
   deliberate gap with a shape, not an oversight.
   This is the only place a candidate's full set is written: a preview puts no second copy of these
   numbers on the board.
-  **What a narrow window costs it.** The line keeps its fields at their own width and never wraps,
-  so a window too narrow for all of them loses whole fields off the **end** — the fields are in
-  the table's column order, so the Value with its bound goes first, then Δ, B and A. Measured
-  while comparing: the eight fields need 722px, which a 1400px window's board column has and a
-  480px window's 448px and a 360px window's 328px do not. Losing the end is the choice on the
-  record, not an accident: wrapping would move the controls below the line, which is the one thing
-  its fixed height exists to prevent; scrolling across is refused everywhere (§3.8 "Scrolling");
+  **What a small window costs it.** The line keeps its fields at their own width and never wraps,
+  so a window too small for all of them loses whole fields off the **end** — the fields are in
+  the table's column order, so the Value with its bound goes first, then Δ, B and A. A field the
+  line's edge crosses is dropped **whole**, not cut where the edge falls: a number shown short of
+  its last digits still reads as a number and is off by an order of magnitude, which is the same
+  reason §3.8 "Candidate table" cuts no cell.
+  **The room it has is governed by the viewport's height, not its width.** The line is as wide as
+  the board above it — `min(78vh, 900px)`, capped by the board column — so it is a **short**
+  window that loses fields, and a wide one is no protection. Measured while comparing, where the
+  eight fields need 722px, at 1400px wide: 764px of room at a 1000px-tall window and nothing lost;
+  722px at 926px, the exact threshold; 702px at 900px, which loses the Value; 546px at 700px,
+  which loses Δ with it. A narrow window loses them by the other term of the same minimum: 468px
+  at 500x700, which loses B as well, and 328px at 360x700, which is down to the Move, the Win and
+  the Score.
+  Losing the end is the choice on the record, not an accident: wrapping would move the controls
+  below the line, which is the one thing its fixed height exists to prevent; scrolling across is
+  refused everywhere (§3.8 "Scrolling");
   a `title` is reachable by neither keyboard nor touch; and reordering the fields to save the
-  Value would break the rule that the line and the table cannot come to disagree. What is lost
-  off the line is still in the table beside the board, which cuts no column at any width: at a
-  window too narrow for all eight of them the table is reached by its box's own sideways
-  scrolling, never by the page's (§3.8 "Candidate table").
+  Value would break the rule that the line and the table cannot come to disagree.
+  **Where the Value is reachable.** The line and the table are one story, so the answer is per
+  window and not per surface. Measured with the comparing table at its widest:
+
+  | Window | On the line | In the table |
+  |---|---|---|
+  | 1400x1000 | yes | yes, unscrolled |
+  | 1400x926 | yes, at the threshold | yes, unscrolled |
+  | 1400x900, 1400x700, 1100x560, 1000x700, 981x700 | no | yes, unscrolled |
+  | 500x700 | no | yes, unscrolled |
+  | 400x700, 360x700, 320x700 | no | yes, by the box's own sideways scrolling, with the clipped edge faded |
+
+  What is lost off the line is therefore always in the table beside the board, which cuts no
+  column at any width — never by the page's scrolling (§3.8 "Candidate table"). Before the panel
+  was widened this was false where it mattered most: at 1400x900 the eight columns wanted 401px in
+  a 358px box, the Value sat entirely past the box's edge, and the platform reserved no scrollbar
+  track to say so, so the field this line exists to surface was on neither surface.
 - **PV preview.** Hovering a drawn candidate on the board (a `moveInfos` entry past the drawn
   ones is not on the board and previews nothing), or its table row, draws the first 20 moves
   of its `pv` as numbered stones, alternating colours from the side searched for and numbered
