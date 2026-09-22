@@ -170,7 +170,7 @@
   var MAX_PRESET_NAME = 40;
   // Whitespace other than a plain space, and a C0 or C1 control: a newline would let a name fake
   // a line of the confirmation dialogs below.
-  var BAD_NAME_CHAR = /[ --]|[^\S ]/;
+  var BAD_NAME_CHAR = /[\x00-\x1f\x7f-\x9f]|[^\S ]/;
 
   // Code points, as the server counts them: a name of 40 emoji is 40 characters, not 80 units.
   function nameLength(name) { return Array.from(name).length; }
