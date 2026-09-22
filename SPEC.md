@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 618 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 622 |
 | &nbsp;&nbsp;§3.8 | The page | 631 |
-| §4 | WebSocket protocol | 1139 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1143 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1250 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1292 |
-| §5 | HTTP routes | 1386 |
-| §6 | Launch modes and policies | 1461 |
-| &nbsp;&nbsp;§6.1 | The rule | 1463 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1499 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1539 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1572 |
-| §7 | Authentication and security | 1614 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1616 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1680 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1716 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1736 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1784 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1805 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1851 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1885 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1899 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1908 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1944 |
-| §8 | Persistence | 1963 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1965 |
-| &nbsp;&nbsp;§8.2 | Saving | 2001 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2034 |
-| &nbsp;&nbsp;§8.4 | Server database | 2076 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2140 |
-| §9 | Command line | 2167 |
-| §10 | Configuration (server) | 2237 |
-| &nbsp;&nbsp;§10.1 | Container | 2275 |
-| §11 | Feature inventory | 2363 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2370 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2408 |
-| §12 | Non-goals | 2426 |
+| §4 | WebSocket protocol | 1142 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1146 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1253 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1295 |
+| §5 | HTTP routes | 1389 |
+| §6 | Launch modes and policies | 1464 |
+| &nbsp;&nbsp;§6.1 | The rule | 1466 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1502 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1542 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1575 |
+| §7 | Authentication and security | 1617 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1619 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1683 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1719 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1739 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1787 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1808 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1854 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1888 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1902 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1911 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1947 |
+| §8 | Persistence | 1966 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1968 |
+| &nbsp;&nbsp;§8.2 | Saving | 2004 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2037 |
+| &nbsp;&nbsp;§8.4 | Server database | 2079 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2143 |
+| §9 | Command line | 2170 |
+| §10 | Configuration (server) | 2240 |
+| &nbsp;&nbsp;§10.1 | Container | 2278 |
+| §11 | Feature inventory | 2366 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2373 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2411 |
+| §12 | Non-goals | 2429 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -784,9 +784,12 @@ finally either the PV preview or the candidates.
   end and a signed utility in every row. The 21px left over is comfort, not a guarantee: it is the
   same bet on unpinned font metrics the rejected alternative below lost with single-digit slack,
   and a value §2.2 sends that no column could have been sized for (`1234500.0M`) overflows any box
-  whatever the metrics. What the width buys
-  is that the **ordinary** comparing table needs no scrolling at any window the wide layout covers.
-  It is paid for out of the board column's slack, and where the board has no slack to give it
+  whatever the metrics. What the width buys — measured on macOS Chromium, where the box keeps all
+  422px — is that the **ordinary** comparing table needs no scrolling at any window the wide layout
+  covers. A platform that draws classic scrollbars spends some of that room on the panel's own
+  reserved gutter (§3.8 "Scrolling"), and a font stack that runs wider spends the rest; what holds
+  everywhere is not the fit but the fade below. **424px is the pinned number, not the fit it
+  buys.** It is paid for out of the board column's slack, and where the board has no slack to give it
   costs nothing. Measured at 1400px wide: the board loses 16px at a 1000px-tall window (780 → 764)
   and **nothing at all** at 926px and below, because a short window caps the board at 78vh long
   before its column does — and a short window is exactly where the readout starts losing fields
