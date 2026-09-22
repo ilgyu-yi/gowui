@@ -279,7 +279,7 @@ def test_opening_the_database_runs_no_password_hash(tmp_path, scrypt_calls):
 
 def test_a_missing_name_runs_one_hash_as_a_wrong_password_does(tmp_path, scrypt_calls):
     """§7.1: a missing name and a wrong password each run one scrypt call. This pins the count,
-    not equal duration or parameters; a legacy-cost account is issue #58."""
+    not equal duration or parameters; a legacy row converges after a successful sign-in."""
     from gowui.store import Store
 
     store = Store(tmp_path / "data" / "gowui.db", hasher=cheap())
@@ -293,6 +293,102 @@ def test_a_missing_name_runs_one_hash_as_a_wrong_password_does(tmp_path, scrypt_
         assert store.check_password("alice", "password two") is None
         wrong = len(scrypt_calls) - missing_first - missing_again
         assert (missing_first, missing_again, wrong) == (1, 1, 1)
+    finally:
+        store.close()
+
+
+def test_a_successful_sign_in_rehashes_a_cheaper_row(tmp_path, scrypt_calls):
+    """§7.1: the legacy timing window closes on this account's first successful sign-in. The
+    returned proof names the replacement hash, so it can open a login after the conditional write.
+    A wrong password neither rewrites the row nor pays for a replacement hash."""
+    import sqlite3
+
+    from gowui.store import Scrypt, Store
+
+    path = tmp_path / "data" / "gowui.db"
+    legacy = Store(path, hasher=Scrypt(n=2 ** 4, r=1, p=1))
+    legacy.add_user("alice", "password one")
+    legacy.close()
+
+    current = Scrypt(n=2 ** 5, r=1, p=1)
+    store = Store(path, hasher=current)
+    try:
+        with sqlite3.connect(path) as db:
+            before = db.execute("SELECT password FROM users WHERE name = 'alice'").fetchone()[0]
+        scrypt_calls.clear()
+        assert store.check_password("alice", "password two") is None
+        assert len(scrypt_calls) == 1
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT password FROM users WHERE name = 'alice'").fetchone()[0] == before
+
+        verified = store.check_password("alice", "password one")
+        assert verified is not None
+        assert verified.password_hash.startswith("scrypt$32$1$1$")
+        assert store.open_login(verified, 60) is not None
+        assert len(scrypt_calls) == 3  # wrong legacy; successful legacy verify; current-cost hash
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT password FROM users WHERE name = 'alice'").fetchone()[0] \
+                == verified.password_hash
+    finally:
+        store.close()
+
+
+def test_a_hash_with_at_least_the_current_work_is_not_downgraded(tmp_path, scrypt_calls):
+    """§7.1: rollback to a cheaper configuration may verify a stronger row, but never rewrites it
+    downward just because the parameter triple differs."""
+    import sqlite3
+
+    from gowui.store import Scrypt, Store
+
+    path = tmp_path / "data" / "gowui.db"
+    stronger = Store(path, hasher=Scrypt(n=2 ** 5, r=1, p=2))
+    stronger.add_user("alice", "password one")
+    stronger.close()
+    with sqlite3.connect(path) as db:
+        before = db.execute("SELECT password FROM users WHERE name = 'alice'").fetchone()[0]
+
+    store = Store(path, hasher=Scrypt(n=2 ** 5, r=1, p=1))
+    try:
+        scrypt_calls.clear()
+        assert store.check_password("alice", "password one") is not None
+        assert len(scrypt_calls) == 1
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT password FROM users WHERE name = 'alice'").fetchone()[0] == before
+    finally:
+        store.close()
+
+
+def test_a_rehash_does_not_overwrite_a_concurrent_password_change(tmp_path):
+    """§7.1: replacement is conditional on the hash that verified. A password change that lands
+    while the replacement is being made wins, and the stale proof cannot open a login."""
+    import sqlite3
+
+    from gowui.store import Scrypt, Store
+
+    path = tmp_path / "data" / "gowui.db"
+    legacy = Store(path, hasher=Scrypt(n=2 ** 4, r=1, p=1))
+    legacy.add_user("alice", "password one")
+    legacy.close()
+
+    current = Scrypt(n=2 ** 5, r=1, p=1)
+    replacement = current.hash("password two")
+    real_hash = current.hash
+
+    def racing_hash(password):
+        hashed = real_hash(password)
+        with sqlite3.connect(path) as db:
+            db.execute("UPDATE users SET password = ? WHERE name = 'alice'", (replacement,))
+        return hashed
+
+    current.hash = racing_hash
+    store = Store(path, hasher=current)
+    try:
+        verified = store.check_password("alice", "password one")
+        assert verified is not None
+        assert store.open_login(verified, 60) is None
+        with sqlite3.connect(path) as db:
+            assert db.execute("SELECT password FROM users WHERE name = 'alice'").fetchone()[0] \
+                == replacement
     finally:
         store.close()
 
