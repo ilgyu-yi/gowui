@@ -591,8 +591,26 @@ class GameSession:
             "preferences": self._preferences,
             "status": self.status,
             "thinking": self.thinking,
-            "boards": [self._thumbnail(s) for s in self.boards],
+            # Every state refreshes the active thumbnail; inactive positions cannot change
+            # (§3.3), so their heavy drawing fields arrive once in the attach snapshot (§4.2).
+            "boards": [self._thumbnail(s) if s.id == self.active_board
+                       else self._board_summary(s) for s in self.boards],
             "activeBoard": self.active_board,
+        }
+
+    @staticmethod
+    def _board_summary(slot: BoardSlot) -> dict[str, Any]:
+        """The fields a tile can change while its position is inactive (§4.2)."""
+        game = slot.game
+        return {
+            "id": slot.id,
+            "name": slot.name,
+            "size": game.size,
+            "cursor": game.cursor,
+            "moveCount": game.move_count,
+            "profile": slot.profile,
+            "policy": copy.deepcopy(slot.policy),
+            "compare": slot.compare is not None,
         }
 
     def _thumbnail(self, slot: BoardSlot) -> dict[str, Any]:
@@ -605,20 +623,17 @@ class GameSession:
             winrate = analysis.root.winrate
         last = game.last_move
         return {
-            "id": slot.id,
-            "name": slot.name,
-            "size": game.size,
+            **self._board_summary(slot),
             "stones": list(game.board.stones),
             "lastMove": coords.to_gtp(last.point, game.size) if last else None,
-            "cursor": game.cursor,
-            "moveCount": game.move_count,
             "toPlay": _colour_name(game.to_play),
-            "profile": slot.profile,
-            "policy": copy.deepcopy(slot.policy),
-            "compare": slot.compare is not None,
             "heat": heat,
             "winrate": winrate,
         }
+
+    def _thumbnail_snapshot(self) -> dict[str, Any]:
+        """Every board drawing, sent once to a newly attached tab (§4.2)."""
+        return {"type": "thumbnails", "boards": [self._thumbnail(s) for s in self.boards]}
 
     def _analysis_frame(self, slot: BoardSlot, analysis: Analysis) -> dict[str, Any]:
         return {"type": "analysis", "cursor": slot.game.cursor,
@@ -627,7 +642,7 @@ class GameSession:
     def attach_frames(self) -> list[dict]:
         """What a newly attached tab receives: ``state``, the last log lines, and the last
         analysis if it still describes the position (§4.2)."""
-        frames = [self.state_message(), self._log_history()]
+        frames = [self.state_message(), self._thumbnail_snapshot(), self._log_history()]
         slot = self._active
         analysis = slot.current_analysis()
         if analysis is not None and self.play_settings["analysisEnabled"]:

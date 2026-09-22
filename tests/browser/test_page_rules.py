@@ -89,6 +89,28 @@ def test_a_tile_move_does_not_save_an_open_rename(start_app, open_page):
     assert g.page.evaluate("() => document.activeElement.className") == "thumb-rename"
 
 
+def test_the_last_live_heatmap_stays_on_a_thumbnail_after_switching(start_app, open_page):
+    """§4.2: an analysis updates the active thumbnail cache. The next state sends only the new
+    active drawing, so the board left must keep the winrate that proves its analysis was cached."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    first = g.state()["activeBoard"]
+    second = g.act({"type": "board_duplicate", "id": first})["activeBoard"]
+    g.act({"type": "board_select", "id": first})
+
+    state = g.state()
+    size = state["game"]["size"]
+    policy = [0.0] * (size * size + 1)
+    policy[0] = 1.0
+    g.inject(analysis_frame(state, analysis_payload(size, [], winrate=0.73, policy=policy)))
+    meta = g.page.locator(f'#board-list .thumb[data-id="{first}"] .thumb-meta:not(.thumb-tuple)')
+    expect(meta).to_contain_text("73%", timeout=QUICK)
+
+    g.act({"type": "board_select", "id": second})
+    expect(meta).to_contain_text("73%", timeout=QUICK)
+
+
 # -- candidates and the PV preview (§3.8 "Board overlays") ---------------------------------------
 def test_only_a_drawn_candidate_previews_its_pv(start_app, open_page):
     """§3.8: at most the first 12 ``moveInfos`` are drawn, and a later entry is not on the board,

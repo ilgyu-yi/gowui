@@ -1276,7 +1276,8 @@ same saves as the snapshot (§8.2).
 
 | type | fields |
 |---|---|
-| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `preferences`, `status`, `thinking`, `boards` (thumbnails), `activeBoard` |
+| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `preferences`, `status`, `thinking`, `boards` (tile summaries, with the active thumbnail), `activeBoard` |
+| `thumbnails` | `boards` (the complete thumbnail snapshot on attach) |
 | `analysis` | `cursor`, `toPlay`, `analysis` (§2.2) |
 | `log` | `line: {direction, text, at}` |
 | `log_history` | `lines` |
@@ -1301,13 +1302,26 @@ Field names inside `state`:
   (`[{name, tuple}]`, in the order they were sent) while the storage policy keeps the identity's
   preferences (§6.4, §8.4); `null` while it does not, and the page then keeps both in the browser
   (§3.8 "Preferences", §8.5). It never depends on a mode name (§6.1).
-- each `boards` entry: `id`, `name`, `size`, `stones`, `lastMove`, `cursor`, `moveCount`, `toPlay`,
-  `profile`, `policy` (the board's human tuple), `compare` (true while the board has a compare
-  tuple), `heat` (the last policy heatmap while it still describes the board's position, else
-  empty), `winrate` (Black's, or null).
+- each `state.boards` entry always has `id`, `name`, `size`, `cursor`, `moveCount`, `profile`,
+  `policy` (the board's human tuple), and `compare` (true while the board has a compare tuple).
+  The active entry also has `stones`, `lastMove`, `toPlay`, `heat` (the last policy heatmap while
+  it still describes the position, else empty), and `winrate` (Black's, or null). An inactive
+  board's position cannot change (§3.3), so its drawing fields are not repeated in each `state`.
+  Each entry in `thumbnails.boards` has all of those fields.
 
-On attach the server sends `state`, then `log_history` (the last 100 lines, §3.6), then the last
-`analysis` if one still describes the position. A frame that is not a JSON object gets an `error`
+On attach the server sends `state`, then one complete `thumbnails` snapshot, then `log_history`
+(the last 100 lines, §3.6), then the last `analysis` if one still describes the position. The page
+caches the snapshot. Later states merge their summaries and active thumbnail into that cache; an
+`analysis` updates the cached active heatmap before a board switch can make it inactive. Thus each
+repeated state carries only one drawing, while a newly attached tab can still draw every tile. The
+snapshot is not coalesced: if a newer `state` replaces the attach state while it waits, the snapshot
+arrives first and that newest state reconciles its board list and active drawing afterward.
+`state.game.moves` remains the complete active record: navigation reads any earlier move, and a
+coalesced-away state may contain any number of intervening plays, so an append-only delta could not
+reconstruct it without per-tab recovery state. Unlike the thumbnails, that one bounded record
+(at most 2,000 moves, §7.6) does not multiply by the number of boards.
+
+A frame that is not a JSON object gets an `error`
 and the socket stays open; an unknown `type` gets an `error`; one failing command never closes the
 socket. On-demand commands (`genmove`, `raw`, `final_score`, `connect`) finish in the background
 (§3.2): their results and errors arrive later as broadcasts (`state`, `log`, `error`), not as a

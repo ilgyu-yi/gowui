@@ -204,7 +204,8 @@ async def test_a_thumbnail_keeps_its_heatmap_after_switching_away(h, analysis_se
     await h.send({"type": "board_duplicate", "id": board_a})
     state = await h.rec.wait_state(lambda f: f["activeBoard"] != board_a, start)
     assert state is not None
-    thumb = next(b for b in state["boards"] if b["id"] == board_a)
+    snapshot = next(f for f in h.session.attach_frames() if f["type"] == "thumbnails")
+    thumb = next(b for b in snapshot["boards"] if b["id"] == board_a)
     assert bool(thumb["heat"]) and isinstance(thumb["winrate"], float)
 
 

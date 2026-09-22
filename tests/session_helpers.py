@@ -15,7 +15,7 @@ The API these tests pin (the implementer builds to it)::
         resolve_engine(request: dict) -> EngineTarget   (sync; raises EngineRequestError)
         broadcast(frame: dict) -> None                  (sync, non-blocking; may raise)
         async handle(message)       -> None             (returns quickly; never raises)
-        attach_frames()             -> list[dict]       (state, log_history, [analysis])
+        attach_frames()             -> list[dict]       (state, thumbnails, log_history, [analysis])
         snapshot()                  -> dict             (SPEC §8.1, version 1)
         restore(data: dict)         -> None             (raises ValueError when version != 1)
         async resume()              -> None             (replays the stored engine request)
