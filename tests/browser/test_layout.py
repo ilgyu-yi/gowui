@@ -15,6 +15,13 @@ shrinking them into each other. All of it is measured per box — a cell's or a 
 `scrollWidth` against its `clientWidth` — because a screenshot cannot tell `100.0%` from `100…` at
 a glance and a green page cannot tell either.
 
+The last three read the two surfaces **together**, and over the window's height as well as its
+width. Either surface alone can be green while the field is unreadable: the readout's room is
+`min(78vh, 900px)`, so a wide but short window loses fields a width sweep never sees, and the
+table's box can clip a whole column at its edge with nothing to say so where the platform draws
+overlay scrollbars. Where the Value is reachable is therefore a fact about the window, not about a
+surface, and that is what is swept.
+
 The table's checks sweep 1400 / 500 / 400 / 360 / 320px instead of measuring one width. A
 guarantee §3.8 states unconditionally has to be tested unconditionally: the columns-share-a-width
 layout these replace passed at the one width its shares were measured at, cut seven of eight at
@@ -39,6 +46,11 @@ pytestmark = pytest.mark.browser
 SHORT = {"width": 1100, "height": 560}
 #: Narrow side of the breakpoint.
 NARROW = {"width": 900, "height": 700}
+#: An ordinary laptop window: wide, and short enough that the readout's `min(78vh, 900px)` is what
+#: runs out rather than the width (§3.8 "Candidate readout").
+WIDE_SHORT = {"width": 1400, "height": 900}
+#: Wide and tall enough for every readout field — the control the height legs are read against.
+ROOMY = {"width": 1400, "height": 1000}
 
 
 def settled(g: Gowui) -> int:
@@ -60,6 +72,15 @@ def resized(g: Gowui, size: dict) -> None:
     g.until("(size) => window.innerWidth === size.width && window.innerHeight === size.height",
             size)
     settled(g)
+
+
+def fitted(g: Gowui) -> None:
+    """Wait out the page's own fit pass. What the readout can hold and which of the table box's
+    edges clip are read from the layout, so both run once per animation frame rather than once per
+    analysis frame (§3.8); a surface read in the same frame as a resize or a render is the old
+    one. Two frames: the pass is scheduled in one and runs in the next."""
+    g.page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                    "() => requestAnimationFrame(done)))")
 
 
 def fill_strip(g: Gowui, count: int) -> None:
@@ -355,38 +376,220 @@ def test_an_over_wide_value_is_not_cut_and_costs_no_other_column(start_app, open
         f"an over-wide {field} pushed the panel or the page sideways: {boxes}")
 
 
+def readout_fit(g: Gowui) -> dict:
+    """What the readout line is holding at the current window: every field in order, the ones it
+    still shows, the ones it dropped, and any shown field the line's own edge crosses."""
+    return g.page.evaluate("""() => {
+        const line = document.querySelector('#candidate-readout');
+        const edge = line.getBoundingClientRect().right;
+        const all = [...line.querySelectorAll('.field')];
+        const text = (f) => f.textContent.trim();
+        return {
+            fields: all.map(text),
+            kept: all.filter((f) => !f.hidden).map(text),
+            lost: all.filter((f) => f.hidden).map(text),
+            cut: all.filter((f) => !f.hidden
+                                   && f.getBoundingClientRect().right > edge + 0.5)
+                    .map((f) => text(f) + ' past ' + Math.round(edge)),
+            squeezed: all.filter((f) => f.scrollWidth > f.clientWidth)
+                         .map((f) => text(f) + ' ' + f.scrollWidth + '>' + f.clientWidth),
+            room: Math.round(line.clientWidth),
+        };
+    }""")
+
+
 def test_the_readout_loses_whole_fields_off_its_end(start_app, open_page):
-    """§3.8 "Candidate readout": a window too narrow for every field loses whole fields off the
+    """§3.8 "Candidate readout": a window too small for every field loses whole fields off the
     **end** — the Value and its bound first, since the fields are in the table's column order.
-    What it must not do is shrink every field to fit: the fields are flex items, and a flex item
-    squeezed below its content does not cut its text, it lets the label and the number paint over
-    the field beside it, so the line would lose nothing cleanly and become unreadable everywhere
-    at once."""
+
+    Two things it must not do. It must not shrink every field to fit: the fields are flex items,
+    and a flex item squeezed below its content does not cut its text, it lets the label and the
+    number paint over the field beside it, so the line would lose nothing cleanly and become
+    unreadable everywhere at once. And it must not cut the one field its own edge falls in: a
+    number shown short of its last digits still reads as a number and is off by an order of
+    magnitude, which is why §3.8 "Candidate table" cuts no cell either.
+
+    The shapes sweep the **height** as well as the width, because the line's room is
+    `min(78vh, 900px)` — the board's width, and below about 926px of viewport height the height is
+    what governs it. 1400x900 and 1100x560 are wide windows that lose fields; a width-only sweep
+    (480x700, 360x700) says nothing about them. 1400x1000 is the control: the same width, losing
+    nothing, which is what makes the loss at 1400x900 a fact about the height."""
     g = open_page(start_app())
     g.proxy_ws()
     g.open()
-    for size in ({"width": 480, "height": 700}, {"width": 360, "height": 700}):
+
+    resized(g, ROOMY)
+    comparing_at_its_widest(g)
+    fitted(g)
+    roomy = readout_fit(g)
+    assert roomy["lost"] == [], (
+        f"at 1400x1000 the line has {roomy['room']}px and already drops {roomy['lost']}, so what "
+        "a shorter window costs it cannot be read off these shapes")
+
+    for size in (WIDE_SHORT, SHORT, {"width": 480, "height": 700}, {"width": 360, "height": 700}):
         resized(g, size)
         comparing_at_its_widest(g)
-        needs, room, fields, past = g.page.evaluate("""() => {
-            const line = document.querySelector('#candidate-readout');
-            const edge = line.getBoundingClientRect().right;
-            const all = [...line.querySelectorAll('.field')];
-            const text = (f) => f.textContent.trim();
-            return [line.scrollWidth, line.clientWidth, all.map(text),
-                    all.filter((f) => f.getBoundingClientRect().left > edge - 1).map(text)];
-        }""")
-        at = f"at {size['width']}px"
-        assert needs > room, f"{at} the line needs {needs}px and has {room}px: nothing is lost"
-        squeezed = g.page.evaluate("""() => [...document.querySelectorAll(
-            '#candidate-readout .field')].filter((f) => f.scrollWidth > f.clientWidth)
-            .map((f) => f.textContent.trim() + ' ' + f.scrollWidth + '>' + f.clientWidth)""")
-        assert squeezed == [], (f"{at} the readout squeezes {len(squeezed)} fields below their "
-                                f"own text, which paints them over each other: {squeezed}")
-        assert past and past == fields[len(fields) - len(past):], (
-            f"{at} what falls off the line is {past}, which is not the end of {fields}")
-        assert past[-1].startswith(g.t("col.value")), (
-            f"{at} the last field off the end is {past[-1]!r}, not the Value")
+        fitted(g)
+        fit = readout_fit(g)
+        at = f"at {size['width']}x{size['height']}"
+        assert fit["squeezed"] == [], (
+            f"{at} the readout squeezes {len(fit['squeezed'])} fields below their own text, "
+            f"which paints them over each other: {fit['squeezed']}")
+        assert fit["cut"] == [], (
+            f"{at} the line cuts where its edge falls instead of dropping whole fields, so "
+            f"{len(fit['cut'])} of them are shown short of their last digits: {fit['cut']}")
+        assert fit["lost"], (f"{at} the line has {fit['room']}px and loses nothing of "
+                             f"{fit['fields']}: nothing here is being measured")
+        assert fit["kept"] + fit["lost"] == fit["fields"], (
+            f"{at} what the line lost is {fit['lost']}, which is not the end of {fit['fields']}")
+        assert fit["lost"][-1].startswith(g.t("col.value")), (
+            f"{at} the last field off the end is {fit['lost'][-1]!r}, not the Value")
+
+
+#: The window shapes the Value has to be reachable at (§3.8 "Where the Value is reachable"): wide
+#: and tall, the wide-and-short shapes where the readout's `min(78vh, 900px)` runs out, the narrow
+#: end of the wide layout, and the narrow layout down to the 320px floor. Heights as well as
+#: widths: the shape that lost the Value altogether was a wide one.
+VALUE_SHAPES = ((1400, 1000), (1400, 926), (1400, 900), (1400, 700), (1100, 560), (981, 700),
+                (500, 700), (400, 700), (360, 700), (320, 700))
+
+
+def where_the_value_is(g: Gowui, label: str) -> dict:
+    """Where the Value can be read at the current window: on the readout line, in the table
+    without scrolling, in the table after its box is scrolled — and what the box says about the
+    edge it clips at. Every leg is measured against a box, never against a screenshot: a column
+    clipped at the box's edge and a column the table does not have look the same."""
+    return g.page.evaluate("""(label) => {
+        const line = document.querySelector('#candidate-readout');
+        const edge = line.getBoundingClientRect().right;
+        const field = [...line.querySelectorAll('.field')]
+            .find((f) => f.textContent.trim().startsWith(label));
+        const onLine = !!field && !field.hidden
+                       && field.getBoundingClientRect().right <= edge + 0.5;
+        const box = document.querySelector('.candidates-box');
+        const columns = document.querySelectorAll('table.candidates thead th').length;
+        const cell = document.querySelector(
+            'table.candidates tbody tr td:nth-child(' + columns + ')');
+        const inside = () => {
+            const b = box.getBoundingClientRect();
+            const c = cell.getBoundingClientRect();
+            return c.left >= b.left - 0.5 && c.right <= b.right + 0.5;
+        };
+        const marked = box.dataset.more || '';
+        const faded = getComputedStyle(box).maskImage !== 'none';
+        const unscrolled = box.scrollLeft < 0.5 && inside();
+        box.scrollLeft = box.scrollWidth;
+        const scrolled = inside();
+        box.scrollLeft = 0;
+        return {onLine: onLine, unscrolled: unscrolled, scrolled: scrolled, marked: marked,
+                faded: faded, needs: Math.round(box.scrollWidth),
+                room: Math.round(box.clientWidth),
+                track: box.offsetHeight - box.clientHeight};
+    }""", label)
+
+
+def test_the_value_is_reachable_at_every_window(start_app, open_page):
+    """§3.8 "Candidate readout" ("Where the Value is reachable") with "Candidate table": at every
+    window shape the Value is on the readout line, or in the table without scrolling, or in the
+    table by its box's own sideways scrolling **with the clipped edge saying so**.
+
+    Nowhere is the case this test exists for, and it was a common window: at 1400x900 the line had
+    702px for 722px of fields, the eight comparing columns wanted 401px in a 358px box with the
+    Value at 1373-1416 against an edge of 1373, and the platform reserved no scrollbar track
+    (`offsetHeight - clientHeight` is 0 where overlay scrollbars are drawn) to say the table had
+    more. The field this PR exists to surface was on neither surface and nothing said so.
+
+    Swept over height as well as width because the readout's room is `min(78vh, 900px)`: a sweep
+    of widths at one height cannot see the shape that loses it. The two surfaces are read
+    together — where the Value is reachable is a fact about the window, not about a surface."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    label = g.t("col.value")
+
+    swept = []
+    for width, height in VALUE_SHAPES:
+        resized(g, {"width": width, "height": height})
+        comparing_at_its_widest(g)
+        fitted(g)
+        swept.append((f"{width}x{height}", where_the_value_is(g, label)))
+
+    nowhere = [(at, seen) for at, seen in swept
+               if not (seen["onLine"] or seen["unscrolled"] or seen["scrolled"])]
+    assert nowhere == [], f"the Value is nowhere at {len(nowhere)} of the shapes: {nowhere}"
+    silent = [(at, seen) for at, seen in swept
+              if not (seen["onLine"] or seen["unscrolled"]) and not seen["marked"]]
+    assert silent == [], (
+        f"at {len(silent)} shapes the Value is only reachable by scrolling the table's box and "
+        f"nothing says the box has more: {silent}")
+    # Both halves of the sweep have to be exercised, or the two assertions above pass on a page
+    # that shows the Value nowhere but happens to mark every edge, or on one that never scrolls.
+    assert any(seen["onLine"] for _, seen in swept), (
+        f"the Value is on the readout line at none of the shapes: {swept}")
+    assert any(not seen["onLine"] and seen["unscrolled"] for _, seen in swept), (
+        f"no shape reads the Value out of the table beside the board: {swept}")
+
+
+def edge_mark(g: Gowui) -> tuple[str, bool]:
+    """The edges the table's box says have content past them, and whether the page fades one."""
+    return tuple(g.page.evaluate("""() => {
+        const box = document.querySelector('.candidates-box');
+        return [box.dataset.more || '', getComputedStyle(box).maskImage !== 'none'];
+    }"""))
+
+
+def scrolled_to(g: Gowui, where: str) -> None:
+    """Scroll the table's box to its start, middle or end and wait out the page's fit pass."""
+    g.page.evaluate("""(where) => {
+        const box = document.querySelector('.candidates-box');
+        const most = box.scrollWidth - box.clientWidth;
+        box.scrollLeft = where === 'start' ? 0 : (where === 'end' ? most : most / 2);
+    }""", where)
+    fitted(g)
+
+
+def test_the_clipped_edge_of_the_table_says_there_is_more(start_app, open_page):
+    """§3.8 "Candidate table" ("Where the box does clip, the clipped edge says so"): the box names
+    the edges that have content past them and the page fades them, and the mark follows the box's
+    own scrolling — the end edge at rest, both part way along, the start edge at the end.
+
+    A reserved scrollbar track cannot carry this and is why it exists: where the platform draws
+    overlay scrollbars nothing is reserved at all, so a column clipped at the box's edge looks
+    exactly like a column the table does not have. The asserted state records that track width, so
+    a platform that does reserve one is visible in the failure rather than assumed away.
+
+    The attribute and the fade are asserted together: an attribute nothing paints tells the reader
+    nothing, and a fade nothing drives cannot follow the scrolling. The overflow is forced with a
+    Visits value no column could have been sized for (§2.2 takes whatever the engine sends), so
+    the box overflows on any font metrics rather than only on the ones this was measured on."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    resized(g, SHORT)
+    comparing_at_its_widest(g, visits=1_234_500_000_000)
+    fitted(g)
+
+    room, track = g.page.evaluate("""() => {
+        const box = document.querySelector('.candidates-box');
+        return [box.scrollWidth + '>' + box.clientWidth,
+                box.offsetHeight - box.clientHeight];
+    }""")
+    marked = {}
+    for where in ("start", "middle", "end"):
+        scrolled_to(g, where)
+        marked[where] = edge_mark(g)
+    assert marked == {"start": ("end", True), "middle": ("both", True), "end": ("start", True)}, (
+        f"a box of {room} with a {track}px scrollbar track marks and fades its edges as "
+        f"{marked}, not end / both / start")
+
+    # Nothing past either edge: no mark and no fade, so the fade is not simply always there.
+    size = g.state()["game"]["size"]
+    resized(g, ROOMY)
+    g.inject(analysis_frame(g.state(), analysis_payload(size, [move_info(vertex(0, 0, size))])))
+    expect(g.page.locator("#candidates tr")).to_have_count(1, timeout=QUICK)
+    fitted(g)
+    assert edge_mark(g) == ("", False), (
+        f"a table with nothing past either edge still marks or fades one: {edge_mark(g)}")
 
 
 def test_the_narrow_layout_scrolls_as_one_column(start_app, open_page):
