@@ -1180,6 +1180,12 @@
     return isFinite(visits) && visits >= 1 && visits === Math.floor(visits) ? visits : 0;
   }
 
+  // Tuple validation needs the setting the engine will use, not merely the setting this field
+  // names. An unusable edit names no change, so the last state remains in force (§3.8).
+  function effectiveVisits() {
+    return typedVisits() || state.settings.maxVisits || 0;
+  }
+
   // The Every field as a setting: a number above 0, else 0. A usable number out of range is sent
   // and clamped by the settings (§3.4); only an unusable one is left out (§3.8).
   function typedInterval() {
@@ -1218,7 +1224,7 @@
   }
 
   var tupleEditor = humanTuple.mount({
-    visits: typedVisits,
+    visits: effectiveVisits,
     onChange: function (pair) {
       send({ type: 'human_params', policy: pair.policy, compare: pair.compare });
     },

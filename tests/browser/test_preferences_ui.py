@@ -173,6 +173,7 @@ def test_the_account_taking_over_clears_both_browser_keys(start_server_app, open
     expect(g.page.locator("#human-preset")).to_be_visible()
 
     assert (stored(g, "gowui.lang"), stored(g, "gowui.userPresets")) == (None, None)
+    expect(g.page.locator("html")).to_have_attribute("lang", "ko")
     expect(g.page.locator("#human-preset option[value='user:local']")).to_have_count(0)
 
 
@@ -189,6 +190,8 @@ def test_the_preset_menu_holds_no_preset_of_its_own_before_the_first_state(start
     expect(g.page.locator("#human-preset")).to_be_visible()
     expect(g.page.locator("#human-preset option[value^='builtin:']")).not_to_have_count(0)
     expect(g.page.locator("#human-preset option[value^='user:']")).to_have_count(0)
+    for control in ("save", "delete", "export", "import"):
+        expect(g.page.locator(f"#preset-{control}")).to_be_disabled()
     assert json.loads(stored(g, "gowui.userPresets")) == LOCAL_PRESET, "nothing was stored over"
 
 
