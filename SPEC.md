@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 618 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 622 |
 | &nbsp;&nbsp;§3.8 | The page | 631 |
-| §4 | WebSocket protocol | 1142 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1146 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1253 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1295 |
-| §5 | HTTP routes | 1389 |
-| §6 | Launch modes and policies | 1464 |
-| &nbsp;&nbsp;§6.1 | The rule | 1466 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1502 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1542 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1575 |
-| §7 | Authentication and security | 1617 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1619 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1683 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1719 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1739 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1787 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1808 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1854 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1888 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1902 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1911 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1947 |
-| §8 | Persistence | 1966 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1968 |
-| &nbsp;&nbsp;§8.2 | Saving | 2004 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2037 |
-| &nbsp;&nbsp;§8.4 | Server database | 2079 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2143 |
-| §9 | Command line | 2170 |
-| §10 | Configuration (server) | 2240 |
-| &nbsp;&nbsp;§10.1 | Container | 2278 |
-| §11 | Feature inventory | 2366 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2373 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2411 |
-| §12 | Non-goals | 2429 |
+| §4 | WebSocket protocol | 1145 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1149 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1256 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1298 |
+| §5 | HTTP routes | 1392 |
+| §6 | Launch modes and policies | 1467 |
+| &nbsp;&nbsp;§6.1 | The rule | 1469 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1505 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1545 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1578 |
+| §7 | Authentication and security | 1620 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1622 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1686 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1722 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1742 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1790 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1811 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1857 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1891 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1905 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1914 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1950 |
+| §8 | Persistence | 1969 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1971 |
+| &nbsp;&nbsp;§8.2 | Saving | 2007 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2040 |
+| &nbsp;&nbsp;§8.4 | Server database | 2082 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2146 |
+| §9 | Command line | 2173 |
+| §10 | Configuration (server) | 2243 |
+| &nbsp;&nbsp;§10.1 | Container | 2281 |
+| §11 | Feature inventory | 2369 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2376 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2414 |
+| §12 | Non-goals | 2432 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -795,8 +795,11 @@ finally either the PV preview or the candidates.
   before its column does — and a short window is exactly where the readout starts losing fields
   (§3.8 "Candidate readout"). The cost falls at the narrow end of the wide layout, where the board
   is only as wide as its column allows: 389 → 345 at a 981px window, 11%, against a board that is
-  never drawn under 240px. Nothing in the board's drawing steps at that width — every line width
-  and font is a fraction of the cell — so what it loses is size, not detail.
+  never drawn under 240px. Three drawn quantities step a pixel across that pair, because every font
+  size is a **rounded** fraction of the cell rather than a fraction of it: the stone move numbers
+  7 → 6, a candidate circle's visits line 5 → 4, and a three-digit PV number 6 → 5. The coordinates
+  (7) and the candidate label (6) do not, and the line widths do not because they are already on
+  their floors. The rest is size, not detail.
   **Where the box does clip, the clipped edge says so.** The edge with content past it is faded
   out over 24px — both edges once the box has been scrolled off its start, and the start edge
   alone at its end. A reserved scrollbar track cannot carry this: where the platform draws overlay

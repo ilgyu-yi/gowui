@@ -350,7 +350,7 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .help-anchor { display: inline-flex; }
 /* The card hangs from the row, not from the 18px "?": the side panel scrolls inside itself
    (SPEC §3.8 "Scrolling"), and a scrolling box clips what hangs outside it, so a card aligned to
-   the "?" would lose its left half. Aligned to the row's right edge it is 320px inside a 380px
+   the "?" would lose its left half. Aligned to the row's right edge it is 320px inside a 424px
    column, and nothing sticks out sideways. */
 .side .row { position: relative; }
 .help-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
