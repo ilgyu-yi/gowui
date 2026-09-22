@@ -91,9 +91,7 @@ MAX_HASH_MEMORY = 1024 * 1024 * 1024
 #: and if the default moved down, quietly lose strength, while every old row went on verifying.
 #: Pinning the number is what makes such a move visible here instead of silent in the rows.
 #: (Timing is a separate matter and not this constant's job: the digest length only changes the
-#: final PBKDF2 pass, far below the noise of one scrypt. The timing difference that is real —
-#: a missing name and a legacy-cost account do not cost the same, since the dummy carries the
-#: current parameters and ``verify`` reads the stored row's — is issue #58.)
+#: final PBKDF2 pass, far below the noise of one scrypt.)
 DIGEST_LENGTH = 64
 
 
@@ -133,13 +131,30 @@ class Scrypt:
         """A hash in stored form that no password matches, made without running scrypt (§7.1).
 
         Verifying against it runs one scrypt with the current parameters, as a real check against
-        a hash carrying those parameters does. A legacy-cost account may differ (issue #58).
-        Opening the database costs no hash at all (§8.4): a ``gowui user list`` pays nothing for
-        a hash it never uses.
+        a hash carrying those parameters does. Opening the database costs no hash at all (§8.4):
+        a ``gowui user list`` pays nothing for a hash it never uses.
         """
         b64 = base64.b64encode
         return (f"scrypt${self.n}${self.r}${self.p}${b64(os.urandom(16)).decode()}"
                 f"${b64(os.urandom(DIGEST_LENGTH)).decode()}")
+
+    def needs_rehash(self, stored: str) -> bool:
+        """Whether ``stored`` does less scrypt work than this hasher (§7.1).
+
+        A deployment rolled back to cheaper defaults must not downgrade a stronger row. Different
+        parameter triples with at least the configured ``N * r * p`` work remain valid as they
+        are; the timing window belongs to rows that are actually cheaper.
+        """
+        try:
+            scheme, n, r, p, _salt, digest = stored.split("$")
+            if scheme != "scrypt":
+                return False
+            work = int(n) * int(r) * int(p)
+            length = len(base64.b64decode(digest, validate=True))
+        except (ValueError, TypeError):
+            return False
+        current_work = self.n * self.r * self.p
+        return work < current_work or (work == current_work and length < DIGEST_LENGTH)
 
     def verify(self, password: str, stored: str) -> bool:
         try:
@@ -277,7 +292,7 @@ class Store:
         return [row[0] for row in self._query("SELECT name FROM users ORDER BY name")]
 
     def check_password(self, name: str, password: str) -> Verified | None:
-        """Run the hasher once, a missing name against a dummy hash (§7.1)."""
+        """Verify once, and replace a successfully verified cheaper hash (§7.1)."""
         rows = self._query("SELECT id, password FROM users WHERE name = ?", (name,))
         row = rows[0] if rows else None
         if row is None:
@@ -285,7 +300,16 @@ class Store:
             return None
         if not self.hasher.verify(password, row[1]):
             return None
-        return Verified(row[0], name, row[1])
+        password_hash = row[1]
+        needs_rehash = getattr(self.hasher, "needs_rehash", None)
+        if needs_rehash is not None and needs_rehash(password_hash):
+            replacement = self.hasher.hash(password)
+            changed = self._exec(
+                "UPDATE users SET password = ? WHERE id = ? AND name = ? AND password = ?",
+                (replacement, row[0], name, password_hash))
+            if changed == 1:
+                password_hash = replacement
+        return Verified(row[0], name, password_hash)
 
     # -- sign-in tokens (§7.2) ------------------------------------------------------------------------
     def open_login(self, verified: Verified, seconds: float) -> str | None:

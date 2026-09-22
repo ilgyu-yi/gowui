@@ -1652,12 +1652,20 @@ printable characters without surrounding spaces; passwords have 8–256 characte
   (N = 2^17, r = 8, p = 1), at 64 MiB and roughly 0.2 s per hash rather than 128 MiB. With at most
   2 verifications at a time (below) that is at most 128 MiB of hashing memory. Every hash carries
   the parameters it was made with, so hashes written by an
-  older, cheaper setting still verify and are left alone until the password is set again.
+  older, cheaper setting still verify. A successful sign-in replaces a cheaper hash with one at
+  the current cost before it opens the login; the update names the account and the hash that was
+  verified, so a concurrent password change wins instead of being overwritten and that sign-in
+  gets no token. A database failure during the replacement fails the request rather than opening a
+  login whose cost remains weak. Rehash-on-success is chosen over finding the weakest row for the
+  dummy: it lets every account converge without making missing-name checks permanently as cheap as
+  the weakest account or making database open scan all accounts.
   Checking a missing name runs scrypt against a fixed dummy hash, so it
   takes the same time as a wrong password, and both give the same answer — while every stored hash
   carries the current parameters. The dummy carries those, and a wrong password on an account whose
-  hash an older setting wrote costs what *that* setting costs, so the equal time is what a cost
-  raise opens a window in; issue #58 holds the decision that closes it. The dummy is a hash in
+  hash an older setting wrote costs what *that* setting costs. A cost raise therefore opens a
+  username-timing window for each legacy account until its next successful sign-in; automatic
+  rehashing then closes that account's window. A row whose work is already at least the current
+  `N * r * p` is not downgraded merely because its parameter triple differs. The dummy is a hash in
   stored form carrying the current parameters, a random salt and a random digest no password
   matches, so making it runs no scrypt at all: opening the database costs no hash (§8.4), and a
   missing name always runs the one scrypt a real check runs.
