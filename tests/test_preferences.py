@@ -102,7 +102,11 @@ def test_the_spec_refuses_two_presets_of_one_name():
 
 #: A ``U+XXXX`` token, optionally the low end of a ``U+XXXX``–`U+XXXX`` range (the dash is an en
 #: dash, and the two ends may sit on different lines of the reflowed paragraph).
-CODEPOINT = re.compile(r"`U\+([0-9A-F]{4,6})`(?:\s*–\s*`U\+([0-9A-F]{4,6})`)?")
+#:
+#: Every token inside the **Trimmed** paragraph is read as a *member*; there is no negative form.
+#: A sentence naming a codepoint the set does **not** hold belongs outside that paragraph, or this
+#: reads it as one more member and the pin goes red.
+CODEPOINT = re.compile(r"`U\+([0-9A-Fa-f]{4,6})`(?:\s*–\s*`U\+([0-9A-Fa-f]{4,6})`)?")
 
 
 def spec_trim_set() -> set[str]:
@@ -128,7 +132,15 @@ def test_the_spec_writes_out_the_set_the_code_trims():
 def test_the_spec_set_covers_what_the_page_trims():
     """§4.1 claims a covering superset, not an equality. `String.prototype.trim` takes off
     WhiteSpace and the line terminators; the server's set adds `U+0085` and `U+001C`–`U+001F`,
-    which `str.isspace` calls whitespace and Unicode does not."""
+    which `str.isspace` calls whitespace and Unicode does not.
+
+    The wording is pinned beside the codepoints: reading the list back cannot tell a covering claim
+    from an equality claim, so a paragraph that kept this list and went back to saying the two sets
+    are the same would pass every other assertion here.
+    """
+    section = spec_section("### 4.1")
+    assert "does not equal it" in section
+    assert "strict superset by those five" in section
     page = set("\t\n\v\f\r       　﻿")
     page.update(chr(point) for point in range(0x2000, 0x200B))
     written = spec_trim_set()

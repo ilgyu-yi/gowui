@@ -32,46 +32,46 @@
 | &nbsp;&nbsp;§3.1 | Spaces | 443 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 470 |
 | &nbsp;&nbsp;§3.3 | Boards | 536 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 567 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 593 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 608 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 612 |
-| &nbsp;&nbsp;§3.8 | The page | 621 |
-| §4 | WebSocket protocol | 1005 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1009 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1111 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1153 |
-| §5 | HTTP routes | 1247 |
-| §6 | Launch modes and policies | 1322 |
-| &nbsp;&nbsp;§6.1 | The rule | 1324 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1360 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1400 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1433 |
-| §7 | Authentication and security | 1473 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1475 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1536 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1572 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1592 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1640 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1661 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1707 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1741 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1755 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1764 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1800 |
-| §8 | Persistence | 1819 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1821 |
-| &nbsp;&nbsp;§8.2 | Saving | 1857 |
-| &nbsp;&nbsp;§8.3 | Local state file | 1890 |
-| &nbsp;&nbsp;§8.4 | Server database | 1932 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 1996 |
-| §9 | Command line | 2023 |
-| §10 | Configuration (server) | 2093 |
-| &nbsp;&nbsp;§10.1 | Container | 2131 |
-| §11 | Feature inventory | 2219 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2226 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2264 |
-| §12 | Non-goals | 2282 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 568 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 594 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 609 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 613 |
+| &nbsp;&nbsp;§3.8 | The page | 622 |
+| §4 | WebSocket protocol | 1006 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1010 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1117 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1159 |
+| §5 | HTTP routes | 1253 |
+| §6 | Launch modes and policies | 1328 |
+| &nbsp;&nbsp;§6.1 | The rule | 1330 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1366 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1406 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1439 |
+| §7 | Authentication and security | 1481 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1483 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1547 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1583 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1603 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1651 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1672 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1718 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1752 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1766 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1775 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1811 |
+| §8 | Persistence | 1830 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1832 |
+| &nbsp;&nbsp;§8.2 | Saving | 1868 |
+| &nbsp;&nbsp;§8.3 | Local state file | 1901 |
+| &nbsp;&nbsp;§8.4 | Server database | 1943 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2007 |
+| §9 | Command line | 2034 |
+| §10 | Configuration (server) | 2104 |
+| &nbsp;&nbsp;§10.1 | Container | 2142 |
+| §11 | Feature inventory | 2230 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2237 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2275 |
+| §12 | Non-goals | 2293 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -551,7 +551,7 @@ same key. A space is created in four steps:
   ignores an empty one, truncates it to 40 characters (§7.6) and trims again — the cut falls
   wherever the 40th character is, so it can leave the space that was between two words at the end,
   and a name a **rename** stores ends in nothing that set takes off, whatever its length. Other
-  paths that write a board name are not bound by this bullet. **Move** puts a board after
+  paths that write a board name are not bound by this bullet — restoring a snapshot is §8.1. **Move** puts a board after
   another, or at the head, and changes nothing else (§4.1).
 - **Delete** removes a board, switching to a neighbour when it was active. Deleting the **last**
   board is accepted and **resets it in place** instead: the board keeps its id, its place and its
@@ -1108,8 +1108,8 @@ is a strict superset by those five. Covering is what the wire needs: a name the 
 out of the server's trim unchanged. The mark is in the set for that reason — `trim()` takes one,
 so a name ending in a mark would otherwise be stored with it on one side of the wire and without
 it on the other. The five the server takes off beyond the page's set are control characters (C0 or
-C1) that no name may hold anywhere in any case, by the rule above. A board name is trimmed with
-the same set (§3.3).
+C1) that no name may hold anywhere in any case, by the rule above. A board name a **rename**
+stores is trimmed with the same set (§3.3).
 
 What is stored goes to every tab of the identity in the next `state` (§4.2) and is written by the
 same saves as the snapshot (§8.2).
@@ -1496,7 +1496,10 @@ printable characters without surrounding spaces; passwords have 8–256 characte
   the parameters it was made with, so hashes written by an
   older, cheaper setting still verify and are left alone until the password is set again.
   Checking a missing name runs scrypt against a fixed dummy hash, so it
-  takes the same time as a wrong password, and both give the same answer. The dummy is a hash in
+  takes the same time as a wrong password, and both give the same answer — while every stored hash
+  carries the current parameters. The dummy carries those, and a wrong password on an account whose
+  hash an older setting wrote costs what *that* setting costs, so the equal time is what a cost
+  raise opens a window in; issue #58 holds the decision that closes it. The dummy is a hash in
   stored form carrying the current parameters, a random salt and a random digest no password
   matches, so making it runs no scrypt at all: opening the database costs no hash (§8.4), and a
   missing name always costs the one scrypt a real check costs — never two, never none.
