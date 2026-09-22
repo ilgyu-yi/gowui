@@ -42,12 +42,6 @@
     return points;
   }
 
-  /* Red for a move the search barely looked at, green for the one it likes. */
-  function candidateColor(ratio, alpha) {
-    var hue = 8 + 122 * Math.pow(Math.max(0, Math.min(1, ratio)), 0.45);
-    return 'hsla(' + hue.toFixed(0) + ', 62%, 42%, ' + alpha + ')';
-  }
-
   function abbreviate(n) {
     if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
     if (n >= 10000) return Math.round(n / 1000) + 'k';
@@ -444,15 +438,12 @@
   GoBoard.prototype._drawCandidates = function (m) {
     var infos = (this.analysis && this.analysis.moveInfos) || [];
     if (!infos.length) return 0;
-    // A human-policy distribution has no visits; shade by probability instead.
-    // Some candidates of a compared view carry a count and some carry none (§3.8 "Candidate
-    // table"): a missing one weighs nothing rather than turning the shade into a NaN.
     var byVisits = infos.some(function (info) { return info.visits > 0; });
-    var weight = function (info) {
-      return byVisits ? (info.visits || 0) : Math.abs(info.prior || 0);
-    };
     var diffView = !!this.analysis.diffView;
-    var best = infos.reduce(function (acc, info) { return Math.max(acc, weight(info)); }, byVisits ? 1 : 1e-9);
+    var rootVisits = this.analysis.rootInfo && this.analysis.rootInfo.visits;
+    var totalVisits = rootVisits > 0 ? rootVisits : infos.reduce(function (sum, info) {
+      return sum + (info.visits || 0);
+    }, 0);
     var ctx = this.ctx;
     var self = this;
     var drawn = 0;
@@ -463,31 +454,74 @@
       drawn += 1;
       var cx = m.margin + point.x * m.cell;
       var cy = m.margin + point.y * m.cell;
-      var radius = m.cell * 0.46;
-      var ratio = weight(info) / best;
+      var radius = m.cell * (diffView ? 0.46 : 0.39);
+      var probability = Math.max(0, Math.min(1, Math.abs(info.prior || 0)));
+      var visitShare = totalVisits > 0
+        ? Math.max(0, Math.min(1, (info.visits || 0) / totalVisits)) : 0;
 
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.fillStyle = diffView
-        ? ((info.prior || 0) > 0 ? 'hsla(8, 70%, 42%, 0.85)' : 'hsla(212, 70%, 42%, 0.85)')
-        : candidateColor(ratio, index === 0 ? 0.92 : 0.8);
-      ctx.fill();
+      if (diffView) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = (info.prior || 0) > 0
+          ? 'hsla(8, 70%, 42%, 0.85)' : 'hsla(212, 70%, 42%, 0.85)';
+        ctx.fill();
+      } else {
+        // Keep the position visible through the candidate. The left half rises with raw policy;
+        // the right half rises with the share of the search budget spent on this move.
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.lineWidth = Math.max(3, m.cell * 0.14);
+        ctx.strokeStyle = 'rgba(55, 64, 64, 0.27)';
+        ctx.stroke();
+
+        ctx.lineWidth = Math.max(2, m.cell * 0.09);
+        ctx.strokeStyle = 'hsla(8, 88%, 48%, 0.98)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, Math.PI / 2, Math.PI / 2 + Math.PI * probability);
+        ctx.stroke();
+        if (byVisits && info.visits != null) {
+          ctx.strokeStyle = 'hsla(218, 86%, 52%, 0.98)';
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, Math.PI / 2, Math.PI / 2 - Math.PI * visitShare, true);
+          ctx.stroke();
+        }
+      }
       if (index === 0) {
-        ctx.lineWidth = Math.max(1.5, m.cell * 0.06);
+        if (!diffView) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, m.cell * 0.47, 0, Math.PI * 2);
+        }
+        ctx.lineWidth = Math.max(1.5, m.cell * (diffView ? 0.06 : 0.045));
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.stroke();
       }
 
-      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = 'bold ' + (m.cell * 0.32).toFixed(0) + 'px system-ui, sans-serif';
-      ctx.fillText(self._candidateLabel(info), cx, cy - m.cell * 0.11);
-      ctx.font = (m.cell * 0.26).toFixed(0) + 'px system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      // The second line is the visits, so a candidate without them is left with the first alone.
+      var label = self._candidateLabel(info);
+      if (diffView) {
+        ctx.fillStyle = '#ffffff';
+      } else {
+        ctx.lineWidth = Math.max(1.25, m.cell * 0.04);
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(255, 248, 232, 0.94)';
+        ctx.strokeText(label, cx, cy - m.cell * 0.11);
+        ctx.fillStyle = self.options.labelMode === 'prior' ? 'hsl(8, 80%, 34%)'
+          : (self.options.labelMode === 'visits' ? 'hsl(218, 72%, 34%)' : '#27313a');
+      }
+      ctx.fillText(label, cx, cy - m.cell * 0.11);
       if (byVisits && info.visits != null) {
-        ctx.fillText(abbreviate(info.visits), cx, cy + m.cell * 0.19);
+        ctx.font = (m.cell * 0.26).toFixed(0) + 'px system-ui, sans-serif';
+        if (diffView) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        } else {
+          ctx.lineWidth = Math.max(1, m.cell * 0.035);
+          ctx.strokeStyle = 'rgba(255, 248, 232, 0.9)';
+          ctx.strokeText(abbreviate(info.visits), cx, cy + m.cell * 0.18);
+          ctx.fillStyle = 'hsl(218, 72%, 34%)';
+        }
+        ctx.fillText(abbreviate(info.visits), cx, cy + m.cell * 0.18);
       }
     });
     return drawn;
@@ -578,7 +612,6 @@
   global.goboardUtils = {
     vertexToPoint: vertexToPoint,
     pointToVertex: pointToVertex,
-    candidateColor: candidateColor,
     abbreviate: abbreviate,
     starPoints: starPoints
   };
