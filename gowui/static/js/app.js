@@ -1541,6 +1541,59 @@
     if (bound) { event.preventDefault(); bound.run(); }
   });
 
+  /* -- the help panel (§3.8 "Help panel") ---------------------------------- */
+  // The key list is derived, not authored: one row per entry of KEY_HELP, so a group the table
+  // gains is listed without a second place having to be edited. Each row's label is data-i18n
+  // rather than text, which is what makes a language switch re-render it: i18n.switchTo applies
+  // the tables over the whole document before it notifies anyone.
+  function buildKeyHelp() {
+    var container = $('help-keys');
+    container.replaceChildren();
+    KEY_HELP.forEach(function (group) {
+      var box = document.createElement('div');
+      box.className = 'help-group';
+      var heading = document.createElement('h4');
+      heading.className = 'help-scope';
+      heading.setAttribute('data-i18n', group.scope);
+      box.appendChild(heading);
+      group.keys.forEach(function (entry) {
+        var row = document.createElement('div');
+        row.className = 'help-row';
+        row.dataset.scope = group.scope;
+        var press = document.createElement('span');
+        press.className = 'help-press';
+        entry.press.forEach(function (key) {
+          var tag = document.createElement('kbd');
+          tag.dataset.key = key;
+          // Every key reads as itself; the space bar is the one with no name of its own.
+          tag.textContent = key === ' ' ? 'Space' : key;
+          press.appendChild(tag);
+        });
+        var label = document.createElement('span');
+        label.className = 'help-label';
+        label.setAttribute('data-i18n', entry.label);
+        row.appendChild(press);
+        row.appendChild(label);
+        box.appendChild(row);
+      });
+      container.appendChild(box);
+    });
+    i18n.apply(container);
+  }
+
+  // Open and closed is the hidden attribute, never a style write (§3.8 "Rendering safety"). The
+  // panel is not modal, so nothing holds the keyboard inside it: opening moves focus to the close
+  // button and closing gives it back to the control that opened it, which is what a keyboard user
+  // gets instead. It takes no key of its own (§3.7).
+  function showHelp(open) {
+    $('help-panel').hidden = !open;
+    $(open ? 'help-close' : 'help-toggle').focus();
+  }
+
+  $('help-toggle').onclick = function () { showHelp($('help-panel').hidden); };
+  $('help-close').onclick = function () { showHelp(false); };
+  buildKeyHelp();
+
   $('lang').value = i18n.lang();
   $('lang').onchange = function () {
     i18n.setLang(this.value);
