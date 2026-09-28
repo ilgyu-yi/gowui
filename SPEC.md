@@ -820,8 +820,9 @@ finally either the PV preview or the candidates.
   root count is absent). A low-contrast neutral track shows the unfilled part. A candidate without
   visits has no cobalt arc. The first candidate has a separate white outer ring
   (`board.js:489-497`) when it has a point: a pass has none (`board.js:16`) and is not drawn
-  (`board.js:453`), so a first candidate that is a pass leaves no candidate outlined. The selected
-  main label remains the first line; in `prior` mode its vermilion text matches the policy arc, while
+  (`board.js:453`), so a first candidate that is a pass leaves no candidate with the white outer
+  ring; the others keep their rings. The selected main label remains the first line; in `prior`
+  mode its vermilion text matches the policy arc, while
   other main-label modes use neutral text (`visits` uses cobalt). A second, smaller cobalt line
   shows the absolute visits when reported.
   **A count some candidates carry and others do not is a case, not an edge.** While comparing, the
@@ -1352,13 +1353,14 @@ it says what those sources support and no more.
   confidence bound, in the same view (§2.2; §3.8 "Candidate readout"). The parentheses are the
   mark of a bound and are not words, so they are the same in both languages.
 - **The name collision the legend has to settle.** The table's Value — `가치` in the Korean table —
-  is the engine's raw `utility` above. The `û` of the λ, μ and κ help cards (§3.8 "Human policy
-  panel"; the strings `field.lambda_utility.help`, `field.trust_mu.help` and `field.fill_kappa.help`)
-  is a **different quantity**: a move's search value after it has been shrunk toward the fill value
+  is the engine's raw `utility` above. The `û` of the λ and μ help cards (§3.8 "Human policy
+  panel"; the strings `field.lambda_utility.help` and `field.trust_mu.help`; the κ card,
+  `field.fill_kappa.help`, defines the fill value and does not name `û`) is a **different
+  quantity**: a move's search value after it has been shrunk toward the fill value
   by μ and κ. The same word carries both in the English table and in the Korean one, so the legend
   names the collision rather than leaving a reader to find it. It names the cards by what the
-  reader sees: the Value pull knob, which sets those three fields (`tuple.js:66-75`), and the
-  fields' own labels under Raw values.
+  reader sees: the Value pull knob, which sets the λ, μ and κ fields (`tuple.js:66-75`), and
+  the λ and μ fields' own labels under Raw values.
 - **Win and Value are different quantities, and gowui defines no conversion between them.** The
   panel carries no formula relating a winrate to a utility and no conversion factor: neither is
   derivable from anything this repo holds. Nothing beyond what these entries cite is added, because

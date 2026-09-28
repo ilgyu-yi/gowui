@@ -154,15 +154,17 @@
       'help.glyph.title': 'What is drawn on a candidate',
       'help.glyph.ring': "Each candidate is a ring over a faint track. From the bottom, the vermilion left half rises with the move's raw policy probability, and the blue right half with the move's share of the search.",
       'help.glyph.visits': 'A move the search did not reach has no blue arc. The smaller blue number is its visits; the number above it is the one the Label select chooses, and the ? beside Label says which.',
-      // §3.8 "Top candidates": the white outer ring, and a pass has no point (board.js:16, 453).
-      'help.glyph.best': 'The first candidate, the one the table marks as best, has a white outer ring — unless it is a pass, which has no point on the board, and then no candidate is ringed.',
+      // §3.8 "Top candidates": the white outer ring, and a pass has no point (board.js:16, 453);
+      // the other candidates keep their rings, so only the white one is absent.
+      'help.glyph.best': 'The first candidate, the one the table marks as best, has a white outer ring — unless it is a pass, which has no point on the board, and then no candidate has the white ring.',
       // §3.8 "Compare views": the filled disc is the Compare card's (help.compare.diff), not repeated.
       'help.glyph.diff': 'While comparing on Difference B − A a candidate is drawn another way: the ? beside Compare two tuples says how.',
       // §3.8 "Help panel" part 3: one line per switch with a ? card, which each line points at.
       'help.task.title': 'To see a thing, what to turn on',
       'help.task.label': 'To choose the number written in each candidate:',
       'help.task.ownership': 'To see which side owns each point:',
-      'help.task.heatmap': 'To see the raw policy on every point, not only on the candidates:',
+      // §3.8 "Raw policy heatmap": a square only where the entry is above 0.0005 (board.js:387).
+      'help.task.heatmap': 'To see the raw policy as a square on each point above 0.05%, not only on the candidates:',
       'help.task.numbers': 'To read the order the stones were played in:',
       'help.task.compare': 'To see how two human-policy tuples differ, with handol-mux:',
       'help.task.see': '— the ? beside it says what it shows.',
@@ -180,13 +182,15 @@
       'help.num.value': "The engine's utility: one signed number centred on zero, not a probability, in Black's view like the score, to two decimals. Compare it between the candidates of one position and not between positions — its score part is recentred on that position's own expected score.",
       // §3.8 "What the numbers mean": the legend points at the table's ? for these three.
       'help.num.inTable': 'These, and every other column of the candidate table, are explained by the ? beside Candidate moves.',
-      // §2.2 `utilityLcb`; §3.8 "Candidate readout" (the parentheses are style.css:92-93).
+      // §2.2 `utilityLcb`; §3.8 "Candidate readout" (the parentheses are style.css
+      // `.readout .lcb::before` / `::after`).
       'help.num.lcb': "The number in parentheses beside the Value under the board is utilityLcb, that Value's lower confidence bound, in the same view.",
-      // §3.8 "Human policy panel" and the strings field.lambda_utility.help, field.trust_mu.help
-      // and field.fill_kappa.help, where û is the value μ and κ have shrunk toward the fill value.
-      // Named as the reader sees them: the Value pull knob sets those three (tuple.js:66-75), and
-      // field.lambda_utility, field.trust_mu and field.fill_kappa are the fields' labels.
-      'help.num.collision': "One word, two quantities. The Value of the candidate table is the engine's raw utility. The û behind the Value pull knob — in the cards of Utility temperature λ, Trust μ and Pessimism κ under Raw values — is a different number: a move's search value after Trust and Pessimism have shrunk it toward the fill value.",
+      // §3.8 "Human policy panel" and the strings field.lambda_utility.help and
+      // field.trust_mu.help, where û is the value μ and κ have shrunk toward the fill value;
+      // field.fill_kappa.help defines that fill value and does not name û, so its card is not
+      // cited. Named as the reader sees them: the Value pull knob sets λ, μ and κ
+      // (tuple.js:66-75), and field.lambda_utility and field.trust_mu are the fields' labels.
+      'help.num.collision': "One word, two quantities. The Value of the candidate table is the engine's raw utility. The û behind the Value pull knob — in the cards of Utility temperature λ and Trust μ under Raw values — is a different number: a move's search value after Trust and Pessimism have shrunk it toward the fill value.",
       // §3.8 "What the numbers mean": no formula and no conversion factor between the two is
       // derivable from anything this repo holds, so the panel carries neither.
       'help.num.noConversion': 'Different quantities in different units, and gowui defines no conversion between them. There is no formula here that turns a winrate into a Value, or a Value into a winrate.',
@@ -499,14 +503,16 @@
       'help.glyph.ring': '후보마다 옅은 바탕 고리 위에 고리를 그린다. 아래에서부터 왼쪽 주홍 반쪽은 그 수의 날 정책 확률만큼, 오른쪽 파란 반쪽은 탐색 가운데 그 수에 쓴 몫만큼 올라간다.',
       'help.glyph.visits': '탐색이 닿지 않은 수에는 파란 호가 없다. 작은 파란 숫자는 그 수의 방문 수이고, 그 위의 숫자는 라벨 선택이 고른 값이다. 라벨 옆 ?가 무엇인지 알려 준다.',
       // §3.8 "Top candidates": 흰 바깥 고리, 패스는 자리가 없다(board.js:16, 453).
-      'help.glyph.best': '첫 후보, 곧 표가 최선으로 표시하는 수에는 흰 바깥 고리가 있다. 다만 그 수가 패스면 판 위에 자리가 없어서 어느 후보에도 고리가 없다.',
+      // 다른 후보의 고리는 그대로이니 없는 것은 흰 고리 하나다.
+      'help.glyph.best': '첫 후보, 곧 표가 최선으로 표시하는 수에는 흰 바깥 고리가 있다. 다만 그 수가 패스면 판 위에 자리가 없어서 흰 바깥 고리를 두른 후보가 없다.',
       // §3.8 "Compare views": 채운 원은 비교 카드(help.compare.diff)가 맡고, 여기서 되풀이하지 않는다.
       'help.glyph.diff': '차이 B − A를 볼 때는 후보를 다르게 그린다. 두 튜플 비교 옆 ?가 어떻게 그리는지 알려 준다.',
       // §3.8 "Help panel" 셋째 부분: ? 카드가 있는 스위치마다 한 줄, 그 ?를 가리킨다.
       'help.task.title': '무엇을 보려면 무엇을 켜나',
       'help.task.label': '후보마다 적히는 숫자를 고르려면:',
       'help.task.ownership': '자리마다 어느 쪽 차지인지 보려면:',
-      'help.task.heatmap': '후보 자리만이 아니라 모든 자리의 날 정책을 보려면:',
+      // §3.8 "Raw policy heatmap": 값이 0.0005를 넘는 자리에만 네모를 그린다(board.js:387).
+      'help.task.heatmap': '후보 자리만이 아니라 날 정책이 0.05%를 넘는 자리마다 네모로 보려면:',
       'help.task.numbers': '돌이 놓인 차례를 읽으려면:',
       'help.task.compare': '두 휴먼 정책 튜플이 어떻게 다른지 보려면(handol-mux):',
       'help.task.see': '— 옆의 ?가 무엇을 보여 주는지 알려 준다.',
@@ -523,13 +529,14 @@
       // §3.8 "What the numbers mean": 이 셋은 범례가 표의 ?를 가리킨다.
       'help.num.inTable': '이 셋과 후보 표의 다른 칸은 후보 수 옆 ?가 설명한다.',
       'help.num.value': '엔진의 utility 값. 0을 가운데 둔 부호 있는 수 하나이고 확률이 아니며, 집처럼 흑 기준으로 소수 두 자리까지 나온다. 한 국면 안의 후보끼리 견주는 값이지 국면끼리 견주는 값이 아니다. 집에 해당하는 부분이 그 국면의 기대 집 수를 기준으로 다시 맞춰지기 때문이다.',
-      // §2.2 `utilityLcb`; §3.8 "Candidate readout"(괄호는 style.css:92-93).
+      // §2.2 `utilityLcb`; §3.8 "Candidate readout"(괄호는 style.css
+      // `.readout .lcb::before` / `::after`).
       'help.num.lcb': '판 아래 줄의 가치 옆 괄호 안 숫자는 utilityLcb, 같은 기준으로 본 그 가치의 신뢰 하한이다.',
-      // §3.8 "Human policy panel"과 field.lambda_utility.help, field.trust_mu.help,
-      // field.fill_kappa.help — 거기서 û는 μ와 κ가 채움값 쪽으로 당긴 뒤의 값이다.
-      // 읽는 이가 보는 이름으로 적는다: 가치 끌림 손잡이가 그 셋을 정하고(tuple.js:66-75),
-      // field.lambda_utility, field.trust_mu, field.fill_kappa가 그 칸들의 이름이다.
-      'help.num.collision': '같은 말이 둘을 가리킨다. 후보 표의 가치는 엔진의 날 utility다. 가치 끌림 손잡이 뒤의 û — 원시 값 아래 가치 온도 λ·신뢰 μ·비관도 κ 카드에 나오는 û — 는 다른 수다. 그 수의 탐색 가치를 신뢰와 비관도가 채움값 쪽으로 당기고 난 값이다.',
+      // §3.8 "Human policy panel"과 field.lambda_utility.help, field.trust_mu.help — 거기서 û는
+      // μ와 κ가 채움값 쪽으로 당긴 뒤의 값이다. field.fill_kappa.help는 그 채움값을 정할 뿐 û를
+      // 말하지 않으니 그 카드는 들지 않는다. 읽는 이가 보는 이름으로 적는다: 가치 끌림 손잡이가
+      // λ·μ·κ를 정하고(tuple.js:66-75), field.lambda_utility, field.trust_mu가 그 칸들의 이름이다.
+      'help.num.collision': '같은 말이 둘을 가리킨다. 후보 표의 가치는 엔진의 날 utility다. 가치 끌림 손잡이 뒤의 û — 원시 값 아래 가치 온도 λ·신뢰 μ 카드에 나오는 û — 는 다른 수다. 그 수의 탐색 가치를 신뢰와 비관도가 채움값 쪽으로 당기고 난 값이다.',
       // §3.8 "What the numbers mean": 둘 사이의 식도 환산 계수도 이 저장소에 있는
       // 어떤 것에서도 끌어낼 수 없으니, 패널은 둘 다 싣지 않는다.
       'help.num.noConversion': '단위가 다른 서로 다른 값이고, gowui는 둘 사이의 환산을 정해 두지 않았다. 승률을 가치로, 가치를 승률로 바꾸는 식은 여기에 없다.',
