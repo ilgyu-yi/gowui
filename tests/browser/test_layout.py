@@ -698,10 +698,16 @@ def test_the_page_never_scrolls_across(start_app, open_page):
 
 
 # -- the help panel, open (§3.8 "Help panel"; issue #64) -----------------------------------------
-#: The two shapes the open panel is read at: an ordinary wide window, and the 320px floor of "The
-#: page scrolls down, never across" in a window short enough that a panel free to grow runs off the
-#: bottom of it. Everything above this line runs with the panel **closed**.
-PANEL_SHAPES = (ROOMY, FLOOR)
+#: The shape a window has to be for a panel bounded by a flat share of the viewport to run off the
+#: bottom of it. At 320px the top bar wraps to about 204px, so a flat ``70dvh`` puts the panel's
+#: bottom at ``204 + 0.7h``, which passes ``FLOOR``'s 700px height by **one pixel** and fails here.
+#: Measured, flat against derived: 699 / 682 at 700px tall, 601 / 542 at 560px.
+SHALLOW = {"width": 320, "height": 560}
+
+#: The shapes the open panel is read at: an ordinary wide window, the 320px floor of "The page
+#: scrolls down, never across", and ``SHALLOW``. Everything above this line runs with the panel
+#: **closed**.
+PANEL_SHAPES = (ROOMY, FLOOR, SHALLOW)
 
 
 def help_open(g: Gowui) -> None:
