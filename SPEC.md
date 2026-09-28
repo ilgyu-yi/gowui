@@ -1243,7 +1243,7 @@ neither holds. The card is the `?`'s next element sibling and a stylesheet rule 
 `display: none !important`. No script opens a card, so the style-write census of §3.8 "Rendering
 safety" (§7.5) is unchanged. The `?` names its card with `aria-describedby`, and sits after its
 control's `<label>`, not inside it. A card opens against the right edge of its row (§3.8
-"Scrolling") and is never wider than the window less 24px. Two cards in one row open in the same
+"Scrolling") and is never wider than that row. Two cards in one row open in the same
 place; hovering one `?` closes the card of a focused one beside it.
 
 | `?` beside | Its card carries | From |

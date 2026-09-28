@@ -2,8 +2,8 @@
 #67).
 
 §3.8: a static card "opens while its `?` is hovered or has focus — a tap focuses it — and closes
-when neither holds"; it opens "against the right edge of its row" and is "never wider than the
-window less 24px"; "hovering one `?` closes the card of a focused one beside it"; the table card
+when neither holds"; it opens "against the right edge of its row" and is "never wider than that
+row"; "hovering one `?` closes the card of a focused one beside it"; the table card
 "holds the current mode's columns and no others", and "each column header carries its entry's text
 as its `title`, from the same key".
 
