@@ -697,6 +697,148 @@ def test_the_page_never_scrolls_across(start_app, open_page):
             f"column and scrolls sideways")
 
 
+# -- the help panel, open (§3.8 "Help panel"; issue #64) -----------------------------------------
+#: The two shapes the open panel is read at: an ordinary wide window, and the 320px floor of "The
+#: page scrolls down, never across" in a window short enough that a panel free to grow runs off the
+#: bottom of it. Everything above this line runs with the panel **closed**.
+PANEL_SHAPES = (ROOMY, FLOOR)
+
+
+def help_open(g: Gowui) -> None:
+    """Open the help panel through the top-bar control (§3.8) and wait for the page to settle."""
+    control = g.page.locator("#help-toggle")
+    assert control.count() == 1, "the top bar has no #help-toggle (SPEC §3.8 'Help panel')"
+    control.click()
+    expect(g.page.locator("#help-panel")).to_be_visible(timeout=QUICK)
+    settled(g)
+
+
+def help_close(g: Gowui) -> None:
+    g.page.locator("#help-toggle").click()
+    expect(g.page.locator("#help-panel")).to_be_hidden(timeout=QUICK)
+    settled(g)
+
+
+def measured_boxes(g: Gowui) -> dict:
+    """The two boxes §3.8 "Help panel" says the panel does not move: the board canvas and the
+    controls under it.
+
+    Taken in the document's own coordinates, not the viewport's. Opening the panel moves focus to
+    its close button (§3.8), and a page scrolled to that control would move every viewport-relative
+    rectangle on the page without anything having been laid out differently — which is not what
+    "changes no box the page measures" is about."""
+    boxes = g.page.evaluate("""() => {
+        const box = (selector) => {
+            const node = document.querySelector(selector);
+            if (!node) return null;
+            const r = node.getBoundingClientRect();
+            return [r.x + window.scrollX, r.y + window.scrollY, r.width, r.height]
+                .map((n) => Math.round(n));
+        };
+        return {board: box('#board'), controls: box('.board-controls')};
+    }""")
+    assert boxes["board"] and boxes["controls"], (
+        f"the board or its controls are not on the page, so nothing is being measured: {boxes}")
+    return boxes
+
+
+def panel_fit(g: Gowui) -> dict:
+    """Where the open panel's own box sits, and how much of its content it is holding."""
+    return g.page.evaluate("""() => {
+        const node = document.querySelector('#help-panel');
+        const r = node.getBoundingClientRect();
+        return {bottom: Math.round(r.bottom), top: Math.round(r.top),
+                right: Math.round(r.right), viewport: window.innerHeight,
+                edge: document.documentElement.clientWidth,
+                needs: node.scrollHeight, holds: node.clientHeight,
+                across: [node.scrollWidth, node.clientWidth]};
+    }""")
+
+
+def test_the_open_panel_moves_no_box_the_page_measures(start_app, open_page):
+    """§3.8 "Help panel": "it is out of flow, so opening it moves no control and changes no box
+    the page measures — the board canvas and the controls under it are the same boxes open as
+    closed". The board's size is written in pixels from the width it measured (§3.8 "Scrolling"),
+    so a panel that took layout room would not only move the board, it would resize it and leave
+    it that way."""
+    g = open_page(start_app()).open()
+    moved = []
+    for size in PANEL_SHAPES:
+        resized(g, size)
+        closed = measured_boxes(g)
+        help_open(g)
+        opened = measured_boxes(g)
+        if opened != closed:
+            moved.append((f"{size['width']}x{size['height']}", closed, opened))
+        help_close(g)
+    assert moved == [], f"opening the panel moved the board or its controls at {moved}"
+
+
+def test_the_open_panel_never_pushes_the_page_across(start_app, open_page):
+    """§3.8 "Help panel" with "The page scrolls down, never across": "From 320px up it adds no
+    horizontal scrolling to the document ... its key rows wrap and each key is its own token, so
+    the widest thing it cannot make narrower is one key's name."
+
+    The panel's own box is read too: a box that scrolls vertically treats a horizontal overflow as
+    scrollable as well, so a row too wide for the panel hides inside it rather than showing up in
+    the document's width (§3.8 "Scrolling")."""
+    g = open_page(start_app()).open()
+    across = []
+    for size in PANEL_SHAPES:
+        resized(g, size)
+        help_open(g)
+        page = g.page.evaluate("() => [document.documentElement.scrollWidth,"
+                               " document.documentElement.clientWidth]")
+        fit = panel_fit(g)
+        at = f"{size['width']}x{size['height']}"
+        if page[0] > page[1] + 1:
+            across.append((at, f"the page is {page[0]}px across a {page[1]}px window",
+                           widest_overflow(g)))
+        if fit["across"][0] > fit["across"][1] + 1:
+            across.append((at, f"the panel is {fit['across'][0]}px across a "
+                               f"{fit['across'][1]}px box", []))
+        help_close(g)
+    assert across == [], f"the open panel scrolls sideways at {len(across)} shapes: {across}"
+
+
+def test_the_open_panel_keeps_its_bottom_edge_inside_the_window(start_app, open_page):
+    """§3.8 "Help panel": "unbounded it runs off the bottom of a short window with nothing to
+    reach the rest by" — so the panel's own bottom edge stays inside the viewport and its content
+    is reached by its own scrolling.
+
+    Measured at the floor shape as well as the roomy one, because 320x700 is where it bites: the
+    panel carries the flow, the legend and a row per bound key, which is far more than 70dvh of a
+    700px window."""
+    g = open_page(start_app()).open()
+    past = []
+    for size in PANEL_SHAPES:
+        resized(g, size)
+        help_open(g)
+        fit = panel_fit(g)
+        if fit["bottom"] > fit["viewport"] + 1:
+            past.append((f"{size['width']}x{size['height']}", fit))
+        help_close(g)
+    assert past == [], f"the panel's bottom edge is past the window at {len(past)} shapes: {past}"
+
+
+def test_the_open_panel_is_bounded_and_scrolls_inside_itself(start_app, open_page):
+    """The floor under the test above. §3.8 bounds the panel "since it carries the flow, the
+    legend and a row per bound key, and unbounded it runs off the bottom of a short window": at
+    320x700 that content does not fit `max-height: 70dvh`, so the panel must be holding less than
+    it has and scrolling to the rest.
+
+    Without this, a panel that rendered almost nothing would keep its bottom edge inside every
+    window and pass the bounded-height check on content that was never there — which is how a
+    layout assertion in this repo once passed on injected data too narrow to overflow anything."""
+    g = open_page(start_app()).open()
+    resized(g, FLOOR)
+    help_open(g)
+    fit = panel_fit(g)
+    assert fit["needs"] > fit["holds"], (
+        f"at 320x700 the panel holds all {fit['needs']}px of its content in {fit['holds']}px, so "
+        "nothing here shows it is bounded or that its content is reachable by its own scrolling")
+
+
 def test_one_long_control_does_not_widen_the_page(start_app, open_page):
     """§3.8 "Scrolling": a control whose own content is wider than the window narrows rather than
     pushing the page across. The engine picker in server mode is the one that can reach this — a

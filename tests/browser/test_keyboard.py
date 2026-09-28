@@ -358,6 +358,50 @@ def test_alt_arrow_reorders_even_while_ctrl_is_held(start_app, open_page):
     assert (frame["id"], frame["after"]) == (first, second)
 
 
+# -- the help panel takes no key (§3.7; §3.8 "Help panel"; issue #64) ----------------------------
+def help_open(g) -> None:
+    """Open the help panel through the control §3.8 gives it."""
+    control = g.page.locator("#help-toggle")
+    assert control.count() == 1, "the top bar has no #help-toggle (SPEC §3.8 'Help panel')"
+    control.click()
+    expect(g.page.locator("#help-panel")).to_be_visible(timeout=QUICK)
+
+
+def test_a_shortcut_still_acts_while_the_help_panel_is_open(start_app, open_page):
+    """§3.7: "The document set stays live while the help panel is open. The panel is a teaching
+    surface: a reader who has just read that ``←`` walks the game presses ``←``, and it walks the
+    game."
+
+    Opening the panel moves focus to its close button (§3.8), which is a ``button`` and so not one
+    of the ``input`` / ``select`` / ``textarea`` the §3.7 guard bails on — but only if the panel
+    adds no guard of its own."""
+    g = open_page(start_app()).open()
+    played(g, "D4", "Q16")
+    g.act({"type": "navigate", "index": 0})
+    expect(g.page.locator("#move-counter")).to_have_text("0 / 2")
+
+    help_open(g)
+    g.page.keyboard.press("ArrowRight")
+    expect(g.page.locator("#move-counter")).to_have_text("1 / 2")
+
+
+def test_escape_does_not_close_the_help_panel(start_app, open_page):
+    """§3.7: "``Escape`` on the document keeps one meaning: it cancels a drag. The help panel
+    takes no key of its own ... so there is no precedence to settle between a drag in flight and a
+    panel."
+
+    The wait is not decoration. ``keyboard.press`` returns before the page has laid out again, so
+    a panel that *did* close on ``Escape`` would still be on screen the instant afterwards and
+    this would pass on exactly the behaviour it exists to refuse."""
+    g = open_page(start_app()).open()
+    help_open(g)
+
+    g.page.keyboard.press("Escape")
+    g.page.wait_for_timeout(500)
+    assert g.page.locator("#help-panel").get_attribute("hidden") is None, \
+        "Escape closed the help panel, which §3.7 gives it no key to do"
+
+
 # -- the rename field's own handler (app.js:648) -------------------------------------------------
 def test_enter_in_the_rename_field_saves_the_name(start_app, open_page):
     """§3.8 "Rename in place": ``Enter`` commits — the tile shows the typed name and the server
