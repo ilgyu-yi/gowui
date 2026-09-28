@@ -144,8 +144,8 @@
       // §3.8 "What the numbers mean": no formula and no conversion factor between the two is
       // derivable from anything this repo holds, so the panel carries neither.
       'help.num.noConversion': 'Different quantities in different units, and gowui defines no conversion between them. There is no formula here that turns a winrate into a Value, or a Value into a winrate.',
-      // The list below is rendered from the table of §3.7; these name its five surfaces and the
-      // groups within them.
+      // The list below is rendered from the table of §3.7; these name its four surfaces and the
+      // five groups within them.
       'help.keys.title': 'Keys',
       'help.scope.nav': 'The page, outside a text field',
       'help.scope.tile': 'A board tile with the focus',
@@ -442,7 +442,7 @@
       // §3.8 "What the numbers mean": 둘 사이의 식도 환산 계수도 이 저장소에 있는
       // 어떤 것에서도 끌어낼 수 없으니, 패널은 둘 다 싣지 않는다.
       'help.num.noConversion': '단위가 다른 서로 다른 값이고, gowui는 둘 사이의 환산을 정해 두지 않았다. 승률을 가치로, 가치를 승률로 바꾸는 식은 여기에 없다.',
-      // 아래 목록은 §3.7의 표에서 그려 낸다. 여기 있는 것은 그 다섯 자리와 그 안의 묶음 이름이다.
+      // 아래 목록은 §3.7의 표에서 그려 낸다. 여기 있는 것은 그 네 자리와 그 안의 다섯 묶음 이름이다.
       'help.keys.title': '단축키',
       'help.scope.nav': '글자 입력칸 밖, 페이지 전체',
       'help.scope.tile': '보드 타일에 초점이 있을 때',

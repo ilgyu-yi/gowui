@@ -35,7 +35,7 @@
   <!-- The help panel (SPEC §3.8 "Help panel"). Out of flow, hung from the top bar, so opening it
        moves no control. Its key list is derived from the table of §3.7 and built by app.js into
        #help-keys, which is why this markup leaves that container empty. -->
-  <section id="help-panel" class="help-panel" hidden aria-labelledby="help-heading">
+  <section id="help-panel" class="help-panel" hidden tabindex="0" aria-labelledby="help-heading">
     <div class="help-head">
       <h2 id="help-heading" data-i18n="help.title">How this page works</h2>
       <button id="help-close" type="button" data-i18n="help.close" data-i18n-title="help.close.title">Close</button>

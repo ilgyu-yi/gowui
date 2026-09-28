@@ -1513,7 +1513,7 @@
       run: function () { stepBoard(1); } }
   ];
 
-  // The five surfaces of §3.7, in the order the panel lists them. The tile contributes two
+  // The five groups of §3.7 across its four surfaces, in the order the panel lists them. The tile contributes two
   // groups, its reordering keys and its selecting keys, because their guards differ (§3.7).
   var KEY_HELP = [
     { scope: 'help.scope.nav', keys: NAV_KEYS },

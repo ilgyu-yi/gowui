@@ -53,9 +53,13 @@ RHS = re.compile(r"\s*(?:===|!==|==|!=)\s*"
 NUMBER = re.compile(r"^-?\d+(?:\.\d+)?$")
 
 #: Every keyboard handler in the source: a ``key*`` listener or an ``onkey*`` assignment, with the
-#: name its function gives the event.
+#: name its function gives the event. The arrow arm is not decoration — without it a listener
+#: written ``('keydown', (k) => …)`` is not a handler as far as this census is concerned, so the
+#: event-anchor check never reads its parameter and a key bound inside it escapes every test here.
 HANDLER = re.compile(r"addEventListener\s*\(\s*'key(?:down|up|press)'\s*,\s*function\s*\(\s*(\w+)"
-                     r"|onkey(?:down|up|press)\s*=\s*function\s*\(\s*(\w+)")
+                     r"|addEventListener\s*\(\s*'key(?:down|up|press)'\s*,\s*\(?\s*(\w+)\s*\)?\s*=>"
+                     r"|onkey(?:down|up|press)\s*=\s*function\s*\(\s*(\w+)"
+                     r"|onkey(?:down|up|press)\s*=\s*\(?\s*(\w+)\s*\)?\s*=>")
 
 
 def unquote(literal: str) -> str:
@@ -101,8 +105,10 @@ def handlers(sources: dict[str, str] | None = None) -> list[tuple[str, str]]:
     """``(script, event parameter name)`` of every keyboard handler in the source."""
     out = []
     for name, text in (sources if sources is not None else all_js()).items():
-        for listener, assigned in HANDLER.findall(strip_js_comments(text)):
-            out.append((name, listener or assigned))
+        for groups in HANDLER.findall(strip_js_comments(text)):
+            # One arm matches per handler, so exactly one group is non-empty: listener or
+            # assignment, written as a function or as an arrow.
+            out.append((name, next(group for group in groups if group)))
     return out
 
 
