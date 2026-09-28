@@ -1596,6 +1596,13 @@
     if (files.length !== 1) { setStatus(t('sgf.dropOne'), true); return; }
     loadSgf(files[0]);
   });
+  // A file dropped beside the board would otherwise be opened by the browser in place of the
+  // page. The board's own handlers run first and cancel what they take.
+  ['dragover', 'drop'].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      if (carriesFiles(event)) event.preventDefault();
+    });
+  });
 
   $('raw-form').onsubmit = function (event) {
     event.preventDefault();
