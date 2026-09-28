@@ -1050,7 +1050,7 @@ the two no longer read the same.
   editing" rule as the typed fields. With an empty catalog the select is empty, Connect is disabled,
   and a line of text beside the picker says the server has no engine configured. It is on the page,
   not only in the select's `title`: a `title` is reachable only by pointing at an empty dropdown, and
-  an empty unlabelled dropdown beside a disabled button is a page the user cannot tell from a broken
+  an empty dropdown beside a disabled button is a page the user cannot tell from a broken
   one. It is not in the status line either — an empty catalog is a configuration fact about the
   control it sits beside, not an event, and the next status of any kind would replace it. Being a
   `data-i18n` node it is re-translated by a language switch, which `#status` is not. The human policy
