@@ -7,8 +7,8 @@ row"; "hovering one `?` closes the card of a focused one beside it"; the table c
 "holds the current mode's columns and no others", and "each column header carries its entry's text
 as its `title`, from the same key".
 
-Which cards must exist is read from the source (``board_option_controls``: the handlers that call
-``board.setOptions(``, plus the Compare checkbox and the table), so a missing card fails by the
+Which cards must exist is read from the source (``carded_controls``: the handlers that call
+``board.setOptions(``, plus the Compare checkbox, the protocol select and the table), so a missing card fails by the
 control it belongs to. A card's text is checked only for **not** reading as its own key:
 ``i18n.t`` falls back to the key, so a line reading ``help.label.winrate`` is what a missing string
 looks like on the page (§3.8 "Language").
@@ -20,7 +20,7 @@ import pytest
 
 from browser_kit import INIT_SCRIPT, QUICK, Gowui, analysis_frame, analysis_payload, expect, \
     move_info, vertex
-from frontend_helpers import board_option_controls
+from frontend_helpers import carded_controls
 
 pytestmark = pytest.mark.browser
 
@@ -53,7 +53,7 @@ def expected_dots(g: Gowui) -> dict[str, str]:
         out['candidate table'] = dot && dot.classList.contains('help-dot')
             ? dot.getAttribute('aria-describedby') || '' : '';
         return out;
-    }""", [*board_option_controls(), "compare-on"])
+    }""", carded_controls())
 
 
 def static_dots(g: Gowui) -> list[str]:
