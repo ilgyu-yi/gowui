@@ -511,8 +511,21 @@ same key. A space is created in four steps:
 - Undo never re-arms the engine (replaying the move just taken back is never what the user meant);
   navigating back to the end resumes engine play.
 - **Lost engine.** When the engine connection is lost (§2.1), automatic play stops, the space shows
-  the engine disconnected with a status, and the connection is released; a new `connect` works at
-  once. The snapshot then records `connected: false` (§8.1), so a restart does not reconnect.
+  the engine disconnected with a status marked as a failure (§3.8 "Status line"), and the connection
+  is released; a new `connect` works at once. The snapshot then records `connected: false` (§8.1), so
+  a restart does not reconnect.
+- **A space with no engine runs nothing and claims nothing.** Four paths leave a space without the
+  engine it had or wanted: a `disconnect`, a lost connection, a `connect` that fails, and a stored
+  request the policy refuses on restore (§8.1). Each of them sets `analysisEnabled`, `blackIsEngine`
+  and `whiteIsEngine` to false and drops every board's stored analysis, so the next `state` carries no
+  tile winrate and no tile heatmap (§4.2) and neither the strip nor the side panel holds a figure from
+  a search that is no longer running (§3.8 "Evaluation", §3.8 "Board strip"). Clearing the three
+  settings is what makes the page's inertness honest (§3.8 "Capability gating"): a checkbox left
+  ticked while it is inert asserts a search that is not running and the user cannot untick it, and a
+  reconnect would then play a move nobody asked for at that moment. It is a behaviour change the user
+  sees — analysis that was on before the engine went is off after it, and is turned on again by
+  asking. A shutdown is none of these four paths, so a snapshot still stores what was running and a
+  restart restores it (§8.1).
 - **Engine work never blocks a caller.** Handling a message never runs an engine command on the
   caller's own task: engine work runs in tasks the session owns, so a caller that goes away (a tab
   closed mid-command) cannot cancel it, and an engine call is never cancelled mid-command (§2.1).
@@ -635,6 +648,14 @@ A key is ignored while an `input`, `select` or `textarea` has focus (the board r
 included, §3.8), before the first `state` has arrived, and while Ctrl, Cmd or Alt is held (those
 combinations stay the browser's, such as Ctrl/Cmd+P to print). A handled key does not also perform
 the browser's default action (no page scroll on `Home` / `End`).
+
+**Two of the document set's keys need an engine.** `g` and `a` reach the two controls that start
+engine work (§3.8 "Capability gating"), so they are ignored while no engine is connected, as the
+"Engine move now" button and the "Continuous analysis" checkbox beside them are inert. The other
+eight act on the game, the boards and the cursor, which are the server's whether an engine is there
+or not. This guard belongs to those two rows, not to the list above, which governs every key of the
+set. The help panel lists both keys whatever the engine's state: it renders the table (§3.8 "Help
+panel"), and it teaches a binding rather than reporting a moment.
 
 **The other three surfaces.** Their guards are their own; the paragraph above governs the document
 set only.
@@ -768,12 +789,19 @@ for a control beside it.
   while it has focus.
 
 **Evaluation.** The winrate bar's black part is Black's root winrate; its label reads
-"black x% / white y%" (one decimal), `--` while connected without an analysis, and a localised
-"no engine" while disconnected. The score lead reads `B+x` or `W+x` (one decimal, from
+"black x% / white y%" (one decimal). The score lead reads `B+x` or `W+x` (one decimal, from
 `rootInfo.scoreLead`), and the visit count is abbreviated (`950`, `1.2k`, `15k`, `1.3M`). An
 `analysis` frame whose `cursor` is not the displayed cursor is ignored. A `state` that changes the
-position (size, move count, cursor, komi, rules, handicap or setup stones), or turns analysis
-off, clears the analysis shown.
+position (size, move count, cursor, komi, rules, handicap or setup stones), turns analysis off, or
+leaves the space without an engine (§3.2) clears the analysis shown.
+
+**No root winrate is a third state of the track, not a width.** The track's background is the
+white-stone colour and the filled part the black-stone colour, so a black part of 0% reads as
+"White 100%" as surely as 50% reads as an even game: no width means "no position". With no root
+winrate the bar is drawn instead as one low-contrast neutral tone across its whole width, which is
+neither stone's colour. The label keeps its two readings — `--` while connected without an analysis,
+a localised "no engine" while disconnected — and the score lead and the visit count both read as
+unknown (`score --`, and `--` in place of a number of visits) rather than as a measured zero.
 
 **Board overlays.** From bottom to top: the wood, the grid with coordinates and star points,
 ownership, the raw policy heatmap, the stones (with a faint stone of the side to move under the
@@ -1001,8 +1029,14 @@ trimmed, the port an integer); Disconnect sends `disconnect`.
   `engineAddress.engines`: its value is the entry's `id` and its text the entry's `label`, set with
   `textContent`. Connect sends `connect` with `{engineId}` only. The select follows
   `state.engine.request.engineId` when the echo is not null, under the same "not while the user is
-  editing" rule as the typed fields; with an empty catalog the select is empty and Connect is
-  disabled. The human policy panel's protocol rule reads the selected entry's `protocol`.
+  editing" rule as the typed fields. With an empty catalog the select is empty, Connect is disabled,
+  and a line of text beside the picker says the server has no engine configured. It is on the page,
+  not only in the select's `title`: a `title` is reachable only by pointing at an empty dropdown, and
+  an empty unlabelled dropdown beside a disabled button is a page the user cannot tell from a broken
+  one. It is not in the status line either — an empty catalog is a configuration fact about the
+  control it sits beside, not an event, and the next status of any kind would replace it. Being a
+  `data-i18n` node it is re-translated by a language switch, which `#status` is not. The human policy
+  panel's protocol rule reads the selected entry's `protocol`.
 - **Signed-in name.** When `me.name` is not empty, the top bar shows it as text, with a title
   saying how it was established (`me.source`: password or SSO). An empty name shows nothing.
 - **Log-out.** `me.logout` decides the control: `local` shows a Log out button in a
@@ -1024,12 +1058,32 @@ trimmed, the port an integer); Disconnect sends `disconnect`.
   `/api/health` cannot be read, the section stays visible.
 - The human policy panel follows the protocol rule above.
 
+**What needs an engine is what starts engine work.** A control that *starts* engine work is inert
+while no engine is connected; a control that only *configures* the next search stays live, because
+the server keeps the setting and hands it to the engine that arrives (§3.4). That criterion, not a
+list of control ids, is what a control added later inherits.
+
+- **Start work, so they need an engine:** the "Continuous analysis" checkbox and the `a` key (§3.7),
+  the "KataGo plays Black" and "KataGo plays White" checkboxes, "Engine move now" and the `g` key,
+  "Final score", and the console's command field. The last three reach the same place through the
+  capability flags above, each of which is false whenever no engine is connected (§4.2).
+- **Only configure, so they stay live:** Visits, Every, Ownership, the per-colour move styles, the
+  handol-mux profile, the tuple, the compare tuple and Winrate visits. A setting made while no
+  engine is connected is kept by the server and applies to the next search.
+
+Inert is not the whole answer for the three that are settings rather than buttons: the server also
+clears Continuous analysis and the two player checkboxes on losing the engine (§3.2), so none of them
+is left ticked and unclickable.
+
 **Board strip.** Each tile shows its board drawn small (stones, last move, and the heatmap of its
 `heat` — or, for the active board, of the live analysis at the displayed cursor), the name with a
-✎ and a ⧉ button, "move n/total" with Black's winrate when known, a tuple line
+✎ and a ⧉ button, "move n/total" with Black's winrate when it has one, a tuple line
 (`profile · tuple · A/B`, where the tuple is abbreviated as `key value` pairs or "identity" when
 empty, and `A/B` appears while a compare tuple is set), and a × button in the corner. The × is
-shown on every tile, the last one included (§3.3: there it resets rather than removes).
+shown on every tile, the last one included (§3.3: there it resets rather than removes). A tile's
+winrate and its heatmap both come from a stored analysis, and losing the engine drops those (§3.2),
+so while no engine is connected no tile shows either: no figure on the strip outlives the engine that
+produced it.
 
 The ⧉ sits in the title row after the ✎, not beside the ×. Three things follow: the ✎ stays next
 to the name it edits, the ⧉ sits at the tile's lower edge where the copy it makes will appear, and
@@ -1078,12 +1132,34 @@ row, and this is one fewer way to hit × by accident than the strip has today.
   default-named board opens an empty field whose placeholder is the localised name, so pressing
   Enter at once saves nothing.
 
-**Status line.** A non-empty `state.status` is shown in the muted colour when it differs from the
-last `state.status` shown (a repeat in later `state` frames is not shown again), and an `error` frame's
-`message` in red; either clears after 8 s, and a new message restarts the timer. The colour is
-set by a CSS class. The reason a `4401` or `4403` close puts in the status line (below) is the
-exception: while it stands, a later message neither replaces it nor starts a timer over it, so it
-says why until the page is reloaded.
+**Status line.** A non-empty `state.status` is shown when it differs from the last `state.status`
+shown (a repeat in later `state` frames is not shown again), and an `error` frame's `message` is shown
+as well. The colour is set by a CSS class.
+
+**The severity comes with the message; it is never read off the text.** A status reporting a failure
+the user has to act on is shown in red: an `error` frame's `message`, a refusal the page makes itself
+(the SGF cases below), and a `state` whose `statusIsError` is true (§4.2). Every other status is
+shown in the muted colour. Three server paths set `statusIsError`: a `connect` that fails, an engine
+whose connection is lost under the space, and a stored engine request the policy refuses on restore
+(§8.1). The user's own Disconnect is **not** one of them — it reports what the user just asked for.
+The text could not stand in for the flag either: a lost connection reads "Engine disconnected:
+<reason>" and a Disconnect reads "Engine disconnected", so the severity rides on the frame that
+carries the status rather than being parsed out of it or correlated with a second frame that arrives
+a millisecond later.
+
+**A status clears when what it reports is over.** A status reporting an event clears after 8 s, and a
+new message restarts the timer. A status reporting a condition that still holds while it is being
+read starts no timer and stands until something replaces it. The three engine failures above are
+conditions: the engine is not there, and a failure that clears on a timer leaves the `disconnected`
+badge as the only trace of it, which is a page that looks like one that never had an engine. So are
+the connection notices (§3.8 "Connection"): the reason a `4401`, `4403` or `4429` close puts in the
+line is red and goes further still — while it stands, a later message neither replaces it nor starts
+a timer over it, so it says why until the page is reloaded — and the lost-connection text is muted
+and stands until the socket opens again, which clears it.
+
+A failure the server reports as both an `error` and a `state` carrying the same text is one message,
+not two: the `state` repeat is not shown again (above), so the text does not change colour just after
+it appeared.
 
 **SGF.**
 
@@ -1384,7 +1460,7 @@ same saves as the snapshot (§8.2).
 
 | type | fields |
 |---|---|
-| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `preferences`, `status`, `thinking`, `boards` (tile summaries, with the active thumbnail), `activeBoard` |
+| `state` | `game` (§1.4), `engine` (connected, protocol, name, version, engine request echo, supportsGenmove, supportsFinalScore, console), `settings`, `preferences`, `status`, `statusIsError`, `thinking`, `boards` (tile summaries, with the active thumbnail), `activeBoard` |
 | `thumbnails` | `boards` (the complete thumbnail snapshot on attach) |
 | `analysis` | `cursor`, `toPlay`, `analysis` (§2.2) |
 | `log` | `line: {direction, text, at}` |
@@ -1410,6 +1486,12 @@ Field names inside `state`:
   (`[{name, tuple}]`, in the order they were sent) while the storage policy keeps the identity's
   preferences (§6.4, §8.4); `null` while it does not, and the page then keeps both in the browser
   (§3.8 "Preferences", §8.5). It never depends on a mode name (§6.1).
+- `status` and `statusIsError`: the status line's text and its severity (§3.8 "Status line").
+  `statusIsError` is true only while `status` reports a failure the user has to act on — a `connect`
+  that failed, an engine whose connection was lost, an engine request the policy refused on restore
+  (§3.2) — and false otherwise, the empty status and the user's own `disconnect` included. A status is
+  a property of the state that reports it, so its severity arrives on the same frame rather than in a
+  second one the page would have to correlate with this one.
 - each `state.boards` entry always has `id`, `name`, `size`, `cursor`, `moveCount`, `profile`,
   `policy` (the board's human tuple), and `compare` (true while the board has a compare tuple).
   The active entry also has `stones`, `lastMove`, `toPlay`, `heat` (the last policy heatmap while
@@ -2563,10 +2645,10 @@ addition to the section in its Behaviour column.
 | B25 | Multiple boards: duplicate a named board, new board, select, `[` `]`, rename in place, delete or reset the last, reorder by drag and by keyboard, thumbnails | §3.3, §3.8 | both | session: `tests/test_session_boards.py`; UI: `tests/browser/test_smoke.py` |
 | B26 | Analysis only on the board on screen | §3.3 | both | session: `tests/test_session_analysis.py`, `tests/test_session_boards.py`; UI: `tests/browser/test_tours.py` |
 | B27 | Korean / English UI, remembered | §8.5 | both | UI: `tests/test_frontend_i18n.py`, `tests/test_frontend_static.py` |
-| B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | UI: `tests/browser/test_smoke.py` |
+| B28 | Keyboard shortcuts (`←` `→` `Home` `End` `p` `u` `g` `a` `[` `]`) | §3.7 | both | UI: `tests/browser/test_keyboard.py`, `tests/test_frontend_keys.py`, `tests/browser/test_smoke.py` |
 | B29 | Several tabs share one view | §3.1 | both | session: `tests/test_session_messages.py`; transport: `tests/test_spaces.py`, `tests/test_app_local.py` |
 | B30 | Engine traffic log | §3.6 | both | session: `tests/test_session_engine.py`; UI: `tests/browser/test_tours.py` |
-| B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | UI: `tests/browser/test_tours.py` |
+| B31 | Winrate bar, score lead and visit count for the position | §2.2 | both | UI: `tests/browser/test_tours.py`, `tests/browser/test_both_modes.py`, `tests/test_frontend_static.py` |
 | B32 | Move numbers on stones, toggleable | §1.4 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
 | B33 | Capture counts per colour | §1.4 | both | model: `tests/test_board.py`, `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
 
