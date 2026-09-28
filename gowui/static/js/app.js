@@ -1,5 +1,5 @@
 /* Wires the board, the control panel and the server's WebSocket together. */
-(function () {
+(function (global) {
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1481,25 +1481,64 @@
     $('raw').value = '';
   };
 
+  /* -- the keyboard table (§3.7 "Four surfaces, one table") ----------------- */
+  // One table for every key the page binds. Only the document set's rows carry behaviour: the
+  // dispatch below looks a key up here, and the help panel renders the whole table (§3.8 "Help
+  // panel"), so a key the table carries and the panel omits cannot arise. The other surfaces keep
+  // the handlers they already have -- tileKey, the document's Escape and the rename field -- and
+  // contribute a name and their keys and nothing else: `press` and `label`, never `run`.
+  var NAV_KEYS = [
+    { press: ['ArrowLeft'], label: 'help.key.prev',
+      run: function () { navigate(state.game.cursor - 1); } },
+    { press: ['ArrowRight'], label: 'help.key.next',
+      run: function () { navigate(state.game.cursor + 1); } },
+    { press: ['Home'], label: 'help.key.first',
+      run: function () { navigate(0); } },
+    { press: ['End'], label: 'help.key.last',
+      run: function () { navigate(state.game.moveCount); } },
+    { press: ['p'], label: 'help.key.pass',
+      run: function () { send({ type: 'pass' }); } },
+    { press: ['u'], label: 'help.key.undo',
+      run: function () { send({ type: 'undo' }); } },
+    { press: ['g'], label: 'help.key.genmove',
+      run: function () { send({ type: 'genmove', color: state.game.toPlay }); } },
+    { press: ['a'], label: 'help.key.analysis',
+      run: function () {
+        $('analysis-on').checked = !$('analysis-on').checked;
+        send({ type: 'analysis', enabled: $('analysis-on').checked });
+      } },
+    { press: ['['], label: 'help.key.prevBoard',
+      run: function () { stepBoard(-1); } },
+    { press: [']'], label: 'help.key.nextBoard',
+      run: function () { stepBoard(1); } }
+  ];
+
+  // The five surfaces of §3.7, in the order the panel lists them. The tile contributes two
+  // groups, its reordering keys and its selecting keys, because their guards differ (§3.7).
+  var KEY_HELP = [
+    { scope: 'help.scope.nav', keys: NAV_KEYS },
+    { scope: 'help.scope.tile', keys: [
+      { press: ['Alt', 'ArrowUp', 'ArrowDown'], label: 'help.key.tileMove' },
+      { press: ['Enter', ' '], label: 'help.key.tileSelect' }
+    ] },
+    { scope: 'help.scope.drag', keys: [
+      { press: ['Escape'], label: 'help.key.cancelDrag' }
+    ] },
+    { scope: 'help.scope.rename', keys: [
+      { press: ['Enter'], label: 'help.key.renameSave' },
+      { press: ['Escape'], label: 'help.key.renameCancel' }
+    ] }
+  ];
+
+  // Read by the help panel, which renders one row per entry (§3.8 "Help panel").
+  global.keyHelp = KEY_HELP;
+
   document.addEventListener('keydown', function (event) {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;  // the browser's own (§3.7)
     if (!state.game) return;
-    var handlers = {
-      ArrowLeft: function () { navigate(state.game.cursor - 1); },
-      ArrowRight: function () { navigate(state.game.cursor + 1); },
-      Home: function () { navigate(0); },
-      End: function () { navigate(state.game.moveCount); },
-      p: function () { send({ type: 'pass' }); },
-      '[': function () { stepBoard(-1); },
-      ']': function () { stepBoard(1); },
-      u: function () { send({ type: 'undo' }); },
-      g: function () { send({ type: 'genmove', color: state.game.toPlay }); },
-      a: function () { $('analysis-on').checked = !$('analysis-on').checked;
-                       send({ type: 'analysis', enabled: $('analysis-on').checked }); }
-    };
-    var handler = handlers[event.key];
-    if (handler) { event.preventDefault(); handler(); }
+    var bound = NAV_KEYS.find(function (row) { return row.press.indexOf(event.key) >= 0; });
+    if (bound) { event.preventDefault(); bound.run(); }
   });
 
   $('lang').value = i18n.lang();
@@ -1521,4 +1560,4 @@
 
   connect();
   board.resize();
-})();
+})(window);
