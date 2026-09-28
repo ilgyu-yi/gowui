@@ -15,8 +15,9 @@ gowui --state ./my.json    # use this state file instead of the per-user default
 ```
 
 Once it is listening, gowui prints `gowui: http://<host>:<port>`. Open that URL in a browser.
-First time in the page: open the help panel from the control in its top bar — it says what to do
-here, what the numbers beside the board mean, and every key the page binds (`SPEC.md` §3.8).
+First time in the page: open the help panel from the control in its top bar, or from the "How to
+start" button under the board — it says what to do here, what is drawn on the board, what the
+numbers beside it mean, and every key the page binds (`SPEC.md` §3.8).
 Boards are saved to a per-user state file and come back after a restart. The flags, the default
 state-file paths and the security rules are in `SPEC.md` §9, §8.3 and §7.4.
 
