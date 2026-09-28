@@ -19,7 +19,7 @@ import pytest
 
 from gowui.engine.gtp import GTPEngine
 from helpers import gtp_commands, gtp_names, position_queries, wait_for
-from session_helpers import (LOOPBACK, SENTINEL_HOST, CatalogResolver, free_port,
+from session_helpers import (LOOPBACK, SENTINEL_HOST, CatalogResolver, board_entry, free_port,
                              gowui_tasks, gtp_count, handol_requests, leaks, move_list,
                              random_sgf, route_sentinel_host, settle)
 
@@ -124,7 +124,9 @@ async def test_a_lost_engine_during_self_play_shows_disconnected(h, fake_engine)
     assert state is not None and state["status"] != ""
 
 
-async def test_self_play_resumes_after_reconnecting_to_a_new_engine(h, fake_engine):
+async def test_self_play_does_not_resume_after_reconnecting_to_a_new_engine(h, fake_engine):
+    """§3.2: losing the engine clears both players, so a reconnect plays no move nobody asked for
+    at that moment. (It resumed before #66; the settings were kept across the loss.)"""
     server = await fake_engine("gtp", delay={"genmove": 0.1})
     await h.connect_to(server)
     await h.send({"type": "players", "blackIsEngine": True, "whiteIsEngine": True})
@@ -133,11 +135,14 @@ async def test_self_play_resumes_after_reconnecting_to_a_new_engine(h, fake_engi
     await server.stop()
     assert await h.rec.wait_state(lambda f: not f["engine"]["connected"], start)
     count = (await h.fresh_state())["game"]["moveCount"]
-    await h.connect_to(await fake_engine("gtp"))
-    await h.wait_moves(count + 2)
+    await h.connect_to(await fake_engine("gtp", delay={"genmove": 0.1}))
+    await settle(1.0)
+    assert (await h.fresh_state())["game"]["moveCount"] == count
 
 
-async def test_analysis_resumes_after_reconnecting_to_a_new_engine(h, fake_engine):
+async def test_analysis_does_not_resume_after_reconnecting_to_a_new_engine(h, fake_engine):
+    """§3.2: analysis that was on before the engine went is off after it, and is turned on again
+    by asking. (It resumed before #66.)"""
     server = await fake_engine("gtp", hangup_after_reports=3)
     await h.connect_to(server)
     start = h.rec.mark()
@@ -146,7 +151,7 @@ async def test_analysis_resumes_after_reconnecting_to_a_new_engine(h, fake_engin
     replacement = await fake_engine("gtp")
     later = h.rec.mark()
     await h.connect_to(replacement)
-    assert await h.rec.wait("analysis", start=later) is not None
+    assert await h.rec.wait("analysis", start=later, timeout=1.5) is None
 
 
 async def lose_the_engine_mid_genmove(h, fake_engine) -> int:
@@ -171,6 +176,208 @@ async def test_a_connection_lost_mid_genmove_shows_disconnected_once(h, fake_eng
 async def test_a_connection_lost_mid_genmove_raises_at_most_one_error(h, fake_engine):
     start = await lose_the_engine_mid_genmove(h, fake_engine)
     assert len(h.rec.errors(start)) <= 1
+
+
+# -- a space with no engine runs nothing and claims nothing (#66; §3.2, §3.8, §4.2) ----------------
+#: The three settings that start engine work (§3.8 "Capability gating"), cleared on each of the
+#: paths that leave a space without the engine it had or wanted (§3.2).
+PLAY_STARTERS = ("analysisEnabled", "blackIsEngine", "whiteIsEngine")
+ALL_ON = {"type": "players", "blackIsEngine": True, "whiteIsEngine": True}
+
+
+def starters(state: dict) -> tuple:
+    return tuple(state["settings"][key] for key in PLAY_STARTERS)
+
+
+async def fail_to_connect(h) -> dict:
+    """A ``connect`` to a port nothing listens on; the ``state`` that reports the failure."""
+    start = h.rec.mark()
+    await h.send({"type": "connect", "protocol": "gtp", "host": LOOPBACK, "port": free_port()})
+    state = await h.rec.wait_state(
+        lambda f: f["status"].startswith("Engine connection failed"), start)
+    assert state is not None, f"no state reported the failure; errors: {h.rec.errors(start)}"
+    return state
+
+
+async def lose(h, server) -> dict:
+    """Stop the fake under a connected space; the ``state`` that shows the engine gone."""
+    start = h.rec.mark()
+    await server.stop()
+    state = await h.rec.wait_state(lambda f: not f["engine"]["connected"], start)
+    assert state is not None, "the space never showed the engine lost"
+    return state
+
+
+async def disconnect(h, server) -> dict:
+    start = h.rec.mark()
+    await h.send({"type": "disconnect"})
+    state = await h.rec.wait_state(lambda f: not f["engine"]["connected"], start)
+    assert state is not None, "the space never showed the engine disconnected"
+    return state
+
+
+def refused_restore_session(make_session, h, play: dict | None = None):
+    """A space restored from a connected snapshot whose engine the policy no longer offers."""
+    data = h.session.snapshot()
+    data["engine"]["request"] = {"engineId": "kata"}
+    data["engine"]["connected"] = True
+    if play is not None:
+        data["play"].update(play)
+    other = make_session(CatalogResolver(), expose_address=False)
+    other.session.restore(data)
+    return other
+
+
+async def refuse_the_restore(make_session, h, play: dict | None = None):
+    other = refused_restore_session(make_session, h, play)
+    start = other.rec.mark()
+    await other.session.resume()
+    state = await other.rec.wait_state(lambda f: f["status"].startswith("Engine not reconnected"),
+                                       start)
+    assert state is not None, "the refused replay reported nothing"
+    return other, state
+
+
+# The severity rides on the state that carries the status (§3.8 "Status line", §4.2).
+async def test_a_failed_connect_marks_its_status_as_an_error(h):
+    assert (await fail_to_connect(h)).get("statusIsError") is True
+
+
+async def test_a_lost_engine_marks_its_status_as_an_error(h, fake_engine):
+    server = await fake_engine("gtp")
+    await h.connect_to(server)
+    assert (await lose(h, server)).get("statusIsError") is True
+
+
+async def test_a_restore_the_policy_refuses_marks_its_status_as_an_error(h, make_session):
+    _, state = await refuse_the_restore(make_session, h)
+    assert state.get("statusIsError") is True
+
+
+async def test_the_users_own_disconnect_is_not_marked_as_an_error(h, gtp_server):
+    """§3.8: a Disconnect reports what the user just asked for. Its text is the lost engine's
+    without the reason, which is why the severity cannot be read off the text."""
+    await h.connect_to(gtp_server)
+    state = await disconnect(h, gtp_server)
+    assert (state["status"], state.get("statusIsError")) == ("Engine disconnected", False)
+
+
+async def test_a_connect_after_a_failed_one_is_not_marked_as_an_error(h, gtp_server):
+    """The flag belongs to the status it arrives with, not to the space: a failure does not stay
+    marked once a success has replaced its text."""
+    await fail_to_connect(h)
+    state = await h.connect_to(gtp_server)
+    assert (state["status"].startswith("Connected to"), state.get("statusIsError")) == \
+        (True, False)
+
+
+async def test_the_empty_status_is_not_marked_as_an_error(make_session):
+    state = await make_session().fresh_state()
+    assert (state["status"], state.get("statusIsError")) == ("", False)
+
+
+# The three settings that start engine work are cleared on every path that leaves the space
+# without an engine (§3.2), so a reconnect plays nothing nobody asked for.
+async def test_a_disconnect_clears_the_three_play_settings(h, gtp_server):
+    await h.connect_to(gtp_server)
+    await h.send({"type": "analysis", "enabled": True})
+    await h.send(ALL_ON)
+    await h.fresh_state()
+    assert starters(await disconnect(h, gtp_server)) == (False, False, False)
+
+
+async def test_a_lost_engine_clears_the_three_play_settings(h, fake_engine):
+    server = await fake_engine("gtp", delay={"genmove": 0.1})
+    await h.connect_to(server)
+    await h.send({"type": "analysis", "enabled": True})
+    await h.send(ALL_ON)
+    await h.wait_moves(1)
+    assert starters(await lose(h, server)) == (False, False, False)
+
+
+async def test_a_failed_connect_clears_the_three_play_settings(h):
+    """The server takes the settings without an engine (only the page makes them inert, §3.8), so
+    this path is reachable: armed while disconnected, then a connect that fails."""
+    await h.send({"type": "analysis", "enabled": True})
+    await h.send(ALL_ON)
+    assert starters(await h.fresh_state()) == (True, True, True), "setup: the settings were taken"
+    assert starters(await fail_to_connect(h)) == (False, False, False)
+
+
+async def test_a_restore_the_policy_refuses_clears_the_three_play_settings(h, make_session):
+    _, state = await refuse_the_restore(
+        make_session, h, {"analysisEnabled": True, "blackIsEngine": True, "whiteIsEngine": True})
+    assert starters(state) == (False, False, False)
+
+
+async def test_restoring_a_disconnected_snapshot_clears_the_three_play_settings(h, make_session):
+    """A snapshot that was not connected restores into a space with no engine and none wanted, so it
+    is a path of §3.2 like the others. Every snapshot saved after a Disconnect before these settings
+    were cleared has this shape, so without it an upgrading user starts with them ticked and inert."""
+    data = h.session.snapshot()
+    data["engine"]["connected"] = False
+    data["play"].update({"analysisEnabled": True, "blackIsEngine": True, "whiteIsEngine": True})
+    other = make_session()
+    other.session.restore(data)
+    await other.session.resume()
+    assert starters(await other.fresh_state()) == (False, False, False)
+
+
+async def test_a_shutdown_keeps_the_play_settings_for_the_restart(h, gtp_server):
+    """Boundary: a shutdown is none of the paths of §3.2 (§8.1), so what was running is
+    stored and a restart restores it."""
+    await h.connect_to(gtp_server)
+    await h.send({"type": "analysis", "enabled": True})
+    await h.fresh_state()
+    await h.aclose()
+    assert h.session.snapshot()["play"]["analysisEnabled"] is True
+
+
+# Every board's stored analysis is dropped, so the next state carries no tile figure (§3.2, §4.2).
+async def analysed(h, server) -> dict:
+    """Connected to ``server`` with analysis on and the active tile carrying its figures."""
+    await h.connect_to(server)
+    start = h.rec.mark()
+    await h.send({"type": "analysis", "enabled": True})
+    assert await h.rec.wait("analysis", start=start) is not None, "no analysis arrived"
+    entry = board_entry(await h.fresh_state(), h.rec.state()["activeBoard"])
+    assert (entry["winrate"] is not None, len(entry["heat"]) > 0) == (True, True), \
+        "setup: the active tile must carry a winrate and a heatmap before the engine goes"
+    return entry
+
+
+def tile_figures(state: dict, board_id: int) -> tuple:
+    entry = board_entry(state, board_id)
+    return entry["winrate"], entry["heat"]
+
+
+async def test_a_disconnect_drops_the_active_tiles_winrate_and_heatmap(h, analysis_server):
+    entry = await analysed(h, analysis_server)
+    await disconnect(h, analysis_server)
+    # A fresh state is built from the slot's stored analysis again: the frame after the one that
+    # reported the disconnect is where a page-only clear would be undone.
+    assert tile_figures(await h.fresh_state(), entry["id"]) == (None, [])
+
+
+async def test_a_lost_engine_drops_the_active_tiles_winrate_and_heatmap(h, fake_engine):
+    server = await fake_engine("analysis")
+    entry = await analysed(h, server)
+    await lose(h, server)
+    assert tile_figures(await h.fresh_state(), entry["id"]) == (None, [])
+
+
+async def test_a_disconnect_drops_an_inactive_boards_stored_analysis(h, analysis_server):
+    """"Drops every board's stored analysis" (§3.2): an inactive board's figures reach a tab only
+    in the attach snapshot (§4.2), so that is where a board left behind would still show one."""
+    entry = await analysed(h, analysis_server)
+    await h.send({"type": "board_new"})
+    await h.rec.wait_state(lambda f: f["activeBoard"] != entry["id"])
+    thumbnails = next(f for f in h.session.attach_frames() if f["type"] == "thumbnails")
+    assert board_entry(thumbnails, entry["id"])["winrate"] is not None, \
+        "setup: the board left behind keeps its analysis while the engine is there"
+    await disconnect(h, analysis_server)
+    thumbnails = next(f for f in h.session.attach_frames() if f["type"] == "thumbnails")
+    assert tile_figures(thumbnails, entry["id"]) == (None, [])
 
 
 # -- engine work never blocks a caller (§3.2) ------------------------------------------------------

@@ -111,9 +111,9 @@
   }
 
   function showConnectionProblem() {
-    if (closedFor === 'status.notSignedIn') setStatus(t('status.notSignedIn'), true, true);
-    else if (closedFor === 'status.refused') setStatus(t('status.refused'), true, true);
-    else if (closedFor === 'status.tooManySockets') setStatus(t('status.tooManySockets'), true, true);
+    if (closedFor === 'status.notSignedIn') showStatus(t('status.notSignedIn'), true, true);
+    else if (closedFor === 'status.refused') showStatus(t('status.refused'), true, true);
+    else if (closedFor === 'status.tooManySockets') showStatus(t('status.tooManySockets'), true, true);
     else setStatus(t('status.lost'), false, true);
   }
 
@@ -156,6 +156,9 @@
         break;
       case 'error':
         setStatus(message.message, true);
+        // A failure the server also reports in a state carries the same text a moment later:
+        // that state is this message again, not a second one (SPEC §3.8 "Status line").
+        state.lastError = message.message;
         reconcilePreferences();
         break;
     }
@@ -213,6 +216,7 @@
 
   function applyState(message) {
     var previousKey = state.game ? positionKey(state.game) : null;
+    var lostEngine = !!(state.engine && state.engine.connected) && !message.engine.connected;
     applyPreferences(message.preferences);
     state.game = message.game;
     state.engine = message.engine;
@@ -220,12 +224,23 @@
     state.thinking = message.thinking;
 
     var analysisOff = state.settings && !state.settings.analysisEnabled;
-    if (positionKey(message.game) !== previousKey || analysisOff) {
+    if (positionKey(message.game) !== previousKey || analysisOff || lostEngine) {
       state.analysis = null;
       board.clearAnalysis();
     }
-    if (message.status && message.status !== state.lastStatus) setStatus(message.status);
+    // The server drops every board's stored analysis with the engine (SPEC §3.2), but a tile
+    // this state does not re-send keeps the copy the page cached: drop that too.
+    if (lostEngine) forgetThumbnailAnalyses();
+    // The severity comes with the status, and a failure the user has to act on is a condition
+    // that still holds, so it stands until something replaces it (SPEC §3.8 "Status line").
+    var failed = !!message.statusIsError;
+    if (message.status && message.status === state.lastError) {
+      if (failed) holdStatus(message.status);
+    } else if (message.status && message.status !== state.lastStatus) {
+      setStatus(message.status, failed, failed);
+    }
     state.lastStatus = message.status;
+    state.lastError = null;
 
     state.boards = mergeBoards(message.boards || []);
     state.activeBoard = message.activeBoard;
@@ -259,6 +274,11 @@
 
     // Capabilities come from the data, never from a protocol or mode name.
     $('genmove').disabled = !(state.engine.connected && state.engine.supportsGenmove);
+    // A control that starts engine work is inert without an engine; one that only configures
+    // the next search stays live (SPEC §3.8 "Capability gating").
+    ['analysis-on', 'black-engine', 'white-engine'].forEach(function (id) {
+      $(id).disabled = !state.engine.connected;
+    });
     $('final-score').disabled = !state.engine.supportsFinalScore;
     $('raw').disabled = !state.engine.console;
   }
@@ -371,11 +391,14 @@
     var bar = $('winbar-black');
     var label = $('winbar-label');
 
+    // No root winrate is no position: the track is one neutral tone, not a width that would
+    // read as an even game or as White 100% (SPEC §3.8 "Evaluation").
+    bar.parentNode.classList.toggle('idle', !root || root.winrate == null);
     if (!root || root.winrate == null) {
       bar.style.width = '50%';
       label.textContent = state.engine.connected ? '--' : t('noEngine');
       $('score-lead').textContent = t('score.none');
-      $('visit-count').textContent = t('visits.count', { n: 0 });
+      $('visit-count').textContent = t('visits.count', { n: '--' });
     } else {
       var blackWinrate = root.winrate;    // already Black's point of view
       bar.style.width = (blackWinrate * 100).toFixed(1) + '%';
@@ -416,6 +439,13 @@
     if (!state.boards) return;
     state.boards = mergeBoards(state.boards);
     renderBoards();
+  }
+
+  function forgetThumbnailAnalyses() {
+    Object.keys(thumbnailCache).forEach(function (key) {
+      thumbnailCache[key].heat = [];
+      thumbnailCache[key].winrate = null;
+    });
   }
 
   function rememberActiveAnalysis() {
@@ -1148,13 +1178,25 @@
   // message neither replaces it nor starts a timer over it.
   var statusTimer = null;
   function setStatus(text, isError, sticky) {
-    if (closedFor && !sticky) return;
+    if (!closedFor) showStatus(text, isError, sticky);
+  }
+
+  // The status line itself; only the reason a 4401 / 4403 / 4429 close gives writes past it.
+  function showStatus(text, isError, sticky) {
     var node = $('status');
     node.textContent = text || '';
     node.classList.toggle('error', !!isError);
     if (statusTimer) clearTimeout(statusTimer);
     statusTimer = null;
     if (text && !sticky) statusTimer = setTimeout(function () { node.textContent = ''; }, 8000);
+  }
+
+  // The message on the line turns out to report a condition: it stays, and its timer is off.
+  function holdStatus(text) {
+    if (closedFor || $('status').textContent !== text) return;
+    $('status').classList.add('error');
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = null;
   }
 
   /* -- controls ---------------------------------------------------------- */
@@ -1349,6 +1391,9 @@
       pick.title = t('picker.empty');
       $('connect').disabled = true;
     }
+    // Said beside the picker, where the user is looking, and not in the status line: an empty
+    // catalog is a fact about this control, not an event (SPEC §3.8 "Engine picker").
+    $('engine-empty').hidden = engines.length > 0;
     pick.hidden = false;
     if (!engineFormDirty) fillEngineForm();
     if (state.game) renderControls();
@@ -1500,10 +1545,14 @@
       run: function () { send({ type: 'pass' }); } },
     { press: ['u'], label: 'help.key.undo',
       run: function () { send({ type: 'undo' }); } },
+    // g and a reach controls that start engine work, and are inert when those are (SPEC §3.7).
     { press: ['g'], label: 'help.key.genmove',
-      run: function () { send({ type: 'genmove', color: state.game.toPlay }); } },
+      run: function () {
+        if (!$('genmove').disabled) send({ type: 'genmove', color: state.game.toPlay });
+      } },
     { press: ['a'], label: 'help.key.analysis',
       run: function () {
+        if ($('analysis-on').disabled) return;
         $('analysis-on').checked = !$('analysis-on').checked;
         send({ type: 'analysis', enabled: $('analysis-on').checked });
       } },

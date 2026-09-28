@@ -2,8 +2,10 @@
 
 Each test drives the page's own controls and frames, never its internals: the status line after a
 ``4403`` close, a rename field while its tile moves, the PV preview of a candidate the board did
-not draw, the ring on the stone just played, an empty Visits field, and the presets this browser
-has stored.
+not draw, the ring on the stone just played, an empty Visits field, the presets this browser
+has stored, and what the page may claim while it has no engine (#66): the engine failures in red
+past the timer, the analysis and tile figures gone with the engine, a bar that draws no position,
+the three play settings cleared and inert, and the empty catalog said beside the picker.
 
 The frames the server would not send on cue (a reordered ``state``, an ``analysis``) go in through
 ``proxy_ws`` / ``inject`` of browser_kit.py.
@@ -11,12 +13,16 @@ The frames the server would not send on cue (a reordered ``state``, an ``analysi
 
 from __future__ import annotations
 
+import base64
 import json
 import math
+import re
+import socket
+import types
 
 import pytest
 
-from browser_kit import QUICK, Gowui, analysis_frame, analysis_payload, expect, move_info, vertex
+from browser_kit import ENGINE, QUICK, Gowui, analysis_frame, analysis_payload, expect, move_info, vertex
 
 pytestmark = pytest.mark.browser
 
@@ -522,3 +528,329 @@ def test_a_candidate_the_other_tuple_never_searched_is_drawn_whole(start_app, op
     strokes = g.page.evaluate("() => window.__paint.stroke")
     assert strokes.count("hsla(8, 88%, 48%, 0.98)") == 2
     assert strokes.count("hsla(218, 86%, 52%, 0.98)") == 1
+
+
+# -- a page with no engine claims nothing (#66; §3.2, §3.7, §3.8) ---------------------------------
+#: Past the 8 s a status reporting an event lives (§3.8 "Status line"), with margin.
+PAST_THE_TIMER = 9_000
+
+
+def free_port() -> int:
+    """A local port nothing listens on (bound, then released)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def status_shown(g: Gowui) -> tuple[str, bool]:
+    """The status line's text and whether it is drawn in the error colour (``--bad``), read from
+    the computed colour rather than a class name, which is the page's own business."""
+    return tuple(g.page.evaluate("""() => {
+        const node = document.getElementById('status');
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--bad)';
+        document.body.appendChild(probe);
+        const bad = getComputedStyle(probe).color;
+        probe.remove();
+        return [node.textContent, getComputedStyle(node).color === bad];
+    }"""))
+
+
+def status_frame(g: Gowui, since: int, prefix: str, *, timeout: int = ENGINE) -> dict:
+    """The first ``state`` received after ``since`` whose status starts with ``prefix``."""
+    g.until("([since, prefix]) => window.__gowuiTest.frames.some((f) => f.seq > since"
+            " && f.dir === 'received' && (() => { try { const m = JSON.parse(f.data);"
+            " return m.type === 'state' && (m.status || '').startsWith(prefix); }"
+            " catch (e) { return false; } })())", [since, prefix], timeout=timeout)
+    return next(s for s in g.received(since, "state") if s["status"].startswith(prefix))
+
+
+def engine_page(start_engine, start_app, open_page, protocol: str = "gtp"):
+    """A page on an app connected at startup to a fake engine; the engine too, to kill."""
+    engine = start_engine(protocol)
+    g = open_page(start_app(engine, True)).open()
+    expect(g.page.locator("#engine-state")).to_have_class(re.compile(r"\bon\b"), timeout=ENGINE)
+    return g, engine
+
+
+def lose_the_engine(g: Gowui, engine, how: str) -> None:
+    """``disconnect``: the user's own Disconnect; ``kill``: the engine process dies under it."""
+    since = g.mark()
+    if how == "disconnect":
+        g.page.locator("#connect").click()
+    else:
+        engine.process.stop()
+    g.until("(since) => window.__gowuiTest.frames.some((f) => f.seq > since"
+            " && f.dir === 'received' && f.data.startsWith('{\"type\": \"state\"')"
+            " && JSON.parse(f.data).engine.connected === false)", since, timeout=ENGINE)
+    expect(g.page.locator("#engine-state")).to_have_class(re.compile(r"\boff\b"), timeout=QUICK)
+    # One more state from the server, built from the slot's stored analysis (§4.2): a clear the
+    # page made on its own would be undone here.
+    g.fence()
+
+
+# The three engine failures are red and stand past the timer; the user's own Disconnect is not red.
+def test_a_refused_connect_is_shown_red_and_outlasts_the_timer(start_app, open_page):
+    """The server answers a refused connect with an ``error`` and a ``state`` carrying the same
+    text 1 ms apart (§3.8): the second must not repaint the first in the muted colour, and neither
+    may clear on the 8 s timer, since the engine is still not there."""
+    unreachable = types.SimpleNamespace(protocol="gtp", port=free_port())
+    g = open_page(start_app(unreachable)).open()
+    since = g.mark()
+    g.page.locator("#connect").click()
+    text = status_frame(g, since, "Engine connection failed")["status"]
+    g.page.wait_for_timeout(PAST_THE_TIMER)
+    assert status_shown(g) == (text, True)
+
+
+def test_an_engine_that_dies_is_shown_red_and_outlasts_the_timer(start_engine, start_app,
+                                                                 open_page):
+    g, engine = engine_page(start_engine, start_app, open_page)
+    since = g.mark()
+    engine.process.stop()
+    text = status_frame(g, since, "Engine disconnected:")["status"]
+    g.page.wait_for_timeout(PAST_THE_TIMER)
+    assert status_shown(g) == (text, True)
+
+
+def test_a_restore_whose_engine_is_refused_is_shown_red_and_outlasts_the_timer(
+        start_app, open_page, tmp_path):
+    """A stored request the policy refuses on restore (§8.1): the local policy takes gtp, analysis
+    and handol only, so a snapshot naming another protocol is refused when it is replayed."""
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({
+        "version": 1, "activeBoard": 1,
+        "boards": [{"id": 1, "name": "study", "sgf": "(;GM[1]FF[4]SZ[9])", "cursor": 0}],
+        "engine": {"connected": True,
+                   "request": {"protocol": "smoke-signals", "host": "127.0.0.1", "port": 1}},
+        "play": {}}), encoding="utf-8")
+    g = open_page(start_app(None, False, "--state", str(state), fresh=False)).open()
+    text = status_frame(g, 0, "Engine not reconnected")["status"]
+    g.page.wait_for_timeout(PAST_THE_TIMER)
+    assert status_shown(g) == (text, True)
+
+
+def test_the_users_own_disconnect_is_not_shown_red(start_engine, start_app, open_page):
+    """§3.8: a Disconnect reports what the user just asked for. Its text differs from the lost
+    engine's only by the missing reason, so a page that coloured by text would get this wrong."""
+    g, _ = engine_page(start_engine, start_app, open_page)
+    since = g.mark()
+    g.page.locator("#connect").click()
+    status_frame(g, since, "Engine disconnected")
+    g.fence()
+    assert status_shown(g) == ("Engine disconnected", False)
+
+
+# Losing the engine clears everything attributable to a search (§3.8 "Evaluation", "Board strip").
+def side_panel_and_board(g: Gowui) -> tuple:
+    """Candidate rows, the canvas's candidate record, whether the readout shows any figure, and
+    the winrate label."""
+    readout = g.page.locator("#candidate-readout").text_content() or ""
+    return (g.page.locator("#candidates tr").count(), g.dataset("candidates"),
+            bool(re.search(r"\d", readout)), g.page.locator("#winbar-label").text_content())
+
+
+def tile_figures(g: Gowui, board_id: int) -> tuple[bool, int]:
+    """Whether the tile's move line carries a percentage, and how many of its canvas pixels are
+    heatmap-coloured: the heatmap is violet over the wood, the only paint on a tile whose blue
+    channel is well above its red (grid, stones and the last-move dot are not)."""
+    tile = g.page.locator(f'#board-list .thumb[data-id="{board_id}"]')
+    meta = tile.locator(".thumb-meta:not(.thumb-tuple)").text_content() or ""
+    heat = g.page.evaluate("""(id) => {
+        const canvas = document.querySelector(`#board-list .thumb[data-id="${id}"] canvas`);
+        const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let count = 0;
+        for (let i = 0; i < data.length; i += 4) if (data[i + 2] > data[i] + 20) count += 1;
+        return count;
+    }""", board_id)
+    return "%" in meta, heat
+
+
+def analysing(start_engine, start_app, open_page) -> tuple:
+    """Connected to the analysis-protocol fake (its answers carry the policy a heatmap needs,
+    §2.4) with analysis on and every figure up."""
+    g, engine = engine_page(start_engine, start_app, open_page, "analysis")
+    g.page.locator("#analysis-on").check()
+    g.expect_dataset("candidates", re.compile(r"^[1-9]\d*$"), timeout=ENGINE)
+    expect(g.page.locator("#candidates tr").first).to_be_visible(timeout=ENGINE)
+    board = g.state()["activeBoard"]
+    g.until("(id) => /%/.test(document.querySelector("
+            "`#board-list .thumb[data-id=\"${id}\"] .thumb-meta`).textContent)", board,
+            timeout=ENGINE)
+    assert tile_figures(g, board)[1] > 0, "setup: the tile draws a heatmap while analysing"
+    return g, engine, board
+
+
+@pytest.mark.parametrize("how", ["disconnect", "kill"])
+def test_losing_the_engine_clears_the_analysis_shown(start_engine, start_app, open_page, how):
+    g, engine, _ = analysing(start_engine, start_app, open_page)
+    lose_the_engine(g, engine, how)
+    assert side_panel_and_board(g) == (0, "0", False, g.t("noEngine"))
+
+
+@pytest.mark.parametrize("how", ["disconnect", "kill"])
+def test_losing_the_engine_clears_the_active_tiles_winrate_and_heatmap(start_engine, start_app,
+                                                                       open_page, how):
+    """The tile has a server half: its figures are re-sent from the slot's stored analysis on
+    every ``state`` (§4.2), and ``lose_the_engine`` ends on one, so a page-only clear fails."""
+    g, engine, board = analysing(start_engine, start_app, open_page)
+    lose_the_engine(g, engine, how)
+    assert tile_figures(g, board) == (False, 0)
+
+
+def test_losing_the_engine_clears_a_board_left_behinds_tile(start_engine, start_app, open_page):
+    """An inactive tile's figures are the page's cached copy: no ``state`` names them again
+    (§4.2), so only the page can drop them."""
+    g, engine, board = analysing(start_engine, start_app, open_page)
+    g.page.locator("#board-new").click()
+    g.until("(id) => window.__gowuiTest && document.querySelector("
+            "`#board-list .thumb.active`).dataset.id !== String(id)", board)
+    assert tile_figures(g, board)[0], "setup: the board left behind shows its winrate"
+    lose_the_engine(g, engine, "disconnect")
+    assert tile_figures(g, board) == (False, 0)
+
+
+# With no root winrate the bar draws no position (§3.8 "Evaluation").
+def bar_tones(g: Gowui) -> tuple[bool, bool, bool]:
+    """Samples the rendered bar near both ends, clear of the centred label, and reports whether
+    it is one tone, and whether that tone is neither stone's colour. A width of 50% fails the
+    first (black then white), 0% the third (all white: "White 100%"), 100% the second."""
+    g.page.wait_for_timeout(400)   # the black part's width has a 0.2 s transition
+    png = base64.b64encode(g.page.locator(".winbar").screenshot(animations="disabled")).decode()
+    left, right, black, white = g.page.evaluate("""async (b64) => {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        const at = (fx) => Array.from(ctx.getImageData(Math.round(bitmap.width * fx),
+                                                       Math.round(bitmap.height * 0.3), 1, 1)
+                                      .data.slice(0, 3));
+        const tone = (name) => {
+          const probe = document.createElement('span');
+          probe.style.color = `var(${name})`;
+          document.body.appendChild(probe);
+          const rgb = getComputedStyle(probe).color.match(/\\d+/g).slice(0, 3).map(Number);
+          probe.remove();
+          return rgb;
+        };
+        return [at(0.08), at(0.92), tone('--black-stone'), tone('--white-stone')];
+    }""", png)
+
+    def distance(a, b):
+        return sum(abs(x - y) for x, y in zip(a, b))
+
+    return (distance(left, right) <= 12, distance(left, black) > 60, distance(left, white) > 60)
+
+
+def test_the_bar_draws_no_position_without_an_engine(start_app, open_page):
+    g = open_page(start_app()).open()
+    assert bar_tones(g) == (True, True, True)
+
+
+def test_the_bar_draws_no_position_connected_without_an_analysis(start_engine, start_app,
+                                                                 open_page):
+    g, _ = engine_page(start_engine, start_app, open_page)
+    assert bar_tones(g) == (True, True, True)
+
+
+def test_the_visit_count_without_an_analysis_is_unknown_not_zero(start_app, open_page):
+    g = open_page(start_app()).open()
+    text = g.page.locator("#visit-count").text_content() or ""
+    assert ("--" in text, bool(re.search(r"\d", text))) == (True, False), text
+
+
+# The controls that start engine work are cleared on loss and inert without an engine (§3.2, §3.8
+# "Capability gating").
+PLAY_BOXES = (("#analysis-on", "analysisEnabled"), ("#black-engine", "blackIsEngine"),
+              ("#white-engine", "whiteIsEngine"))
+
+
+def test_an_engine_that_dies_leaves_no_play_setting_ticked(start_engine, start_app, open_page):
+    """The page and the last ``state`` agree, and both say off."""
+    g, engine = engine_page(start_engine, start_app, open_page)
+    g.page.locator("#analysis-on").check()
+    g.page.locator("#white-engine").check()   # Black is to move, so the engine waits
+    g.until("() => { const f = window.__gowuiTest.frames.filter((f) => f.dir === 'received'"
+            " && f.data.startsWith('{\"type\": \"state\"')).pop();"
+            " const s = f && JSON.parse(f.data).settings;"
+            " return s && s.analysisEnabled && s.whiteIsEngine; }", timeout=ENGINE)
+    lose_the_engine(g, engine, "kill")
+    settings = g.state()["settings"]
+    shown = [g.page.locator(box).is_checked() for box, _ in PLAY_BOXES]
+    assert shown + [settings[key] for _, key in PLAY_BOXES] == [False] * 6
+
+
+@pytest.mark.parametrize("box", [box for box, _ in PLAY_BOXES])
+def test_a_play_setting_cannot_be_armed_without_an_engine(start_app, open_page, box):
+    g = open_page(start_app()).open()
+    since = g.mark()
+    g.page.locator(box).click(force=True)
+    g.page.wait_for_timeout(300)
+    g.fence()
+    sent = g.sent(since, "analysis") + g.sent(since, "players")
+    assert (sent, g.page.locator(box).is_checked()) == ([], False)
+
+
+def test_a_player_clicked_while_disconnected_plays_nothing_on_connect(start_engine, start_app,
+                                                                     open_page):
+    """The case the plan measured: "KataGo plays Black" clicked with no engine, then Connect. The
+    engine must not open with a move nobody asked for at that moment."""
+    engine = start_engine("gtp")
+    g = open_page(start_app(engine, False)).open()
+    g.page.locator("#black-engine").click(force=True)
+    g.page.wait_for_timeout(300)
+    g.page.locator("#connect").click()
+    expect(g.page.locator("#engine-state")).to_have_class(re.compile(r"\bon\b"), timeout=ENGINE)
+    g.page.wait_for_timeout(1_500)
+    g.fence()
+    assert g.state()["game"]["moveCount"] == 0
+
+
+def test_a_control_that_only_configures_stays_live_without_an_engine(start_app, open_page):
+    """The other half of the criterion: the server keeps a setting and hands it to the engine that
+    arrives, so these are not disabled with the three above."""
+    g = open_page(start_app()).open()
+    live = ["#max-visits", "#interval", "#show-ownership", "#eval-visits"]
+    assert [g.page.locator(field).is_disabled() for field in live] == [False] * len(live)
+
+
+# An empty catalog says so beside the picker (§3.8 "Engine picker").
+def sign_in(open_page, app, name: str, password: str) -> Gowui:
+    g = open_page(app)
+    g.page.goto(app.url + "/")
+    expect(g.page).to_have_url(re.compile(r"/login$"))
+    g.page.locator("input[name=name]").fill(name)
+    g.page.locator("input[name=password]").fill(password)
+    g.page.locator("button[type=submit]").click()
+    return g.ready()
+
+
+def beside_the_picker(g: Gowui) -> list[list[str]]:
+    """``[key, text]`` of every visible translated text beside the picker (in its row), other than
+    the Connect button and the engine badge, which are there whatever the catalog."""
+    return g.page.evaluate("""() => {
+        const row = document.getElementById('engine-pick').parentElement;
+        return Array.from(row.querySelectorAll('[data-i18n]'))
+          .filter((n) => n.id !== 'connect' && n.id !== 'engine-state')
+          .filter((n) => n.getClientRects().length > 0 && n.textContent.trim() !== '')
+          .map((n) => [n.getAttribute('data-i18n'), n.textContent.trim()]);
+    }""")
+
+
+def test_an_empty_catalog_says_so_beside_the_picker(start_server_app, open_page):
+    g = sign_in(open_page, start_server_app(engines=[], users={"alice": "password one"}),
+                "alice", "password one")
+    shown = beside_the_picker(g)
+    assert [(text == g.t(key)) for key, text in shown] == [True], shown
+
+
+def test_the_empty_catalog_sentence_follows_a_language_change(start_server_app, open_page):
+    g = sign_in(open_page, start_server_app(engines=[], users={"alice": "password one"}),
+                "alice", "password one")
+    english = beside_the_picker(g)
+    g.page.locator("#lang").select_option("ko")
+    expect(g.page.locator("html")).to_have_attribute("lang", "ko")
+    korean = beside_the_picker(g)
+    assert (len(english), [(text == g.t(key)) for key, text in korean],
+            korean != english) == (1, [True], True), (english, korean)

@@ -142,16 +142,38 @@ def test_g_asks_the_engine_for_a_move(start_engine, start_app, open_page):
     expect(g.page.locator("#move-counter")).to_have_text("1 / 1", timeout=ENGINE)
 
 
-def test_a_toggles_analysis(start_app, open_page):
+def test_a_toggles_analysis(start_engine, start_app, open_page):
     """§3.7: ``a`` toggle analysis — the box in the Analysis section follows, and the server is
-    told, because the box alone would leave the engine idle."""
-    g = open_page(start_app()).open()
+    told, because the box alone would leave the engine idle. Connected, since ``a`` needs an
+    engine (#66; §3.7 "Two of the document set's keys need an engine")."""
+    g = connected(start_engine, start_app, open_page)
     expect(g.page.locator("#analysis-on")).not_to_be_checked()
 
     since = g.mark()
     g.page.keyboard.press("a")
     assert (g.wait_sent("analysis", since)["enabled"],
             g.page.locator("#analysis-on").is_checked()) == (True, True)
+
+
+def test_g_sends_nothing_without_an_engine(start_app, open_page):
+    """§3.7: ``g`` reaches "Engine move now", which is inert with no engine, so the key is too."""
+    g = open_page(start_app()).open()
+    since = g.mark()
+    g.page.keyboard.press("g")
+    g.page.wait_for_timeout(300)   # a key's effect can land a frame after `press` returns
+    g.fence()
+    assert g.sent(since) == []
+
+
+def test_a_sends_nothing_without_an_engine(start_app, open_page):
+    """§3.7: ``a`` reaches "Continuous analysis", which is inert with no engine — neither a frame
+    nor a ticked box the server would then contradict."""
+    g = open_page(start_app()).open()
+    since = g.mark()
+    g.page.keyboard.press("a")
+    g.page.wait_for_timeout(300)
+    g.fence()
+    assert (g.sent(since), g.page.locator("#analysis-on").is_checked()) == ([], False)
 
 
 # -- the document listener: the board strip (§3.7 "[ / ] previous / next board") ------------------
