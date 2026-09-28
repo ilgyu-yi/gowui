@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 630 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
 | &nbsp;&nbsp;§3.8 | The page | 691 |
-| §4 | WebSocket protocol | 1348 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1352 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1459 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1521 |
-| §5 | HTTP routes | 1615 |
-| §6 | Launch modes and policies | 1690 |
-| &nbsp;&nbsp;§6.1 | The rule | 1692 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1728 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1768 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1801 |
-| §7 | Authentication and security | 1843 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1845 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1917 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1953 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1973 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2021 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2042 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2088 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2122 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2136 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2145 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2181 |
-| §8 | Persistence | 2200 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2202 |
-| &nbsp;&nbsp;§8.2 | Saving | 2239 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2272 |
-| &nbsp;&nbsp;§8.4 | Server database | 2314 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2378 |
-| §9 | Command line | 2414 |
-| §10 | Configuration (server) | 2484 |
-| &nbsp;&nbsp;§10.1 | Container | 2522 |
-| §11 | Feature inventory | 2610 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2617 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2655 |
-| §12 | Non-goals | 2673 |
+| §4 | WebSocket protocol | 1351 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1355 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1462 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1524 |
+| §5 | HTTP routes | 1618 |
+| §6 | Launch modes and policies | 1693 |
+| &nbsp;&nbsp;§6.1 | The rule | 1695 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1731 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1771 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1804 |
+| §7 | Authentication and security | 1846 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1848 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1920 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1956 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1976 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2024 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2045 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2091 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2125 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2139 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2148 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2184 |
+| §8 | Persistence | 2203 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2205 |
+| &nbsp;&nbsp;§8.2 | Saving | 2242 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2275 |
+| &nbsp;&nbsp;§8.4 | Server database | 2317 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2381 |
+| §9 | Command line | 2417 |
+| §10 | Configuration (server) | 2487 |
+| &nbsp;&nbsp;§10.1 | Container | 2525 |
+| §11 | Feature inventory | 2613 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2620 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2658 |
+| §12 | Non-goals | 2676 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1082,8 +1082,9 @@ is left ticked and unclickable.
 empty, and `A/B` appears while a compare tuple is set), and a × button in the corner. The × is
 shown on every tile, the last one included (§3.3: there it resets rather than removes). A tile's
 winrate and its heatmap both come from a stored analysis, and losing the engine drops those (§3.2),
-so while no engine is connected no tile shows either: no figure on the strip outlives the engine that
-produced it.
+so no figure on the strip outlives the engine that produced it. That is a consequence of the drop,
+not a rule of its own: a tile shows whatever its stored analysis holds, and what the drop removes is
+the analysis a lost engine left behind.
 
 The ⧉ sits in the title row after the ✎, not beside the ×. Three things follow: the ✎ stays next
 to the name it edits, the ⧉ sits at the tile's lower edge where the copy it makes will appear, and
@@ -1151,7 +1152,9 @@ a millisecond later.
 new message restarts the timer. A status reporting a condition that still holds while it is being
 read starts no timer and stands until something replaces it. The three engine failures above are
 conditions: the engine is not there, and a failure that clears on a timer leaves the `disconnected`
-badge as the only trace of it, which is a page that looks like one that never had an engine. So are
+badge as the only trace of it, which is a page that looks like one that never had an engine. The
+user's own Disconnect is an event and clears on the timer: the user asked for it, and the badge
+already says what it left. So are
 the connection notices (§3.8 "Connection"): the reason a `4401`, `4403` or `4429` close puts in the
 line is red and goes further still — while it stands, a later message neither replaces it nor starts
 a timer over it, so it says why until the page is reloaded — and the lost-connection text is muted
