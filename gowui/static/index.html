@@ -31,6 +31,48 @@
     <option value="ko">한국어</option>
     <option value="en">English</option>
   </select>
+  <button id="help-toggle" type="button" data-i18n="help.open" data-i18n-title="help.open.title">Help</button>
+  <!-- The help panel (SPEC §3.8 "Help panel"). Out of flow, hung from the top bar, so opening it
+       moves no control. Its key list is derived from the table of §3.7 and built by app.js into
+       #help-keys, which is why this markup leaves that container empty. -->
+  <section id="help-panel" class="help-panel" hidden aria-labelledby="help-heading">
+    <div class="help-head">
+      <h2 id="help-heading" data-i18n="help.title">How this page works</h2>
+      <button id="help-close" type="button" data-i18n="help.close" data-i18n-title="help.close.title">Close</button>
+    </div>
+
+    <h3 data-i18n="help.flow.title">Getting started</h3>
+    <ol class="help-flow">
+      <li data-i18n="help.flow.connect">Connect an engine.</li>
+      <li data-i18n="help.flow.play">Click a point to play.</li>
+      <li data-i18n="help.flow.analyse">Turn analysis on.</li>
+      <li data-i18n="help.flow.boards">Add and switch boards.</li>
+      <li data-i18n="help.flow.controls">Point at a control to learn what it is.</li>
+    </ol>
+
+    <h3 data-i18n="help.numbers.title">What the numbers mean</h3>
+    <dl class="help-legend">
+      <dt><span data-i18n="col.win">Win</span> / <span data-i18n="col.score">Score</span></dt>
+      <dd data-i18n="help.num.winScore">Two sides in one row.</dd>
+      <dt data-i18n="col.visits">Visits</dt>
+      <dd data-i18n="help.num.visits">What the search spent there.</dd>
+      <dt><span data-i18n="col.policy">Policy</span> / <span data-i18n="col.prob">Prob.</span></dt>
+      <dd data-i18n="help.num.policy">The raw policy probability.</dd>
+      <dt data-i18n="col.value">Value</dt>
+      <dd data-i18n="help.num.value">The engine's utility.</dd>
+      <!-- The parentheses are the mark of a bound, not words: they read the same in both
+           languages (SPEC §3.8 "What the numbers mean"), so this term is not translated. -->
+      <dt>( … )</dt>
+      <dd data-i18n="help.num.lcb">The Value's lower confidence bound.</dd>
+      <dt><span data-i18n="col.value">Value</span> · û</dt>
+      <dd data-i18n="help.num.collision">The same word, two quantities.</dd>
+      <dt><span data-i18n="col.win">Win</span> · <span data-i18n="col.value">Value</span></dt>
+      <dd data-i18n="help.num.noConversion">No conversion between them.</dd>
+    </dl>
+
+    <h3 data-i18n="help.keys.title">Keyboard</h3>
+    <div id="help-keys" class="help-keys"></div>
+  </section>
   <div id="status" class="status"></div>
 </header>
 

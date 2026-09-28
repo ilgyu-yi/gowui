@@ -29,6 +29,9 @@ body {
   padding: 10px 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+  /* The containing block for the help panel, which hangs from this bar (SPEC §3.8 "Help panel").
+     It costs nothing else: with no z-index the bar opens no stacking context. */
+  position: relative;
 }
 .topbar h1 { font-size: 16px; margin: 0; letter-spacing: 0.06em; }
 /* Three declarations, and the last two only work as a pair — measured at a 320px window with a
@@ -370,3 +373,63 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .hover-card .hover-title { font-weight: 600; font-size: 13px; }
 .hover-card .hover-key { font-family: ui-monospace, monospace; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
 .hover-card .hover-meta { color: var(--muted); margin-top: 3px; }
+
+/* The help panel (SPEC §3.8 "Help panel").
+
+   Out of flow, so opening it moves no control and changes no box the page measures: it is an
+   absolutely positioned child of the top bar, which is its containing block, and `top: 100%` puts
+   its top edge at the bar's lower edge whatever height the bar wrapped to.
+
+   The height bound is the room left below the bar, not a flat share of the window. `100%` in a
+   max-height resolves against the containing block — the top bar's own padding box — so
+   `100dvh - 100%` is exactly what is left under a bar the browser has just measured, and the
+   panel's bottom edge stays inside the window however many lines the bar wrapped to. A flat
+   `70dvh` alone obeys its number and still hangs off a short screen; it is kept as the second
+   bound so the panel is not the whole window on a tall one. Both are CSS: a pixel measured in
+   script and written back would be a seventh style write (§3.8 "Rendering safety", §7.5).
+
+   Open and closed is the `hidden` attribute, so there is no style write here at all. */
+.help-panel {
+  position: absolute;
+  top: 100%;
+  left: 16px;
+  right: 16px;
+  z-index: 25;
+  max-width: 560px;
+  margin-top: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: #16181d;
+  border: 1px solid #3a3f4b;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* Its scrolling body is a tab stop, which is how a keyboard user reaches the rest of it. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: min(70vh, calc(100vh - 100% - 24px));    /* engines without dvh */
+  max-height: min(70dvh, calc(100dvh - 100% - 24px));
+  /* A long word may not push the panel sideways: a box that scrolls vertically treats a
+     horizontal overflow as scrollable too, and the row would hide inside it (§3.8 "Scrolling"). */
+  overflow-wrap: break-word;
+}
+.help-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.help-panel h2 { font-size: 14px; margin: 0; }
+.help-panel h3 { font-size: 12px; margin: 12px 0 4px; color: var(--muted); }
+.help-flow { margin: 0; padding-left: 20px; }
+.help-flow li { margin-bottom: 3px; }
+.help-legend { margin: 0; }
+.help-legend dt { font-weight: 600; margin-top: 7px; }
+.help-legend dd { margin: 2px 0 0; color: var(--muted); }
+/* Wrapping rows and one <kbd> per key: the widest thing the list cannot make narrower is one
+   key's name, which is what holds the 320px floor (§3.8 "Help panel"). */
+.help-keys { display: flex; flex-direction: column; gap: 4px; }
+.help-scope { font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+.help-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.help-press { display: flex; flex-wrap: wrap; gap: 4px; }
+.help-label { min-width: 0; }
+.help-panel kbd {
+  font-family: ui-monospace, monospace; font-size: 11px; white-space: nowrap;
+  padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--panel-2); color: var(--text);
+}
