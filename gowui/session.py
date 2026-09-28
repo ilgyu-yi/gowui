@@ -417,7 +417,10 @@ class GameSession:
         #: request it resolved, else ``None`` (§4.2).
         self._shown_request: Any = None
         self._want_connected = False
-        self.status = ""
+        self._status = ""
+        #: Whether :attr:`status` reports a failure the user has to act on (§3.8, §4.2); any
+        #: new status clears it, and only :meth:`_fail_status` sets it.
+        self._status_is_error = False
         self.thinking = False
         self.log: deque[LogLine] = deque(maxlen=MAX_LOG_LINES)
         #: Bumped on every log line; keys the cached ``log_history`` text (§4.3 Log folding).
@@ -523,6 +526,31 @@ class GameSession:
     def _emit_state(self) -> None:
         self._emit(self.state_message())
 
+    @property
+    def status(self) -> str:
+        return self._status
+
+    @status.setter
+    def status(self, text: str) -> None:
+        """A new status is not a failure unless :meth:`_fail_status` says so (§3.8)."""
+        self._status = text
+        self._status_is_error = False
+
+    def _fail_status(self, text: str) -> None:
+        """Set a status that reports a failure the user has to act on (§3.8 "Status line")."""
+        self._status = text
+        self._status_is_error = True
+
+    def _without_engine(self) -> None:
+        """The space is left without the engine it had or wanted (§3.2): nothing that starts
+        engine work stays armed, and no board keeps the analysis of a search that is over."""
+        if any(self.play_settings[k] for k in ("blackIsEngine", "whiteIsEngine")):
+            self._players_epoch += 1
+        for key in ("analysisEnabled", "blackIsEngine", "whiteIsEngine"):
+            self.play_settings[key] = False
+        for slot in self.boards:
+            slot.last_analysis = None
+
     def _error(self, message: str) -> None:
         self._emit({"type": "error", "message": message})
 
@@ -590,6 +618,7 @@ class GameSession:
             # carried (§4.2).
             "preferences": self._preferences,
             "status": self.status,
+            "statusIsError": self._status_is_error,
             "thinking": self.thinking,
             # Every state refreshes the active thumbnail; inactive positions cannot change
             # (§3.3), so their heavy drawing fields arrive once in the attach snapshot (§4.2).
@@ -1499,7 +1528,8 @@ class GameSession:
                     f"unexpected {type(exc).__name__}")
                 if self.expose_address and failure.address is None:
                     failure.address = (target.host, target.port)
-                self.status = self._engine_failure("Engine connection failed", failure)
+                self._without_engine()
+                self._fail_status(self._engine_failure("Engine connection failed", failure))
                 self._error(self.status)
                 self._emit_state()
             return
@@ -1521,6 +1551,7 @@ class GameSession:
         had = self.engine is not None or self._connect_pending()
         self._begin_lifecycle()
         self._want_connected = False
+        self._without_engine()
         if had:
             self.status = "Engine disconnected"
         self._emit_state()
@@ -1533,7 +1564,8 @@ class GameSession:
         self.engine = None
         self.thinking = False
         self._want_connected = False
-        self.status = f"Engine disconnected: {error.message or 'the connection was lost'}"
+        self._without_engine()
+        self._fail_status(f"Engine disconnected: {error.message or 'the connection was lost'}")
         self._emit_state()
         self._spawn_close(engine)
 
@@ -1657,7 +1689,8 @@ class GameSession:
             self._want_connected = False
             self._request = None
             self._shown_request = None
-            self.status = f"Engine not reconnected: {exc}"
+            self._without_engine()
+            self._fail_status(f"Engine not reconnected: {exc}")
             self._emit_state()
             return
         self._shown_request = copy.deepcopy(target.request_echo)
