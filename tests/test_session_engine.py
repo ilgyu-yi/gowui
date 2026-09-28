@@ -180,7 +180,7 @@ async def test_a_connection_lost_mid_genmove_raises_at_most_one_error(h, fake_en
 
 # -- a space with no engine runs nothing and claims nothing (#66; §3.2, §3.8, §4.2) ----------------
 #: The three settings that start engine work (§3.8 "Capability gating"), cleared on each of the
-#: four paths that leave a space without the engine it had or wanted (§3.2).
+#: paths that leave a space without the engine it had or wanted (§3.2).
 PLAY_STARTERS = ("analysisEnabled", "blackIsEngine", "whiteIsEngine")
 ALL_ON = {"type": "players", "blackIsEngine": True, "whiteIsEngine": True}
 
@@ -310,8 +310,21 @@ async def test_a_restore_the_policy_refuses_clears_the_three_play_settings(h, ma
     assert starters(state) == (False, False, False)
 
 
+async def test_restoring_a_disconnected_snapshot_clears_the_three_play_settings(h, make_session):
+    """A snapshot that was not connected restores into a space with no engine and none wanted, so it
+    is a path of §3.2 like the others. Every snapshot saved after a Disconnect before these settings
+    were cleared has this shape, so without it an upgrading user starts with them ticked and inert."""
+    data = h.session.snapshot()
+    data["engine"]["connected"] = False
+    data["play"].update({"analysisEnabled": True, "blackIsEngine": True, "whiteIsEngine": True})
+    other = make_session()
+    other.session.restore(data)
+    await other.session.resume()
+    assert starters(await other.fresh_state()) == (False, False, False)
+
+
 async def test_a_shutdown_keeps_the_play_settings_for_the_restart(h, gtp_server):
-    """Boundary: a shutdown is none of the four paths (§3.2, §8.1), so what was running is
+    """Boundary: a shutdown is none of the paths of §3.2 (§8.1), so what was running is
     stored and a restart restores it."""
     await h.connect_to(gtp_server)
     await h.send({"type": "analysis", "enabled": True})

@@ -1647,6 +1647,10 @@ class GameSession:
         self._request = request
         self._shown_request = None  # until the replay resolves (§4.2)
         self._want_connected = engine_block.get("connected") is True and request is not None
+        if not self._want_connected:
+            # A space restored with no engine and none wanted is left without one like the
+            # other paths of §3.2; a snapshot saved after a Disconnect can still hold these.
+            self._without_engine()
         self._epoch += 1
         self._configure_engine()
         self._emit_state()
