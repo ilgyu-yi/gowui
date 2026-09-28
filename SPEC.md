@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 630 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
 | &nbsp;&nbsp;§3.8 | The page | 691 |
-| §4 | WebSocket protocol | 1392 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1396 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1503 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1565 |
-| §5 | HTTP routes | 1659 |
-| §6 | Launch modes and policies | 1734 |
-| &nbsp;&nbsp;§6.1 | The rule | 1736 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1772 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1812 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1845 |
-| §7 | Authentication and security | 1887 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1889 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1961 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1997 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2017 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2065 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2086 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2132 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2166 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2180 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2189 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2225 |
-| §8 | Persistence | 2244 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2246 |
-| &nbsp;&nbsp;§8.2 | Saving | 2283 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2316 |
-| &nbsp;&nbsp;§8.4 | Server database | 2358 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2422 |
-| §9 | Command line | 2458 |
-| §10 | Configuration (server) | 2528 |
-| &nbsp;&nbsp;§10.1 | Container | 2566 |
-| §11 | Feature inventory | 2654 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2661 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2699 |
-| §12 | Non-goals | 2717 |
+| §4 | WebSocket protocol | 1431 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1435 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1542 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1604 |
+| §5 | HTTP routes | 1698 |
+| §6 | Launch modes and policies | 1773 |
+| &nbsp;&nbsp;§6.1 | The rule | 1775 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1811 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1851 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1884 |
+| §7 | Authentication and security | 1926 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1928 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 2000 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 2036 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2056 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2104 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2125 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2171 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2205 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2219 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2228 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2264 |
+| §8 | Persistence | 2283 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2285 |
+| &nbsp;&nbsp;§8.2 | Saving | 2322 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2355 |
+| &nbsp;&nbsp;§8.4 | Server database | 2397 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2461 |
+| §9 | Command line | 2497 |
+| §10 | Configuration (server) | 2567 |
+| &nbsp;&nbsp;§10.1 | Container | 2605 |
+| §11 | Feature inventory | 2693 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2700 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2738 |
+| §12 | Non-goals | 2756 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -818,8 +818,11 @@ finally either the PV preview or the candidates.
   the vermilion left half rises by the absolute raw-policy probability, and the cobalt right half
   rises by the move's share of `rootInfo.visits` (the sum of reported candidate visits when the
   root count is absent). A low-contrast neutral track shows the unfilled part. A candidate without
-  visits has no cobalt arc. The first candidate has a separate white outer ring. The selected main
-  label remains the first line; in `prior` mode its vermilion text matches the policy arc, while
+  visits has no cobalt arc. The first candidate has a separate white outer ring
+  (`board.js:489-497`) when it has a point: a pass has none (`board.js:16`) and is not drawn
+  (`board.js:453`), so a first candidate that is a pass leaves no candidate with the white outer
+  ring; the others keep their rings. The selected main label remains the first line; in `prior`
+  mode its vermilion text matches the policy arc, while
   other main-label modes use neutral text (`visits` uses cobalt). A second, smaller cobalt line
   shows the absolute visits when reported.
   **A count some candidates carry and others do not is a case, not an edge.** While comparing, the
@@ -890,8 +893,9 @@ finally either the PV preview or the candidates.
   `utilityLcb` beside the Value. It shows the candidate under the pointer, whether that pointer is
   on a circle or on a table row; with no pointer on either it shows the best candidate, marked as
   such so it is not mistaken for something hovered. With no analysis, or none with candidates, it
-  says so. A value the engine did not report is `-`, never a zero (§2.2 turns a non-finite number
-  into `null`, so every field can take that path, `visits` included).
+  says so and carries a **"How to start"** button that opens the help panel (§3.8 "Help panel"),
+  at the line's one height. A value the engine did not report is `-`, never a zero (§2.2 turns a
+  non-finite number into `null`, so every field can take that path, `visits` included).
   Every field that has a perspective names its side, so the line cannot contradict the circle it
   describes: the winrate is the side the engine searched for, as the circle's label is, and the
   score and the Value are Black's view in the `B+` / `W+` form the score line already uses.
@@ -983,7 +987,8 @@ finally either the PV preview or the candidates.
   difference of at least 0.001, drawn red when positive and blue when negative, and in the
   `prior` label mode labelled with the signed difference in percentage points. A Δ candidate is
   not the ring of "Top candidates" but a **filled disc** (`board.js:462-467`); the first — the
-  largest difference (`app.js:936`) — is outlined in white (`board.js:489-497`).
+  largest difference (`app.js:936`) — is outlined in white (`board.js:489-497`), unless it is the
+  pass (`app.js:930-931`), which is not drawn (`board.js:453`), and then none is.
 - The first time the human panel is shown after the page loads, the label mode switches to
   `prior` and the heatmap is ticked, since a human distribution has no visits.
 
@@ -1262,9 +1267,39 @@ entry's text as its `title`, from the same key. The headers take no focus: the `
 one tab stop (§3.8 "Candidate readout").
 
 **Help panel.** A control in the top bar opens the panel and closes it again; its own close button
-closes it too, and nothing else opens or closes it (§3.7 leaves it no key). It holds three parts:
-the flow — what to do on this page, in a few steps; what the numbers mean (below); and the key
-list. It points at the hover cards and the `?` cards (§3.8 "Where explanation lives") for what an
+closes it too. One other control opens it: the "How to start" button the candidate readout carries
+while it shows no candidate (§3.8 "Candidate readout"). Nothing else opens or closes it (§3.7 leaves
+it no key), and **nothing opens it on its own**, on a first visit or after one:
+
+- remembering that a reader has seen it would take a third browser key, and §8.5 has two
+  (`test_the_page_stores_exactly_the_two_browser_keys`);
+- measured on Chromium at 390×780, the open panel spans y 209–755 and the board 438–796, so it
+  covers the board down to 25px above the window's lower edge;
+- a failed connect's red status stands until something replaces it (§3.8 "Status line"), and it,
+  not the panel, is what a first reading should meet.
+
+The top-bar control is drawn in the accent colour, as an outline and its text, so it is second in
+weight to Connect, which stays the only button in the top bar filled with it.
+
+It holds, in order:
+
+1. **The flow** — what to do on this page, in a few steps. The first step follows the data, as the
+   engine form does (§3.8 "Server-mode additions"): it is keyed on `engineAddress.kind` from
+   `/api/health`, never on a mode name, and names the protocol select, host and port where the
+   address is typed, the engine picker where it is `catalog`, and the configured-no-engine note where
+   the catalog is empty. The step is a `data-i18n` node, so a language switch re-renders the variant
+   in force. A step names the surfaces the others do not: Players, New game with Save SGF and Load
+   SGF, and the engine console.
+2. **What is drawn on a candidate** — the glyph of "Top candidates", which no single control owns:
+   the two arcs over their track, no cobalt arc for a candidate without visits, the smaller cobalt
+   line of the visits, and the white ring on the first candidate unless it is a pass. The filled disc
+   of the difference is a pointer to the Compare two tuples `?` ("Compare views").
+3. **What to turn on to see a thing** — one line per switch of the `?` table above, each naming its
+   switch by the switch's own label key and pointing at the switch's `?` instead of restating it.
+4. **What the numbers mean** (below).
+5. **The key list.**
+
+It points at the hover cards and the `?` cards (§3.8 "Where explanation lives") for what an
 individual control is rather than restating them.
 
 The key list is **derived, not authored**: one row per entry of the table of §3.7, rendered from
@@ -1287,9 +1322,10 @@ wrapped puts the panel's bottom edge off a short screen while obeying the number
 requires is that the bottom edge stay inside the window, and the height rule is whatever delivers
 that. Its scrolling
 body is a tab stop, which is how a keyboard user scrolls it. Opening it moves focus to its close
-button; closing it returns focus to the control that opened it. From 320px up it adds no horizontal
-scrolling to the document (§3.8 "The page scrolls down, never across"): its key rows wrap and each
-key is its own token, so the widest thing it cannot make narrower is one key's name.
+button; closing it returns focus to whichever control opened it, or to the top-bar control when that
+one has left the page — the readout's button leaves when a candidate arrives. From 320px up it adds
+no horizontal scrolling to the document (§3.8 "The page scrolls down, never across"): its key rows
+wrap and each key is its own token, so the widest thing it cannot make narrower is one key's name.
 
 Open and closed is the `hidden` attribute, not a style write, so the style-write census of §3.8
 "Rendering safety" (§7.5) is unchanged: the panel adds no CSSOM assignment to the six that section
@@ -1317,18 +1353,23 @@ it says what those sources support and no more.
   confidence bound, in the same view (§2.2; §3.8 "Candidate readout"). The parentheses are the
   mark of a bound and are not words, so they are the same in both languages.
 - **The name collision the legend has to settle.** The table's Value — `가치` in the Korean table —
-  is the engine's raw `utility` above. The `û` of the λ, μ and κ help cards (§3.8 "Human policy
-  panel"; the strings `field.lambda_utility.help`, `field.trust_mu.help` and `field.fill_kappa.help`)
-  is a **different quantity**: a move's search value after it has been shrunk toward the fill value
+  is the engine's raw `utility` above. The `û` of the λ and μ help cards (§3.8 "Human policy
+  panel"; the strings `field.lambda_utility.help` and `field.trust_mu.help`; the κ card,
+  `field.fill_kappa.help`, defines the fill value and does not name `û`) is a **different
+  quantity**: a move's search value after it has been shrunk toward the fill value
   by μ and κ. The same word carries both in the English table and in the Korean one, so the legend
-  names the collision rather than leaving a reader to find it.
+  names the collision rather than leaving a reader to find it. It names the cards by what the
+  reader sees: the Value pull knob, which sets the λ, μ and κ fields (`tuple.js:66-75`), and
+  the λ and μ fields' own labels under Raw values.
 - **Win and Value are different quantities, and gowui defines no conversion between them.** The
   panel carries no formula relating a winrate to a utility and no conversion factor: neither is
   derivable from anything this repo holds. Nothing beyond what these entries cite is added, because
   mis-explaining `utility` is worse than explaining nothing.
 
 The candidate table's `?` card and its column headers' titles show these same keys (§3.8 "Where
-explanation lives", rule 4); only Move, A, B and Δ have keys of their own.
+explanation lives", rule 4); only Move, A, B and Δ have keys of their own. The panel's legend carries
+Win and Score, the bound, the collision and the missing conversion; for Visits, Policy / Prob. and
+Value it is one pointer to the table's `?`, not a second copy of that card.
 
 **Connection.** One WebSocket per tab to `/ws` (`wss:` under `https:`). Opening it resets the
 reconnect delay and clears the status. When it closes:

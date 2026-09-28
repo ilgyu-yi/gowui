@@ -43,24 +43,44 @@
     </div>
 
     <h3 data-i18n="help.flow.title">Getting started</h3>
+    <!-- The first step follows /api/health's engineAddress.kind: app.js showCatalog swaps its key
+         (SPEC §3.8 "Help panel"). -->
     <ol class="help-flow">
-      <li data-i18n="help.flow.connect">Connect an engine.</li>
+      <li id="help-flow-connect" data-i18n="help.flow.connect">Connect an engine.</li>
       <li data-i18n="help.flow.play">Click a point to play.</li>
       <li data-i18n="help.flow.analyse">Turn analysis on.</li>
       <li data-i18n="help.flow.boards">Add and switch boards.</li>
+      <li data-i18n="help.flow.more">Players, New game and SGF, the engine console.</li>
       <li data-i18n="help.flow.controls">Point at a control to learn what it is.</li>
     </ol>
+
+    <h3 data-i18n="help.glyph.title">What is drawn on a candidate</h3>
+    <ul class="help-glyph">
+      <li data-i18n="help.glyph.ring">Two arcs over a track.</li>
+      <li data-i18n="help.glyph.visits">No blue arc without visits.</li>
+      <li data-i18n="help.glyph.best">The white ring on the first candidate.</li>
+      <li data-i18n="help.glyph.diff">The difference: see Compare two tuples.</li>
+    </ul>
+
+    <!-- One line per switch that carries a ? card, marked with the switch's id and naming it by
+         the switch's own label key; each points at that ? rather than restating it. -->
+    <h3 data-i18n="help.task.title">To see a thing, what to turn on</h3>
+    <ul class="help-tasks">
+      <li data-for="label-mode"><span data-i18n="help.task.label">…</span> <b data-i18n="analysis.label">Label</b> <span data-i18n="help.task.see">…</span></li>
+      <li data-for="show-ownership"><span data-i18n="help.task.ownership">…</span> <b data-i18n="analysis.ownership">Ownership</b> <span data-i18n="help.task.see">…</span></li>
+      <li data-for="show-policy"><span data-i18n="help.task.heatmap">…</span> <b data-i18n="analysis.heatmap">Raw policy heatmap</b> <span data-i18n="help.task.see">…</span></li>
+      <li data-for="show-numbers"><span data-i18n="help.task.numbers">…</span> <b data-i18n="analysis.numbers">Move numbers</b> <span data-i18n="help.task.see">…</span></li>
+      <li data-for="compare-on"><span data-i18n="help.task.compare">…</span> <b data-i18n="compare.on">Compare two tuples</b> <span data-i18n="help.task.see">…</span></li>
+    </ul>
 
     <h3 data-i18n="help.numbers.title">What the numbers mean</h3>
     <dl class="help-legend">
       <dt><span data-i18n="col.win">Win</span> / <span data-i18n="col.score">Score</span></dt>
       <dd data-i18n="help.num.winScore">Two sides in one row.</dd>
-      <dt data-i18n="col.visits">Visits</dt>
-      <dd data-i18n="help.num.visits">What the search spent there.</dd>
-      <dt><span data-i18n="col.policy">Policy</span> / <span data-i18n="col.prob">Prob.</span></dt>
-      <dd data-i18n="help.num.policy">The raw policy probability.</dd>
-      <dt data-i18n="col.value">Value</dt>
-      <dd data-i18n="help.num.value">The engine's utility.</dd>
+      <!-- These three are the table's ? card's (SPEC §3.8 "What the numbers mean"): one pointer
+           here, not a second copy. -->
+      <dt><span data-i18n="col.visits">Visits</span> · <span data-i18n="col.policy">Policy</span> / <span data-i18n="col.prob">Prob.</span> · <span data-i18n="col.value">Value</span></dt>
+      <dd data-i18n="help.num.inTable">See the ? beside Candidate moves.</dd>
       <!-- The parentheses are the mark of a bound, not words: they read the same in both
            languages (SPEC §3.8 "What the numbers mean"), so this term is not translated. -->
       <dt>( … )</dt>

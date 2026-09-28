@@ -1,7 +1,8 @@
 """The help panel (SPEC §3.8 "Help panel"; §3.7; issue #64).
 
 §3.8 gives the panel a control in the top bar that "opens the panel and closes it again", a close
-button of its own, and "nothing else opens or closes it (§3.7 leaves it no key)". Its key list is
+button of its own, one other opener — the "How to start" button of an empty candidate readout — and
+"nothing else opens or closes it (§3.7 leaves it no key)". Its key list is
 "**derived, not authored**: one row per entry of the table of §3.7, rendered from that table", and
 opening it "moves focus to its close button; closing it returns focus to the control that opened
 it".
@@ -26,7 +27,8 @@ from __future__ import annotations
 
 import pytest
 
-from browser_kit import QUICK, Gowui, expect
+from browser_kit import QUICK, Gowui, analysis_frame, analysis_payload, expect, \
+    move_info, vertex
 
 pytestmark = pytest.mark.browser
 
@@ -222,3 +224,197 @@ def test_switching_language_with_the_panel_open_re_renders_the_key_rows(start_ap
     switched_to(g, "ko")
     assert [text for _, text in row_labels(g)] != english, \
         "the key rows kept their old text after the language changed"
+
+
+# -- the first step follows the data (§3.8 "Help panel" part 1; issue #67 AC 6) -------------------
+#: The three engine-address shapes §5 can send, as ``/api/health``'s ``engineAddress``; ``None``
+#: leaves the local app's own (typed) answer alone.
+ADDRESSES = {
+    "typed": None,
+    "catalog": {"kind": "catalog",
+                "engines": [{"id": "kata", "label": "Fake KataGo", "protocol": "gtp"}]},
+    "empty catalog": {"kind": "catalog", "engines": []},
+}
+
+
+def with_engine_address(g: Gowui, address: dict) -> None:
+    """Answer ``/api/health`` with the app's own body and ``engineAddress`` replaced: the page is
+    told a catalog exists by the data alone, while running in local mode — which is what "never a
+    mode name" means."""
+    def handle(route):
+        response = route.fetch()
+        body = response.json()
+        body["engineAddress"] = address
+        route.fulfill(response=response, json=body)
+
+    g.page.route("**/api/health", handle)
+
+
+def first_step(g: Gowui) -> list[str]:
+    """``[i18n key, shown text]`` of the flow's first step."""
+    return g.page.evaluate("""() => {
+        const step = document.querySelector('#help-panel ol li');
+        return step ? [step.dataset.i18n || '', step.textContent.trim()] : ['', ''];
+    }""")
+
+
+def test_the_first_step_follows_the_engine_address(start_app, open_page):
+    """§3.8: the first step "is keyed on `engineAddress.kind` from `/api/health`, never on a mode
+    name", with a variant for a typed address, a catalog and an empty catalog, and a language
+    switch re-renders the variant in force. Three pages, one app: only the data differs."""
+    app = start_app()
+    seen = {}
+    for name, address in ADDRESSES.items():
+        g = open_page(app)
+        if address is not None:
+            with_engine_address(g, address)
+        g.open()
+        if address is not None:
+            # The catalog has been applied once the picker, or the empty note, is up.
+            ready = "#engine-pick" if address["engines"] else "#engine-empty"
+            expect(g.page.locator(ready)).to_be_visible(timeout=QUICK)
+        opened(g)
+        english = first_step(g)
+        switched_to(g, "ko")
+        korean = first_step(g)
+        seen[name] = (english, korean)
+
+    untranslated = [(name, key) for name, pair in seen.items() for key, text in pair
+                    if not text or text == key]
+    assert untranslated == [], f"a first step reads as its own key: {untranslated}"
+    stale = [name for name, (en, ko) in seen.items() if en[1] == ko[1]]
+    assert stale == [], f"the first step kept its text across a language switch: {stale}"
+    for lang in (0, 1):
+        texts = [pair[lang][1] for pair in seen.values()]
+        assert len(set(texts)) == len(ADDRESSES), \
+            f"the first step reads the same for different engine addresses: {dict(zip(seen, texts))}"
+
+
+# -- the panel is reachable without knowing it exists (§3.8 "Help panel"; issue #67 AC 7) ---------
+def test_the_help_control_outweighs_a_plain_button_and_stays_below_connect(start_app, open_page):
+    """§3.8: the top-bar control "is drawn in the accent colour, as an outline and its text, so it
+    is second in weight to Connect, which stays the only button in the top bar filled with it". The
+    plain button is one made for the measurement, in the top bar, and removed again."""
+    g = open_page(start_app()).open()
+    g.page.mouse.move(1, 1)
+    look = g.page.evaluate("""() => {
+        const pick = (node) => { const c = getComputedStyle(node);
+            return {fill: c.backgroundColor, edge: c.borderTopColor, ink: c.color}; };
+        const bar = document.querySelector('.topbar');
+        const plain = document.createElement('button');
+        plain.type = 'button';
+        plain.textContent = 'x';
+        bar.appendChild(plain);
+        const out = {help: pick(document.getElementById('help-toggle')),
+                     connect: pick(document.getElementById('connect')), plain: pick(plain)};
+        plain.remove();
+        out.filled = [...bar.querySelectorAll('button')]
+            .filter((b) => b.getClientRects().length && b.id !== 'connect'
+                    && getComputedStyle(b).backgroundColor === out.connect.fill)
+            .map((b) => b.id || b.textContent.trim());
+        return out;
+    }""")
+    help_, plain = look["help"], look["plain"]
+    assert (help_["edge"], help_["ink"]) != (plain["edge"], plain["ink"]), \
+        f"the Help control is drawn like a plain button: {look}"
+    assert look["filled"] == [], f"top-bar buttons share Connect's fill: {look['filled']}"
+
+
+def start_button(g: Gowui):
+    return g.page.locator("#candidate-readout button")
+
+
+def nav_top(g: Gowui) -> float:
+    """The navigation row's top in document coordinates."""
+    return g.page.evaluate(
+        "() => document.querySelector('.board-controls').getBoundingClientRect().top + scrollY")
+
+
+def with_candidates(g: Gowui) -> None:
+    size = g.state()["game"]["size"]
+    g.inject(analysis_frame(g.state(), analysis_payload(
+        size, [move_info(vertex(x, 0, size)) for x in range(2)])))
+    expect(g.page.locator("#candidates tr")).to_have_count(2, timeout=QUICK)
+
+
+def test_the_empty_readout_offers_the_panel_and_takes_focus_back(start_app, open_page):
+    """§3.8 "Candidate readout": with none to show the line "carries a "How to start" button that
+    opens the help panel", "at the line's one height"; "Help panel": closing returns focus to
+    whichever control opened it. The button goes once a candidate arrives."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    label = start_button(g).text_content().strip()
+    assert label and not label.startswith("help."), f"the button reads {label!r}"
+    empty_top = nav_top(g)
+
+    start_button(g).click()
+    expect(panel(g)).to_be_visible(timeout=QUICK)
+    assert g.page.evaluate("() => document.activeElement.id") == "help-close"
+    g.page.locator("#help-close").click()
+    expect(panel(g)).to_be_hidden(timeout=QUICK)
+    assert g.page.evaluate("""() => document.activeElement.tagName === 'BUTTON'
+        && !!document.activeElement.closest('#candidate-readout')"""), \
+        "closing the panel did not give focus back to the readout's button"
+
+    with_candidates(g)
+    expect(start_button(g)).to_have_count(0, timeout=QUICK)
+    assert nav_top(g) == empty_top, "the navigation row moved as the readout filled"
+
+
+def test_closing_after_the_readout_button_left_gives_focus_to_the_top_bar_control(start_app,
+                                                                                  open_page):
+    """§3.8 "Help panel": focus returns "to the top-bar control when that one has left the page —
+    the readout's button leaves when a candidate arrives"."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    start_button(g).click()
+    expect(panel(g)).to_be_visible(timeout=QUICK)
+    with_candidates(g)
+    expect(start_button(g)).to_have_count(0, timeout=QUICK)
+    g.page.locator("#help-close").click()
+    expect(panel(g)).to_be_hidden(timeout=QUICK)
+    assert g.page.evaluate("() => document.activeElement.id") == "help-toggle", \
+        "closing the panel after its opener left dropped focus"
+
+
+def test_redrawing_a_still_empty_readout_keeps_focus_on_its_button(start_app, open_page):
+    """§3.8 "Help panel": closing returns focus to the control that opened it. The readout is
+    redrawn on every state and analysis frame; a redraw that leaves the line empty must not drop
+    focus from its button to the page body."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    start_button(g).click()
+    expect(panel(g)).to_be_visible(timeout=QUICK)
+    g.page.locator("#help-close").click()
+    expect(panel(g)).to_be_hidden(timeout=QUICK)
+    size = g.state()["game"]["size"]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, [])))
+    g.page.wait_for_timeout(200)
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    assert g.page.evaluate("""() => document.activeElement.tagName === 'BUTTON'
+        && !!document.activeElement.closest('#candidate-readout')"""), \
+        "redrawing the empty readout dropped focus to " + \
+        g.page.evaluate("() => document.activeElement.tagName")
+
+
+def test_a_candidate_arriving_gives_focus_to_the_top_bar_control(start_app, open_page):
+    """§3.8 "Help panel": when the control that holds focus leaves the page, focus goes to the
+    top-bar Help control. The first candidate to arrive takes the "How to start" button out of the
+    readout — the flow the panel teaches: read "turn analysis on", close, press ``a``."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    start_button(g).focus()
+    size = g.state()["game"]["size"]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, [move_info(vertex(3, 3, size))])))
+    expect(start_button(g)).to_have_count(0, timeout=QUICK)
+    assert g.page.evaluate("() => document.activeElement.id") == "help-toggle", \
+        "a candidate arriving dropped focus to " + \
+        g.page.evaluate("() => document.activeElement.tagName")

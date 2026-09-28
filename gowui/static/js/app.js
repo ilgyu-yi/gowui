@@ -1078,6 +1078,11 @@
     return node;
   }
 
+  var startButton = document.createElement('button');
+  startButton.type = 'button';
+  startButton.className = 'readout-start';
+  startButton.onclick = function () { showHelp(true, startButton); };
+
   function renderReadout() {
     var line = $('candidate-readout');
     var shown = viewOf(state.analysis);
@@ -1090,13 +1095,24 @@
     // it is not mistaken for something hovered.
     var best = !info;
     if (!info) info = infos[0] || null;
+    // Emptying the line takes the button out of the page, and a focused element that leaves sends
+    // focus to the body; putting the button back does not return it, so the redraw does.
+    var buttonHadFocus = document.activeElement === startButton;
     line.replaceChildren();
     line.classList.toggle('empty', !info);
     if (!info) {
-      // No analysis, or none with candidates.
+      // No analysis, or none with candidates - and the help panel one press away (§3.8
+      // "Candidate readout", "Help panel"). The one button is reused, so the panel can give
+      // focus back to it however often the line is rebuilt while it is open.
       line.appendChild(piece('mark', t('readout.none')));
+      startButton.textContent = t('help.start');
+      line.appendChild(startButton);
+      if (buttonHadFocus) startButton.focus();
       return;
     }
+    // A line that fills has no button to hold focus, so it goes where the panel sends it when its
+    // opener has left the page: the top-bar Help control (§3.8 "Help panel").
+    if (buttonHadFocus) $('help-toggle').focus();
     if (best) line.appendChild(piece('mark', t('readout.best')));
     var searched = searchedSide();
     var fields = fieldsOf(info, searched, true);
@@ -1403,6 +1419,12 @@
     // Said beside the picker, where the user is looking, and not in the status line: an empty
     // catalog is a fact about this control, not an event (SPEC §3.8 "Engine picker").
     $('engine-empty').hidden = engines.length > 0;
+    // The help panel's first step follows the same data (§3.8 "Help panel"): the key, not the
+    // text, so a language switch (i18n.apply) re-renders the variant in force.
+    var step = $('help-flow-connect');
+    if (engines.length) step.setAttribute('data-i18n', 'help.flow.connect.catalog');
+    else step.setAttribute('data-i18n', 'help.flow.connect.empty');
+    i18n.apply(step.parentNode);
     pick.hidden = false;
     if (!engineFormDirty) fillEngineForm();
     if (state.game) renderControls();
@@ -1643,12 +1665,25 @@
   // panel is not modal, so nothing holds the keyboard inside it: opening moves focus to the close
   // button and closing gives it back to the control that opened it, which is what a keyboard user
   // gets instead. It takes no key of its own (§3.7).
-  function showHelp(open) {
+  // Two controls open it (§3.8 "Help panel"), so the one that did is remembered; one that has
+  // left the page since - the readout's button, once a candidate arrived - hands back to the
+  // top-bar control.
+  var helpOpener = null;
+  function showHelp(open, opener) {
     $('help-panel').hidden = !open;
-    $(open ? 'help-close' : 'help-toggle').focus();
+    if (open) {
+      helpOpener = opener;
+      $('help-close').focus();
+      return;
+    }
+    var back = helpOpener && helpOpener.isConnected ? helpOpener : $('help-toggle');
+    helpOpener = null;
+    back.focus();
   }
 
-  $('help-toggle').onclick = function () { showHelp($('help-panel').hidden); };
+  $('help-toggle').onclick = function () {
+    showHelp($('help-panel').hidden, $('help-toggle'));
+  };
   $('help-close').onclick = function () { showHelp(false); };
   buildKeyHelp();
 
