@@ -31,47 +31,47 @@
 | §3 | Session and boards | 450 |
 | &nbsp;&nbsp;§3.1 | Spaces | 452 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 479 |
-| &nbsp;&nbsp;§3.3 | Boards | 545 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 576 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 602 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 617 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 621 |
-| &nbsp;&nbsp;§3.8 | The page | 670 |
-| §4 | WebSocket protocol | 1272 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1276 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1383 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1439 |
-| §5 | HTTP routes | 1533 |
-| §6 | Launch modes and policies | 1608 |
-| &nbsp;&nbsp;§6.1 | The rule | 1610 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1646 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1686 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1719 |
-| §7 | Authentication and security | 1761 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1763 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1835 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1871 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1891 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1939 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1960 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2006 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2040 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2054 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2063 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2099 |
-| §8 | Persistence | 2118 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2120 |
-| &nbsp;&nbsp;§8.2 | Saving | 2157 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2190 |
-| &nbsp;&nbsp;§8.4 | Server database | 2232 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2296 |
-| §9 | Command line | 2332 |
-| §10 | Configuration (server) | 2402 |
-| &nbsp;&nbsp;§10.1 | Container | 2440 |
-| §11 | Feature inventory | 2528 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2535 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2573 |
-| §12 | Non-goals | 2591 |
+| &nbsp;&nbsp;§3.3 | Boards | 558 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 589 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 615 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 630 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
+| &nbsp;&nbsp;§3.8 | The page | 691 |
+| §4 | WebSocket protocol | 1348 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1352 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1459 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1521 |
+| §5 | HTTP routes | 1615 |
+| §6 | Launch modes and policies | 1690 |
+| &nbsp;&nbsp;§6.1 | The rule | 1692 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1728 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1768 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1801 |
+| §7 | Authentication and security | 1843 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1845 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1917 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1953 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1973 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2021 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2042 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2088 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2122 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2136 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2145 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2181 |
+| §8 | Persistence | 2200 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2202 |
+| &nbsp;&nbsp;§8.2 | Saving | 2239 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2272 |
+| &nbsp;&nbsp;§8.4 | Server database | 2314 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2378 |
+| §9 | Command line | 2414 |
+| §10 | Configuration (server) | 2484 |
+| &nbsp;&nbsp;§10.1 | Container | 2522 |
+| §11 | Feature inventory | 2610 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2617 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2655 |
+| §12 | Non-goals | 2673 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
