@@ -7,7 +7,22 @@
   var STRINGS = {
     en: {
       'protocol.title': 'KataGo interface',
+      // §3.8 "Engine form": the option reads KataGo's own name (§2.4), not the Analysis heading.
+      'engine.label': 'Engine',
+      'protocol.gtp': 'GTP',
+      'protocol.analysis': 'Analysis engine',
       'protocol.handol': 'handol-mux (human)',
+      // The Engine ? card (§3.8 "Where explanation lives"). §3.8 "Engine form": changing the
+      // protocol sets that protocol's conventional port.
+      'help.engine.intro': "How gowui talks to the engine at the address beside it. Changing it sets the port to that protocol's usual one.",
+      // §2.3 (kata-analyze, lz-analyze without it; genmove); §3.5 and §3.8 "Capability gating"
+      // (Final score and the console are GTP only).
+      'help.engine.gtp': 'An engine that answers GTP text commands: it analyses with kata-analyze, or lz-analyze where that is missing, and plays with genmove. The only one of the three with Final score and the engine console.',
+      // §2.4: JSON lines, the whole position per query, no native genmove, no final score.
+      'help.engine.analysis': "KataGo's analysis engine: one JSON query per line, each carrying the whole position. It has no move command of its own — an engine move is a bounded search whose top move is played — and no final score.",
+      // §2.5 (the surface's question); §3.8 "Human policy panel" (shown while the form's
+      // protocol is handol).
+      'help.engine.handol': 'Answers where a human of the chosen profile would play here, as a distribution over moves. Choosing it shows the Human policy panel.',
       'host.title': 'Engine host',
       'port.title': 'Engine port',
       'connect': 'Connect',
@@ -145,10 +160,12 @@
       'help.flow.boards': 'Every board in the strip on the left is a game of its own. "+ New board" adds one, clicking a tile switches to it, and ✎ renames it.',
       // §3.8 "Controls" (Players, New game and Engine console sections; index.html leaves the last
       // two closed); §3.5 (the console sends raw commands to a GTP engine, where allowed).
-      'help.flow.more': 'Further down the side panel: Players, with KataGo plays Black or White, Engine move now and Final score; New game, closed until opened, which starts a game and holds Save SGF and Load SGF; and Engine console, also closed, with the lines exchanged with the engine and a field that sends a GTP engine a command of your own where that is allowed.',
-      // §3.8 "Help panel": this panel points at the hover cards and the profile "?" for what an
-      // individual control is (§3.8 "Human policy panel", "Scrolling") rather than restating them.
-      'help.flow.controls': 'What one control is, you read where it is: hover a field or a knob for its card, and the "?" beside the profile field for what that profile imitates. This panel does not repeat them.',
+      'help.flow.more': 'Further down the side panel: Players, with KataGo plays Black or White, Engine move now and Final score; New game · Save / Load SGF, closed until opened, which starts a game and holds Save SGF and Load SGF; and Engine console, also closed, with the lines exchanged with the engine and a field that sends a GTP engine a command of your own where that is allowed.',
+      // §3.8 "Help panel": this panel points at the hover cards and the "?" cards for what an
+      // individual control is rather than restating them. §3.8 "Human policy panel": a knob or a
+      // Raw values field shows its card while hovered or focused, and the profile "?" follows the
+      // typed profile; §3.8 "Where explanation lives": a static "?" card opens on hover or focus.
+      'help.flow.controls': 'What one control is, you read where it is: a knob or a Raw values field shows its card while pointed at or focused, and a "?" beside a control opens that control\'s card the same way — the one beside the profile field says what that profile imitates. This panel does not repeat them.',
       // §3.8 "Top candidates" (board.js _drawCandidates): the ring, its two arcs from six
       // o'clock, the track; no cobalt arc without visits; the smaller visits line under the label.
       'help.glyph.title': 'What is drawn on a candidate',
@@ -223,7 +240,8 @@
       'players.finalScore': 'Final score',
       'captures.black': 'Black captured',
       'captures.white': 'White captured',
-      'newGame.section': 'New game',
+      // §3.8 "Controls": the heading of a closed section names the SGF buttons it holds.
+      'newGame.section': 'New game · Save / Load SGF',
       'newGame.size': 'Size',
       'newGame.handicap': 'Handicap',
       'newGame.komi': 'Komi',
@@ -356,7 +374,21 @@
     },
     ko: {
       'protocol.title': 'KataGo 인터페이스',
+      // §3.8 "Engine form": 분석 항목 제목이 아니라 KataGo가 쓰는 이름(§2.4)으로 읽는다.
+      'engine.label': '엔진',
+      'protocol.gtp': 'GTP',
+      'protocol.analysis': '분석 엔진',
       'protocol.handol': 'handol-mux (휴먼)',
+      // 엔진 ? 카드(§3.8 "Where explanation lives"). §3.8 "Engine form": 방식을 바꾸면 그 방식의
+      // 관례 포트로 바뀐다.
+      'help.engine.intro': 'gowui가 옆 주소의 엔진과 주고받는 방식. 바꾸면 포트도 그 방식에서 흔히 쓰는 포트로 바뀐다.',
+      // §2.3(kata-analyze, 없으면 lz-analyze; genmove); §3.5, §3.8 "Capability gating"(계가와
+      // 콘솔은 GTP뿐).
+      'help.engine.gtp': 'GTP 텍스트 명령에 답하는 엔진. kata-analyze로, 그것이 없으면 lz-analyze로 분석하고 genmove로 둔다. 셋 가운데 계가와 엔진 콘솔이 있는 것은 이것뿐이다.',
+      // §2.4: JSON 줄, 질의마다 국면 전체, 자체 genmove 없음, 계가 없음.
+      'help.engine.analysis': 'KataGo의 분석 엔진. 한 줄에 JSON 질의 하나를 받고, 질의마다 국면 전체를 담는다. 착수 명령이 따로 없어서 엔진 착수는 정해진 만큼 탐색해 맨 위의 수를 두는 것이고, 계가도 없다.',
+      // §2.5(이 면이 답하는 물음); §3.8 "Human policy panel"(방식이 handol일 때 나온다).
+      'help.engine.handol': '고른 프로파일의 사람이 여기서 어디에 둘지를 착수 확률 분포로 답한다. 이것을 고르면 휴먼 정책 패널이 나온다.',
       'host.title': '엔진 호스트',
       'port.title': '엔진 포트',
       'connect': '연결',
@@ -493,10 +525,11 @@
       'help.flow.boards': '왼쪽 띠에 있는 보드는 저마다 딴 대국이다. "+ 새 보드"로 하나 더하고, 타일을 누르면 그 보드로 넘어가고, ✎로 이름을 바꾼다.',
       // §3.8 "Controls"(대국자, 새 대국, 엔진 콘솔 항목. 뒤의 둘은 index.html에서 닫혀 있다);
       // §3.5(콘솔은 허용된 곳에서 GTP 엔진에만 명령을 보낸다).
-      'help.flow.more': '옆 패널 아래쪽에는 대국자(KataGo가 흑·백, 지금 엔진 착수, 계가)가 있고, 열어야 보이는 새 대국은 대국을 시작하고 SGF 저장과 SGF 열기를 담고 있으며, 역시 닫혀 있는 엔진 콘솔에는 엔진과 주고받은 줄과, 허용된 곳에서 GTP 엔진에 명령을 직접 보내는 칸이 있다.',
-      // §3.8 "Help panel": 조작 하나하나는 호버 카드와 프로파일 "?"가 맡는다
-      // (§3.8 "Human policy panel", "Scrolling"). 이 패널은 그것을 다시 옮겨 적지 않는다.
-      'help.flow.controls': '조작 하나가 무엇인지는 그 조작이 있는 자리에서 읽는다. 입력칸이나 손잡이에 마우스를 올리면 설명 카드가 뜨고, 프로파일 칸 옆 "?"는 그 프로파일이 무엇을 흉내 내는지 알려 준다. 이 패널은 그것을 되풀이하지 않는다.',
+      'help.flow.more': '옆 패널 아래쪽에는 대국자(KataGo가 흑·백, 지금 엔진 착수, 계가)가 있고, 열어야 보이는 새 대국 · SGF 저장/열기는 대국을 시작하고 SGF 저장과 SGF 열기를 담고 있으며, 역시 닫혀 있는 엔진 콘솔에는 엔진과 주고받은 줄과, 허용된 곳에서 GTP 엔진에 명령을 직접 보내는 칸이 있다.',
+      // §3.8 "Help panel": 조작 하나하나는 호버 카드와 "?" 카드가 맡는다. §3.8 "Human policy
+      // panel": 손잡이와 원시 값 칸은 마우스를 올리거나 초점이 가면 카드를 띄우고, 프로파일 "?"는
+      // 입력한 프로파일을 따른다. §3.8 "Where explanation lives": 고정 "?" 카드도 같은 식으로 열린다.
+      'help.flow.controls': '조작 하나가 무엇인지는 그 조작이 있는 자리에서 읽는다. 손잡이나 원시 값 칸은 마우스를 올리거나 초점이 가면 설명 카드를 띄우고, 조작 옆 "?"도 같은 식으로 그 조작의 카드를 연다. 프로파일 칸 옆 "?"는 그 프로파일이 무엇을 흉내 내는지 알려 준다. 이 패널은 그것을 되풀이하지 않는다.',
       // §3.8 "Top candidates"(board.js _drawCandidates): 고리, 여섯 시에서 오르는 두 호, 바탕 고리;
       // 방문이 없으면 파란 호가 없다; 라벨 아래 작은 방문 수.
       'help.glyph.title': '후보 위에 그려지는 것',
@@ -568,7 +601,8 @@
       'players.finalScore': '계가',
       'captures.black': '흑이 딴 돌',
       'captures.white': '백이 딴 돌',
-      'newGame.section': '새 대국',
+      // §3.8 "Controls": 닫혀 있는 항목의 제목이 안에 든 SGF 단추를 이름으로 댄다.
+      'newGame.section': '새 대국 · SGF 저장/열기',
       'newGame.size': '크기',
       'newGame.handicap': '접바둑',
       'newGame.komi': '덤',

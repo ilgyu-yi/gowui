@@ -828,11 +828,14 @@ def sign_in(open_page, app, name: str, password: str) -> Gowui:
 
 def beside_the_picker(g: Gowui) -> list[list[str]]:
     """``[key, text]`` of every visible translated text beside the picker (in its row), other than
-    the Connect button and the engine badge, which are there whatever the catalog."""
+    the Connect button, the engine badge and the "Engine" label (§3.8 "Engine picker"), which are
+    there whatever the catalog."""
     return g.page.evaluate("""() => {
         const row = document.getElementById('engine-pick').parentElement;
+        const label = document.getElementById('protocol').closest('label');
         return Array.from(row.querySelectorAll('[data-i18n]'))
           .filter((n) => n.id !== 'connect' && n.id !== 'engine-state')
+          .filter((n) => !(label && label.contains(n)))
           .filter((n) => n.getClientRects().length > 0 && n.textContent.trim() !== '')
           .map((n) => [n.getAttribute('data-i18n'), n.textContent.trim()]);
     }""")

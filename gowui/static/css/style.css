@@ -40,8 +40,14 @@ body {
    `min-width: 0` on the row is what lets the row narrow, and only then does `min-width: 0` on the
    fields let the picker narrow inside it. `flex-wrap` is the separate case — a row of ordinary
    controls too wide for the window (SPEC §3.8 "Scrolling"). */
-.engine-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+/* position: relative — the Engine ? card opens against this row's right edge (SPEC §3.8 "Where
+   explanation lives"), as a side-panel card does against its .row. */
+.engine-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0;
+               position: relative; }
 .engine-line input, .engine-line select { min-width: 0; }
+/* The Engine label holds the protocol select, so it is one more box in that pair: a flex row of
+   its own with min-width: 0, or the select inside it could not narrow. */
+.engine-line > label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .engine-note { color: var(--muted); }
 .status { color: var(--muted); flex: 1 1 200px; min-height: 1em; }
 .status.error { color: var(--bad); }
@@ -299,7 +305,9 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .thumb .thumb-name { flex: 1 1 auto; min-width: 0;
                      font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thumb .thumb-edit, .thumb .thumb-duplicate { flex: none; padding: 0 4px; font-size: 11px; line-height: 16px; opacity: 0; }
-.thumb:hover .thumb-edit, .thumb:hover .thumb-duplicate { opacity: 0.8; }
+/* On keyboard focus as on hover, so a keyboard user finds them (SPEC §3.8 "Board strip"). */
+.thumb:hover .thumb-edit, .thumb:hover .thumb-duplicate,
+.thumb:focus-within .thumb-edit, .thumb:focus-within .thumb-duplicate { opacity: 0.8; }
 .thumb .thumb-rename { width: 100%; font-size: 12px; padding: 1px 4px; }
 /* While a rename field is open the tile shows no hover button at all: the field fills that row
    (§3.8), which is one fewer way to hit × by accident. */
@@ -310,7 +318,7 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
                      text-overflow: ellipsis; white-space: nowrap; }
 .thumb .thumb-close { position: absolute; top: 2px; right: 2px; padding: 0 6px; font-size: 12px;
                       line-height: 18px; opacity: 0; }
-.thumb:hover .thumb-close { opacity: 0.85; }
+.thumb:hover .thumb-close, .thumb:focus-within .thumb-close { opacity: 0.85; }
 #board-new { font-size: 12px; }
 /* Dragging (§3.8 "Reordering"). Every drag visual is a class, never a style write and never an
    inserted node: renderBoards indexes list.children, so an extra node would corrupt its

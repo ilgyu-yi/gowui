@@ -259,6 +259,13 @@ def board_option_controls() -> list[str]:
             if "board.setOptions(" in _body(code, m.end())]
 
 
+def carded_controls() -> list[str]:
+    """The ids of the controls that carry a static `?` card right after their ``<label>`` (§3.8
+    "Where explanation lives"): the board switches above, the Compare checkbox (the table's
+    "Compare two tuples" row) and the engine form's protocol select (its "Engine" row)."""
+    return [*board_option_controls(), "compare-on", "protocol"]
+
+
 HEAD_ARRAY = re.compile(r"var\s+[A-Z_]*HEAD\s*=\s*\[(?P<keys>[^\]]*)\]")
 
 

@@ -18,8 +18,8 @@ from html.parser import HTMLParser
 
 import pytest
 
-from frontend_helpers import (board_option_controls, i18n_tables, read_static,
-                              table_head_keys)
+from frontend_helpers import (board_option_controls, carded_controls, i18n_tables,
+                              read_static, table_head_keys)
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source",
         "track", "wbr"}
@@ -33,6 +33,7 @@ class Node:
     def __init__(self, tag: str, attrs: dict[str, str | None], parent: "Node | None"):
         self.tag, self.attrs, self.parent = tag, attrs, parent
         self.children: list[Node] = []
+        self.text = ""
 
     @property
     def classes(self) -> list[str]:
@@ -66,6 +67,9 @@ class _Tree(HTMLParser):
         self.open.children.append(node)
         if tag not in VOID:
             self.open = node
+
+    def handle_data(self, data):
+        self.open.text += data
 
     def handle_endtag(self, tag):
         node = self.open
@@ -125,11 +129,11 @@ def test_the_board_switches_are_read_from_the_source():
     assert len(board_option_controls()) >= 4
 
 
-@pytest.mark.parametrize("control_id", [*board_option_controls(), "compare-on"])
-def test_a_board_switch_carries_a_card_after_its_label(control_id):
-    """§3.8 "Where explanation lives" rule 1, with the Compare checkbox the §3.8 table names: the
-    `?` is the next element after the control's ``<label>`` (not inside it), and its card, named by
-    ``aria-describedby``, is the `?`'s own next element."""
+@pytest.mark.parametrize("control_id", carded_controls())
+def test_a_carded_control_carries_a_card_after_its_label(control_id):
+    """§3.8 "Where explanation lives" rule 1, with the Compare checkbox and the protocol select the
+    §3.8 table names: the `?` is the next element after the control's ``<label>`` (not inside it),
+    and its card, named by ``aria-describedby``, is the `?`'s own next element."""
     root = page()
     dot = dot_after_label(root, control_id)
     assert dot is not None, f"#{control_id} has no ? right after its <label>"
@@ -176,6 +180,48 @@ def test_the_label_card_has_a_line_per_label_mode():
     assert dot is not None and card_of(root, dot) is not None, "the Label select has no card"
     lines = [n.attrs["data-option"] for n in card_of(root, dot).walk() if "data-option" in n.attrs]
     assert sorted(lines) == sorted(modes)
+
+
+def protocol_options(root: Node) -> list[Node]:
+    select = by_id(root, "protocol")
+    assert select is not None, "index.html has no #protocol"
+    return [o for o in select.walk() if o.tag == "option"]
+
+
+def test_the_engine_card_has_a_line_per_protocol():
+    """§3.8 row "Engine": one line per option of the protocol select, marked ``data-option``."""
+    root = page()
+    protocols = [o.attrs.get("value") for o in protocol_options(root)]
+    assert len(protocols) >= 3
+    dot = dot_after_label(root, "protocol")
+    assert dot is not None and card_of(root, dot) is not None, "the protocol select has no card"
+    lines = [n.attrs["data-option"] for n in card_of(root, dot).walk() if "data-option" in n.attrs]
+    assert sorted(lines) == sorted(protocols)
+
+
+def test_every_protocol_option_takes_its_text_from_the_tables():
+    """§3.8 "Engine form": the three options read from the string tables (§3.8 "Language"), so a
+    language switch re-renders them; an option written only in ``index.html`` stays English."""
+    found = protocol_options(page())
+    assert len(found) >= 3
+    tables = i18n_tables()
+    assert [(o.attrs.get("value"), lang) for o in found for lang in ("en", "ko")
+            if o.attrs.get("data-i18n") not in tables[lang]] == []
+
+
+@pytest.mark.parametrize("lang", ["en", "ko"])
+def test_no_protocol_option_reads_as_a_section_heading(lang):
+    """§3.8 "Engine form": the ``analysis`` option is renamed rather than defined, so it no longer
+    reads the same as the Analysis section's heading. Both texts are what the page shows in
+    ``lang``: a key's text from the table, and an option's own text where it has no key."""
+    root = page()
+    table = i18n_tables()[lang]
+    headings = {table.get(n.attrs["data-i18n"], n.text.strip()) for n in root.walk()
+                if n.tag == "summary" and "data-i18n" in n.attrs}
+    assert len(headings) >= 6, f"the section headings read as {headings}"
+    shown = {o.attrs.get("value"): table.get(o.attrs.get("data-i18n") or "", o.text.strip())
+             for o in protocol_options(root)}
+    assert {value: text for value, text in shown.items() if text in headings} == {}
 
 
 def test_every_table_column_has_exactly_one_entry():

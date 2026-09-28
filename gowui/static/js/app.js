@@ -515,6 +515,14 @@
     return parts.join(' · ');
   }
 
+  // A tile's tuple line shows only while its board has a human setting of its own, read from the
+  // board's summary and never from the engine (SPEC §3.8 "Board strip"). The default profile is
+  // the profile field's own default in index.html, the server's DEFAULT_PROFILE (session.py).
+  function ownHumanSetting(entry) {
+    return entry.profile !== $('human-profile').defaultValue ||
+      Object.keys(entry.policy || {}).length > 0 || Boolean(entry.compare);
+  }
+
   function tupleSummary(entry) {
     var keys = Object.keys(entry.policy || {});
     var text = keys.length ? keys.map(function (k) { return k.replace(/_.*/, '') + ' ' + entry.policy[k]; }).join(', ')
@@ -603,6 +611,7 @@
       node.querySelector('.thumb-meta').textContent = thumbMeta(entry);
       node.querySelector('.thumb-tuple').textContent = tupleSummary(entry);
       node.querySelector('.thumb-tuple').title = tupleSummary(entry);
+      node.querySelector('.thumb-tuple').hidden = !ownHumanSetting(entry);
       if (!entry.stones) return;  // the attach snapshot follows the first state (§4.2)
       var heat = thumbHeat(entry);
       var signature = entry.stones.join('') + '|' + entry.lastMove + '|' + heat.length + ':' +
@@ -1401,7 +1410,9 @@
   // Server mode: a picker of catalog entries replaces the protocol, host and port fields.
   function showCatalog(engines) {
     catalog = engines;
-    ['protocol', 'host', 'port'].forEach(function (id) { $(id).hidden = true; });
+    // The Engine ? goes with the select: its card defines the protocols the select offers, and a
+    // catalog names none (SPEC §3.8 "Engine picker"). The "Engine" label stays.
+    ['protocol', 'engine-help', 'host', 'port'].forEach(function (id) { $(id).hidden = true; });
     var pick = $('engine-pick');
     while (pick.firstChild) pick.removeChild(pick.firstChild);
     engines.forEach(function (entry) {
