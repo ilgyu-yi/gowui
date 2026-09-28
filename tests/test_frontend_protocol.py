@@ -18,8 +18,8 @@ import re
 
 import pytest
 
-from frontend_helpers import (REPO, read_js, send_calls, sent_types, spec_table_types,
-                              strip_js_comments, switch_block, CASE_LABEL)
+from frontend_helpers import (REPO, read_js, send_calls, sent_types, spec_section,
+                              spec_table_types, strip_js_comments, switch_block, CASE_LABEL)
 
 #: The §4.1 types the page never sends: SGF goes through POST /api/sgf (§3.8 "SGF"), and the
 #: attach frames bring a fresh state without asking.
@@ -154,6 +154,29 @@ async def test_every_state_field_the_page_reads_is_in_a_real_state_frame(h):
         read = set(re.findall(rf"(?<![\w$]){part}\.([A-Za-z_]\w*)", code))
         missing += [f"{part}.{name}" for name in sorted(read - set(frame[part]))]
     assert missing == []
+
+
+def spec_state_fields() -> set[str]:
+    """The top-level ``state`` fields §4.2's table names: every backticked name in the ``state``
+    row's fields column outside a parenthesis (the parentheses list nested fields)."""
+    rows = [line for line in spec_section("### 4.2").splitlines() if line.startswith("| `state`")]
+    assert len(rows) == 1, rows
+    top = re.sub(r"\([^()]*\)", "", rows[0].split("|")[2])
+    return set(re.findall(r"`([A-Za-z_]\w*)`", top))
+
+
+def test_the_spec_state_row_names_the_known_fields():
+    """Count guard on the reader above: the §4.2 ``state`` row names nine top-level fields."""
+    assert len(spec_state_fields()) >= 9
+
+
+async def test_the_top_level_state_fields_are_exactly_the_spec_state_row(make_session):
+    """Both ways: every top-level field §4.2's ``state`` row names is in a real ``state`` frame,
+    and the frame carries no field the row does not name. The field checks above only look inside
+    ``game``, ``settings`` and ``engine``, so a top-level field could be added to SPEC with no
+    server behind it, or to the server with no SPEC row, and every test stayed green (#66)."""
+    frame = await make_session().fresh_state()
+    assert sorted(set(frame) - {"type"}) == sorted(spec_state_fields())
 
 
 def test_the_page_reads_many_state_fields():
