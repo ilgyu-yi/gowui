@@ -42,6 +42,7 @@ body {
    controls too wide for the window (SPEC §3.8 "Scrolling"). */
 .engine-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .engine-line input, .engine-line select { min-width: 0; }
+.engine-note { color: var(--muted); }
 .status { color: var(--muted); flex: 1 1 200px; min-height: 1em; }
 .status.error { color: var(--bad); }
 

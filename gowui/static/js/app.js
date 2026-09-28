@@ -1391,6 +1391,9 @@
       pick.title = t('picker.empty');
       $('connect').disabled = true;
     }
+    // Said beside the picker, where the user is looking, and not in the status line: an empty
+    // catalog is a fact about this control, not an event (SPEC §3.8 "Engine picker").
+    $('engine-empty').hidden = engines.length > 0;
     pick.hidden = false;
     if (!engineFormDirty) fillEngineForm();
     if (state.game) renderControls();
