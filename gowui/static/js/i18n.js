@@ -386,9 +386,9 @@
       // 콘솔은 GTP뿐).
       'help.engine.gtp': 'GTP 텍스트 명령에 답하는 엔진. kata-analyze로, 그것이 없으면 lz-analyze로 분석하고 genmove로 둔다. 셋 가운데 계가와 엔진 콘솔이 있는 것은 이것뿐이다.',
       // §2.4: JSON 줄, 질의마다 국면 전체, 자체 genmove 없음, 계가 없음.
-      'help.engine.analysis': 'KataGo의 분석 엔진. 한 줄에 JSON 질의 하나를 받고, 질의마다 국면 전체를 담는다. 따로 두는 명령이 없어서 엔진 착수는 정해진 만큼 탐색해 맨 위의 수를 두는 것이고, 계가도 없다.',
+      'help.engine.analysis': 'KataGo의 분석 엔진. 한 줄에 JSON 질의 하나를 받고, 질의마다 국면 전체를 담는다. 착수 명령이 따로 없어서 엔진 착수는 정해진 만큼 탐색해 맨 위의 수를 두는 것이고, 계가도 없다.',
       // §2.5(이 면이 답하는 물음); §3.8 "Human policy panel"(방식이 handol일 때 나온다).
-      'help.engine.handol': '고른 프로파일의 사람이 여기서 어디에 둘지를 수의 분포로 답한다. 이것을 고르면 휴먼 정책 패널이 나온다.',
+      'help.engine.handol': '고른 프로파일의 사람이 여기서 어디에 둘지를 착수 확률 분포로 답한다. 이것을 고르면 휴먼 정책 패널이 나온다.',
       'host.title': '엔진 호스트',
       'port.title': '엔진 포트',
       'connect': '연결',

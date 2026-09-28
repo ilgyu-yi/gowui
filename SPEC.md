@@ -1425,7 +1425,7 @@ writes `width` once and `height` once; `app.js` writes `width` twice; and `tuple
 once and `top` once. The canvas takes both dimensions together, since one scale factor maps clicks
 to rows and a non-square element would map them to the wrong one; the bar's width has a flat 50%
 case and the winrate itself; and the hover card takes both coordinates because it is placed against
-whichever field or knob the pointer is on and flips side when it would run off the edge. Everything
+whichever field or knob is hovered or focused and flips side when it would run off the edge. Everything
 else a script changes about how the page looks it changes by adding or removing a class, so a new
 appearance costs a rule and not a write.
 
