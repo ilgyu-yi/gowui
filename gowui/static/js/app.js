@@ -1095,6 +1095,9 @@
     // it is not mistaken for something hovered.
     var best = !info;
     if (!info) info = infos[0] || null;
+    // Emptying the line takes the button out of the page, and a focused element that leaves sends
+    // focus to the body; putting the button back does not return it, so the redraw does.
+    var buttonHadFocus = document.activeElement === startButton;
     line.replaceChildren();
     line.classList.toggle('empty', !info);
     if (!info) {
@@ -1104,6 +1107,7 @@
       line.appendChild(piece('mark', t('readout.none')));
       startButton.textContent = t('help.start');
       line.appendChild(startButton);
+      if (buttonHadFocus) startButton.focus();
       return;
     }
     if (best) line.appendChild(piece('mark', t('readout.best')));
