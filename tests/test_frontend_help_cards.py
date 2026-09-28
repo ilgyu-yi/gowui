@@ -207,3 +207,59 @@ def test_every_card_key_is_in_the_table(lang):
     keys = {n.attrs["data-i18n"] for c in cards(page()) for n in c.walk() if "data-i18n" in n.attrs}
     assert keys, "the cards carry no data-i18n text"
     assert sorted(keys - set(i18n_tables()[lang])) == []
+
+
+# -- the help panel points at the cards (§3.8 "Help panel"; "Where explanation lives" rules 3, 4) ---
+def help_panel(root: Node) -> Node:
+    panel = by_id(root, "help-panel")
+    assert panel is not None, "index.html has no #help-panel"
+    return panel
+
+
+def label_key(root: Node, control_id: str) -> str | None:
+    """The ``data-i18n`` key of the text in ``control_id``'s own ``<label>``: the switch's name."""
+    control = by_id(root, control_id)
+    label = next((a for a in control.ancestors() if a.tag == "label"), None)
+    assert label is not None, f"#{control_id} is not inside a <label>"
+    keys = [n.attrs["data-i18n"] for n in label.walk()
+            if "data-i18n" in n.attrs and n.tag not in ("option", "select")]
+    return keys[0] if keys else None
+
+
+@pytest.mark.parametrize("control_id", [*board_option_controls(), "compare-on"])
+def test_the_panel_has_one_task_line_per_switch_naming_it_by_its_own_key(control_id):
+    """§3.8 "Help panel" part 3: one line per switch of the `?` table, naming the switch by its own
+    label key — the name is reused, never restated (rule 4) — and pointing at its `?` card."""
+    root = page()
+    lines = [n for n in help_panel(root).walk() if n.attrs.get("data-for") == control_id]
+    assert len(lines) == 1, f"the panel has {len(lines)} task lines for #{control_id}"
+    key = label_key(root, control_id)
+    assert key, f"#{control_id}'s label carries no data-i18n key"
+    assert key in [n.attrs.get("data-i18n") for n in lines[0].walk()], \
+        f"the task line for #{control_id} does not name it by {key!r}"
+
+
+def test_every_task_line_is_for_a_switch_that_has_a_card():
+    """The other direction: a task line for a control without a `?` points at nothing."""
+    root = page()
+    switches = {*board_option_controls(), "compare-on"}
+    named = [n.attrs["data-for"] for n in help_panel(root).walk() if "data-for" in n.attrs]
+    assert named, "the panel has no task line"
+    assert sorted(set(named) - switches) == []
+
+
+def test_the_legend_points_at_the_table_card_rather_than_copying_it():
+    """§3.8 "What the numbers mean": for Visits, Policy / Prob. and Value the legend is one pointer
+    to the table's `?`, not a second copy of that card. The one entry it keeps is the Win / Score
+    one, which issue #67 protects — found as the table entry covering the ``col.win`` column."""
+    root = page()
+    card = table_card(root)
+    assert card is not None, "the page has no card with [data-col] entries"
+    entries = [n for n in card.walk() if "data-col" in n.attrs]
+    text_key = {tuple(e.attrs["data-col"].split()): t.attrs.get("data-i18n")
+                for e in entries for t in e.walk() if "help-text" in t.classes}
+    kept = {key for cols, key in text_key.items() if "col.win" in cols}
+    assert kept, "no table entry covers col.win"
+    shown = {n.attrs["data-i18n"] for n in help_panel(root).walk() if "data-i18n" in n.attrs}
+    copied = sorted((set(text_key.values()) & shown) - kept)
+    assert copied == [], f"the panel repeats the table card's entries {copied}"
