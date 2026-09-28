@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 617 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 621 |
 | &nbsp;&nbsp;§3.8 | The page | 670 |
-| §4 | WebSocket protocol | 1263 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1267 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1374 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1430 |
-| §5 | HTTP routes | 1524 |
-| §6 | Launch modes and policies | 1599 |
-| &nbsp;&nbsp;§6.1 | The rule | 1601 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1637 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1677 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1710 |
-| §7 | Authentication and security | 1752 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1754 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1826 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1862 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1882 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1930 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1951 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1997 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2031 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2045 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2054 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2090 |
-| §8 | Persistence | 2109 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2111 |
-| &nbsp;&nbsp;§8.2 | Saving | 2148 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2181 |
-| &nbsp;&nbsp;§8.4 | Server database | 2223 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2287 |
-| §9 | Command line | 2323 |
-| §10 | Configuration (server) | 2393 |
-| &nbsp;&nbsp;§10.1 | Container | 2431 |
-| §11 | Feature inventory | 2519 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2526 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2564 |
-| §12 | Non-goals | 2582 |
+| §4 | WebSocket protocol | 1272 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1276 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1383 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1439 |
+| §5 | HTTP routes | 1533 |
+| §6 | Launch modes and policies | 1608 |
+| &nbsp;&nbsp;§6.1 | The rule | 1610 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1646 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1686 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1719 |
+| §7 | Authentication and security | 1761 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1763 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1835 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1871 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1891 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1939 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1960 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2006 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2040 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2054 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2063 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2099 |
+| §8 | Persistence | 2118 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2120 |
+| &nbsp;&nbsp;§8.2 | Saving | 2157 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2190 |
+| &nbsp;&nbsp;§8.4 | Server database | 2232 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2296 |
+| §9 | Command line | 2332 |
+| §10 | Configuration (server) | 2402 |
+| &nbsp;&nbsp;§10.1 | Container | 2440 |
+| §11 | Feature inventory | 2528 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2535 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2573 |
+| §12 | Non-goals | 2591 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1151,15 +1151,24 @@ list. It points at the hover cards and the profile `?` for what an individual co
 than restating them.
 
 The key list is **derived, not authored**: one row per entry of the table of §3.7, rendered from
-that table. A key the page binds and the list omits therefore cannot arise; what can is a key bound
-outside the table, and that is what a test has to look for.
+that table, so a key the list omits cannot arise **for a group the table carries** — the panel
+iterates it. Two things can still arise, and both are what a test has to look for: a key bound
+outside the table, and a **group** declared in the page's source and left out of the table. The
+second is invisible to anything that reads the table on both sides.
 
 The panel hangs from the top bar and takes no room in the layout: it is out of flow, so opening it
 moves no control and changes no box the page measures — the board canvas and the controls under it
-are the same boxes open as closed. It is **not modal**, because the legend is read while looking at
+are the same boxes open as closed, **read in document coordinates**: opening moves focus into the
+panel, which in the narrow layout can scroll the page, and a viewport rectangle that moved only
+because the page scrolled is not a box that changed. It is **not modal**, because the legend is read while looking at
 the board, which is the thing it exists for. It is bounded in height — `max-height: 70dvh` and its
 own vertical scrolling — since it carries the flow, the legend and a row per bound key, and
-unbounded it runs off the bottom of a short window with nothing to reach the rest by. Its scrolling
+unbounded it runs off the bottom of a short window with nothing to reach the rest by. The bound is
+**the room left below the top bar**, not a flat share of the window: the panel hangs from a bar
+whose height is measured because it wraps (§3.8 "The page"), so a flat `70dvh` plus a bar that has
+wrapped puts the panel's bottom edge off a short screen while obeying the number. What the contract
+requires is that the bottom edge stay inside the window, and the height rule is whatever delivers
+that. Its scrolling
 body is a tab stop, which is how a keyboard user scrolls it. Opening it moves focus to its close
 button; closing it returns focus to the control that opened it. From 320px up it adds no horizontal
 scrolling to the document (§3.8 "The page scrolls down, never across"): its key rows wrap and each
