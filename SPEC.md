@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 630 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
 | &nbsp;&nbsp;§3.8 | The page | 691 |
-| §4 | WebSocket protocol | 1392 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1396 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1503 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1565 |
-| §5 | HTTP routes | 1659 |
-| §6 | Launch modes and policies | 1734 |
-| &nbsp;&nbsp;§6.1 | The rule | 1736 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1772 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1812 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1845 |
-| §7 | Authentication and security | 1887 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1889 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1961 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1997 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2017 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2065 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2086 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2132 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2166 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2180 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2189 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2225 |
-| §8 | Persistence | 2244 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2246 |
-| &nbsp;&nbsp;§8.2 | Saving | 2283 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2316 |
-| &nbsp;&nbsp;§8.4 | Server database | 2358 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2422 |
-| §9 | Command line | 2458 |
-| §10 | Configuration (server) | 2528 |
-| &nbsp;&nbsp;§10.1 | Container | 2566 |
-| §11 | Feature inventory | 2654 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2661 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2699 |
-| §12 | Non-goals | 2717 |
+| §4 | WebSocket protocol | 1431 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1435 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1542 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1604 |
+| §5 | HTTP routes | 1698 |
+| §6 | Launch modes and policies | 1773 |
+| &nbsp;&nbsp;§6.1 | The rule | 1775 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1811 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1851 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1884 |
+| §7 | Authentication and security | 1926 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1928 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 2000 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 2036 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2056 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2104 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2125 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2171 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2205 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2219 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2228 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2264 |
+| §8 | Persistence | 2283 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2285 |
+| &nbsp;&nbsp;§8.2 | Saving | 2322 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2355 |
+| &nbsp;&nbsp;§8.4 | Server database | 2397 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2461 |
+| §9 | Command line | 2497 |
+| §10 | Configuration (server) | 2567 |
+| &nbsp;&nbsp;§10.1 | Container | 2605 |
+| §11 | Feature inventory | 2693 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2700 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2738 |
+| §12 | Non-goals | 2756 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
