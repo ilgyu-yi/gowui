@@ -231,3 +231,44 @@ def spec_table_types(heading: str) -> set[str]:
         first = line.split("|")[1]
         types.update(re.findall(r"`([a-z_]+)`", first))
     return types
+
+
+# -- the page's controls ----------------------------------------------------------------------------
+ONCHANGE = re.compile(r"\$\(\s*'(?P<id>[\w-]+)'\s*\)\.onchange\s*=\s*function\b[^{]*\{")
+
+
+def _body(code: str, start: int) -> str:
+    """The text of the brace block opening at ``code[start - 1]``."""
+    depth = 1
+    for i in range(start, len(code)):
+        if code[i] == "{":
+            depth += 1
+        elif code[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return code[start:i]
+    return code[start:]
+
+
+def board_option_controls() -> list[str]:
+    """The ids of the controls whose ``onchange`` handler in ``app.js`` calls
+    ``board.setOptions(`` — the switches that change what the board draws (§3.8 "Board
+    overlays"), in source order."""
+    code = strip_js_comments(read_js("app.js"))
+    return [m.group("id") for m in ONCHANGE.finditer(code)
+            if "board.setOptions(" in _body(code, m.end())]
+
+
+HEAD_ARRAY = re.compile(r"var\s+[A-Z_]*HEAD\s*=\s*\[(?P<keys>[^\]]*)\]")
+
+
+def table_head_keys() -> list[str]:
+    """Every column key of the candidate table's column sets (``*_HEAD`` in ``app.js``), each
+    once, in first-seen order (§3.8 "Candidate table")."""
+    code = strip_js_comments(read_js("app.js"))
+    keys: list[str] = []
+    for m in HEAD_ARRAY.finditer(code):
+        for key in re.findall(r"'([\w.]+)'", m.group("keys")):
+            if key not in keys:
+                keys.append(key)
+    return keys

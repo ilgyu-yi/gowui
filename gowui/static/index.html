@@ -128,6 +128,12 @@
 
       <div class="row compare-row">
         <label><input type="checkbox" id="compare-on"> <span data-i18n="compare.on">Compare two tuples</span></label>
+        <span class="help-dot" tabindex="0" aria-describedby="help-card-compare">?</span>
+        <div class="help-card" id="help-card-compare" role="tooltip">
+          <div data-i18n="help.compare.tuple">What a tuple is.</div>
+          <div data-i18n="help.compare.views">The A / B tabs and Show.</div>
+          <div data-i18n="help.compare.diff">The filled disc of the difference.</div>
+        </div>
         <span class="tabs" id="tuple-tabs" hidden>
           <button type="button" data-slot="A" class="tab active">A</button>
           <button type="button" data-slot="B" class="tab">B</button>
@@ -186,11 +192,43 @@
             <option value="score" data-i18n="label.score">Score lead</option>
           </select>
         </label>
+        <span class="help-dot" tabindex="0" aria-describedby="help-card-label">?</span>
+        <!-- One line per option of #label-mode, marked with the option's value. -->
+        <div class="help-card" id="help-card-label" role="tooltip">
+          <div data-option="winrate"><b data-i18n="label.winrate">Winrate</b> — <span data-i18n="help.label.winrate">…</span></div>
+          <div data-option="visits"><b data-i18n="label.visits">Visits</b> — <span data-i18n="help.label.visits">…</span></div>
+          <div data-option="prior"><b data-i18n="label.prior">Policy %</b> — <span data-i18n="help.label.prior">…</span></div>
+          <div data-option="score"><b data-i18n="label.score">Score lead</b> — <span data-i18n="help.label.score">…</span></div>
+        </div>
         <label><input type="checkbox" id="show-ownership"> <span data-i18n="analysis.ownership">Ownership</span></label>
+        <span class="help-dot" tabindex="0" aria-describedby="help-card-ownership">?</span>
+        <div class="help-card" id="help-card-ownership" role="tooltip"><div data-i18n="help.ownership">What the squares show.</div></div>
       </div>
       <div class="row">
         <label><input type="checkbox" id="show-policy"> <span data-i18n="analysis.heatmap">Raw policy heatmap</span></label>
+        <span class="help-dot" tabindex="0" aria-describedby="help-card-heatmap">?</span>
+        <div class="help-card" id="help-card-heatmap" role="tooltip"><div data-i18n="help.heatmap">What the squares show.</div></div>
         <label><input type="checkbox" id="show-numbers"> <span data-i18n="analysis.numbers">Move numbers</span></label>
+        <span class="help-dot" tabindex="0" aria-describedby="help-card-numbers">?</span>
+        <div class="help-card" id="help-card-numbers" role="tooltip"><div data-i18n="help.numbers">Every stone's number.</div></div>
+      </div>
+      <!-- The table's ? sits above its box, not inside it: the box scrolls sideways (SPEC §3.8
+           "Candidate table"). Each entry names the column keys it covers; app.js setTableHead
+           hides the entries the current mode does not show and gives each header its entry's
+           .help-text key as its title (§3.8 "Where explanation lives"). -->
+      <div class="row">
+        <span class="table-caption" data-i18n="analysis.candidates">Candidate moves</span>
+        <span class="help-dot" tabindex="0" aria-describedby="help-card-table">?</span>
+        <div class="help-card" id="help-card-table" role="tooltip">
+          <div data-col="col.move"><b data-i18n="col.move">Move</b> — <span class="help-text" data-i18n="help.col.move">…</span></div>
+          <div data-col="col.win col.score"><b><span data-i18n="col.win">Win</span> / <span data-i18n="col.score">Score</span></b> — <span class="help-text" data-i18n="help.num.winScore">…</span></div>
+          <div data-col="col.visits"><b data-i18n="col.visits">Visits</b> — <span class="help-text" data-i18n="help.num.visits">…</span></div>
+          <div data-col="col.policy col.prob"><b><span data-i18n="col.policy">Policy</span> / <span data-i18n="col.prob">Prob.</span></b> — <span class="help-text" data-i18n="help.num.policy">…</span></div>
+          <div data-col="col.a"><b data-i18n="col.a">A</b> — <span class="help-text" data-i18n="help.col.a">…</span></div>
+          <div data-col="col.b"><b data-i18n="col.b">B</b> — <span class="help-text" data-i18n="help.col.b">…</span></div>
+          <div data-col="col.delta"><b data-i18n="col.delta">Δ</b> — <span class="help-text" data-i18n="help.col.delta">…</span></div>
+          <div data-col="col.value"><b data-i18n="col.value">Value</b> — <span class="help-text" data-i18n="help.num.value">…</span></div>
+        </div>
       </div>
       <div class="candidates-box">
         <table class="candidates">

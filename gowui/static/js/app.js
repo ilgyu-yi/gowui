@@ -966,10 +966,19 @@
     if (row.dataset.mode === mode) return;
     row.dataset.mode = mode;
     row.replaceChildren();
+    // The table's ? card shows the entries of these columns only, and each header takes its
+    // entry's text as its title, from the same key (§3.8 "Where explanation lives").
+    var entries = document.querySelectorAll('#help-card-table [data-col]');
+    entries.forEach(function (entry) {
+      entry.hidden = !entry.dataset.col.split(' ').some(function (k) { return keys.indexOf(k) >= 0; });
+    });
     keys.forEach(function (key) {
       var th = document.createElement('th');
       th.setAttribute('data-i18n', key);
       th.textContent = t(key);
+      var node = document.querySelector('#help-card-table [data-col~="' + key + '"] .help-text');
+      if (node) th.setAttribute('data-i18n-title', node.getAttribute('data-i18n'));
+      if (node) th.title = t(node.getAttribute('data-i18n'));
       row.appendChild(th);
     });
   }

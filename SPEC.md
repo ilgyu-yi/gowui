@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 630 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
 | &nbsp;&nbsp;§3.8 | The page | 691 |
-| §4 | WebSocket protocol | 1351 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1355 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1462 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1524 |
-| §5 | HTTP routes | 1618 |
-| §6 | Launch modes and policies | 1693 |
-| &nbsp;&nbsp;§6.1 | The rule | 1695 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1731 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1771 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1804 |
-| §7 | Authentication and security | 1846 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1848 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1920 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1956 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1976 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2024 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2045 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2091 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2125 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2139 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2148 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2184 |
-| §8 | Persistence | 2203 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2205 |
-| &nbsp;&nbsp;§8.2 | Saving | 2242 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2275 |
-| &nbsp;&nbsp;§8.4 | Server database | 2317 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2381 |
-| §9 | Command line | 2417 |
-| §10 | Configuration (server) | 2487 |
-| &nbsp;&nbsp;§10.1 | Container | 2525 |
-| §11 | Feature inventory | 2613 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2620 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2658 |
-| §12 | Non-goals | 2676 |
+| §4 | WebSocket protocol | 1392 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1396 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1503 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1565 |
+| §5 | HTTP routes | 1659 |
+| §6 | Launch modes and policies | 1734 |
+| &nbsp;&nbsp;§6.1 | The rule | 1736 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1772 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1812 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1845 |
+| §7 | Authentication and security | 1887 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1889 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1961 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1997 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2017 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2065 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2086 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2132 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2166 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2180 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2189 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2225 |
+| §8 | Persistence | 2244 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2246 |
+| &nbsp;&nbsp;§8.2 | Saving | 2283 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2316 |
+| &nbsp;&nbsp;§8.4 | Server database | 2358 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2422 |
+| §9 | Command line | 2458 |
+| §10 | Configuration (server) | 2528 |
+| &nbsp;&nbsp;§10.1 | Container | 2566 |
+| §11 | Feature inventory | 2654 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2661 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2699 |
+| §12 | Non-goals | 2717 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -981,7 +981,9 @@ finally either the PV preview or the candidates.
   candidate for the same move. **Δ** draws B − A: the heatmap is warm red where B plays a point
   more and cool blue where it plays it less; the candidates are the 20 moves with the largest
   difference of at least 0.001, drawn red when positive and blue when negative, and in the
-  `prior` label mode labelled with the signed difference in percentage points.
+  `prior` label mode labelled with the signed difference in percentage points. A Δ candidate is
+  not the ring of "Top candidates" but a **filled disc** (`board.js:462-467`); the first — the
+  largest difference (`app.js:936`) — is outlined in white (`board.js:489-497`).
 - The first time the human panel is shown after the page loads, the label mode switches to
   `prior` and the heatmap is ticked, since a human distribution has no visits.
 
@@ -1223,11 +1225,47 @@ select switches at once, re-renders the page, saves the choice — in the browse
 `preferences` when the server keeps them — and sets `<html lang>`. Text from the server — status,
 errors, engine output — is shown as it arrives.
 
+**Where explanation lives.** What a control is, a reader finds at the control. The rule a control
+added later follows:
+
+1. A control whose effect its name does not show carries a `?` with a static card beside it.
+2. A typed number or a knob carries a hover card (§3.8 "Human policy panel").
+3. What no single control owns — the candidate glyph, a task that spans controls — lives in the
+   help panel (below), which points rather than restates.
+4. One string key per explanation; a second surface that shows it reuses the key.
+
+The profile `?` (§3.8 "Human policy panel") is the exception to rule 1's "static": its card
+follows the profile typed beside it, so a script fills it (`profile.js`, `mountHelp`).
+
+A static card opens while its `?` is hovered or has focus — a tap focuses it — and closes when
+neither holds. The card is the `?`'s next element sibling and a stylesheet rule on `:hover` and
+`:focus` opens it; closed is a class rule, not the `hidden` attribute, which `style.css:357` makes
+`display: none !important`. No script opens a card, so the style-write census of §3.8 "Rendering
+safety" (§7.5) is unchanged. The `?` names its card with `aria-describedby`, and sits after its
+control's `<label>`, not inside it. A card opens against the right edge of its row (§3.8
+"Scrolling") and is never wider than that row. Two cards in one row open in the same
+place; hovering one `?` closes the card of a focused one beside it.
+
+| `?` beside | Its card carries | From |
+|---|---|---|
+| Label | one line per mode of the select, saying what the candidate's number becomes; for `prior`, the signed difference while comparing | "Label modes", "Compare views" |
+| Ownership | what the squares show, and that ticking it asks the engine for ownership; "ownership" is the engine's own value | "Ownership", "Controls"; §2.2 |
+| Raw policy heatmap | what the squares show, and the warm and cool form under the difference; "raw policy" is §2.2's `prior`, the engine's own number | "Raw policy heatmap", "Compare views"; §2.2 |
+| Move numbers | that every stone carries its number, and that the last-move ring is there either way | "Move numbers", "Last move" |
+| Compare two tuples | what a tuple is; the A / B tabs against Show; the filled disc of the difference | §2.5 "Policy tuples"; "Human policy panel", "Compare views" |
+| Candidate table | one entry per column | "Candidate table", "What the numbers mean" |
+
+The table's `?` is on a caption row above the table's box, not inside the box. Each entry of its
+card names the column keys it covers, and an entry whose columns the current mode does not show is
+hidden, so the card holds the current mode's columns and no others. Each column header carries its
+entry's text as its `title`, from the same key. The headers take no focus: the `?` is the table's
+one tab stop (§3.8 "Candidate readout").
+
 **Help panel.** A control in the top bar opens the panel and closes it again; its own close button
 closes it too, and nothing else opens or closes it (§3.7 leaves it no key). It holds three parts:
 the flow — what to do on this page, in a few steps; what the numbers mean (below); and the key
-list. It points at the hover cards and the profile `?` for what an individual control is rather
-than restating them.
+list. It points at the hover cards and the `?` cards (§3.8 "Where explanation lives") for what an
+individual control is rather than restating them.
 
 The key list is **derived, not authored**: one row per entry of the table of §3.7, rendered from
 that table, so a key the list omits cannot arise **for a group the table carries** — the panel
@@ -1288,6 +1326,9 @@ it says what those sources support and no more.
   panel carries no formula relating a winrate to a utility and no conversion factor: neither is
   derivable from anything this repo holds. Nothing beyond what these entries cite is added, because
   mis-explaining `utility` is worse than explaining nothing.
+
+The candidate table's `?` card and its column headers' titles show these same keys (§3.8 "Where
+explanation lives", rule 4); only Move, A, B and Δ have keys of their own.
 
 **Connection.** One WebSocket per tab to `/ws` (`wss:` under `https:`). Opening it resets the
 reconnect delay and clears the status. When it closes:

@@ -366,12 +366,23 @@ details.advanced > summary { font-size: 12px; color: var(--muted); cursor: point
 .help-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
             border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); font-size: 11px;
             cursor: help; }
-.help-pop { position: absolute; top: 100%; right: 0; z-index: 21; width: 320px; margin-top: 6px;
+.help-pop, .help-card { position: absolute; top: 100%; right: 0; z-index: 21; width: 320px; margin-top: 6px;
             padding: 8px 10px; font-size: 12px; line-height: 1.45; background: #16181d;
             border: 1px solid #3a3f4b; border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
 .help-pop .help-title { font-weight: 600; margin-bottom: 2px; }
 .help-pop .help-gap { margin-top: 8px; }
 .help-pop .help-source { color: var(--muted); font-size: 11px; margin-top: 6px; }
+
+/* The static ? cards (SPEC §3.8 "Where explanation lives"). The card is the ?'s next element and
+   opens on its hover or focus: no script and no style write. Closed is this class rule and not the
+   hidden attribute, because [hidden] is display: none !important and would beat the opening rule. */
+/* No wider than its row, so it keeps its left edge where the row does at the 320px floor. */
+.help-card { display: none; max-width: 100%; }
+.help-card > * + * { margin-top: 4px; }
+.help-dot:hover + .help-card, .help-dot:focus + .help-card { display: block; }
+/* Two cards in one row open in the same place: the one being pointed at wins over a focused one. */
+.row:has(.help-dot:hover) .help-dot:focus:not(:hover) + .help-card { display: none; }
+.table-caption { color: var(--muted); }
 
 /* hover card for tuple fields and knobs */
 .hover-card { position: fixed; z-index: 30; width: 340px; padding: 9px 11px; font-size: 12px; line-height: 1.5;
