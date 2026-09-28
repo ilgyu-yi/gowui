@@ -707,8 +707,8 @@ too follows the data, never a mode name.
   counter `cursor / moveCount`, +1, +10, last — then Pass, Undo and Resign.
 - **Side panel** (right): the winrate bar; one line with the side to move, the score lead and the
   visit count; then collapsible sections in this order: Human policy (handol-mux only, below),
-  Analysis, Players, New game, Moves, Engine console. Human policy, Analysis and Players start
-  open; the others start closed.
+  Analysis, Players, New game with Save and Load SGF (below), Moves, Engine console. Human policy,
+  Analysis and Players start open; the others start closed.
 
 **Scrolling.** The board is what the page is for, and it does not move while the person reaches
 for a control beside it.
@@ -773,8 +773,9 @@ for a control beside it.
   (`state.game.toPlay`), so a request that waits behind an automatic engine move is refused
   (§3.2) instead of making the engine play the human's side as well.
 - **New game section:** size (9, 13, 19; default 19), handicap (0–9), komi, rules (the rule sets
-  of §1.1, default `japanese`), Start, Save SGF and Load SGF. The komi field shows the rule set's
-  default from `ruleDefaults`, or `handicapKomi` when the handicap is 2 or more, and is filled
+  of §1.1, default `japanese`), Start, Save SGF and Load SGF. Its heading names Save and Load SGF
+  as well as a new game: the section starts closed, so its heading is all of it a reader sees.
+  The komi field shows the rule set's default from `ruleDefaults`, or `handicapKomi` when the handicap is 2 or more, and is filled
   again when the size, rules or handicap change, unless the user has typed a komi since. Start
   sends `new_game` with `komi: null` unless the user typed one, so the server decides the default
   (§1.2).
@@ -1001,8 +1002,9 @@ and the user's own — the account's where the storage policy keeps preferences,
 browser's; §8.4, §8.5) with Save as…, Delete (own presets only), Export and Import; four
 knobs (strength, locality, variety, tail cut) and "Apply while dragging"; and, under Raw values,
 the eight tuple fields of §2.5 and the JSON text. Knobs, fields and JSON are kept in step, and
-each knob and field shows a help card on hover. The tuples are checked with the rules of §2.5
-and the **visits in force** before anything is sent (§2.5 "Settings validation"): the first
+each knob and field shows a help card while it is hovered or holds focus (`tuple.js`, `showCard`),
+placed by the two `tuple.js` writes §3.8 "Rendering safety" counts. The tuples are checked with the
+rules of §2.5 and the **visits in force** before anything is sent (§2.5 "Settings validation"): the first
 problem is shown as text under the panel and nothing is sent. The visits in force are the Visits
 field's number when it names a setting, and the last `state`'s `maxVisits` when it does not —
 a field holding no usable number sends no visit change (§3.8 "Controls"), so the setting it
@@ -1018,7 +1020,8 @@ the 64 presets of §7.6, counts every skipped entry in what it reports, and repo
 cannot read. Saving over an existing name and deleting ask for confirmation. The side-to-move
 refusal (§2.5) is shown as status text.
 
-**Engine form.** A protocol select (`gtp`, `analysis`, `handol`), host, port, a Connect /
+**Engine form.** A protocol select (`gtp`, `analysis`, `handol`) in a label reading "Engine",
+with a `?` card (§3.8 "Where explanation lives"), then host, port, a Connect /
 Disconnect button and a badge ("thinking" while `thinking`, else the engine's name and version
 when connected, else "disconnected"). The three fields show, in order of preference: the last
 accepted engine request echo `state.engine.request` when it is not null — whether or not an
@@ -1029,13 +1032,21 @@ form). Changing the protocol sets the port to that protocol's conventional port:
 `analysis` 6364, `handol` 11985. Connect sends `connect` with `{protocol, host, port}` (the host
 trimmed, the port an integer); Disconnect sends `disconnect`.
 
+The three options read "GTP", "Analysis engine" and "handol-mux (human)", from the string tables
+(§3.8 "Language"); the values sent stay `gtp`, `analysis` and `handol`. The `analysis` option is
+named "Analysis engine", KataGo's own name for it (§2.4), and not "Analysis", which is also the
+heading of a side panel section on the same screen: the option is renamed rather than defined, so
+the two no longer read the same.
+
 **Server-mode additions.** Each is driven by `/api/health` data (§5), never by a mode name:
 
-- **Engine picker.** When `engineAddress.kind` is `catalog`, the protocol select, host and port
-  fields are hidden and an engine `<select>` takes their place, with one option per entry of
-  `engineAddress.engines`: its value is the entry's `id` and its text the entry's `label`, set with
-  `textContent`. Connect sends `connect` with `{engineId}` only. The select follows
-  `state.engine.request.engineId` when the echo is not null, under the same "not while the user is
+- **Engine picker.** When `engineAddress.kind` is `catalog`, the protocol select, its `?`, host
+  and port fields are hidden and an engine `<select>` takes their place, with one option per entry
+  of `engineAddress.engines`: its value is the entry's `id` and its text the entry's `label`, set with
+  `textContent`. Connect sends `connect` with `{engineId}` only. The "Engine" label stays, beside
+  the picker. The `?` goes with the select because its card defines the three protocols the select
+  offers, and with a catalog the engine form names no protocol: the picker's text is the entry's
+  `label`. The select follows `state.engine.request.engineId` when the echo is not null, under the same "not while the user is
   editing" rule as the typed fields. With an empty catalog the select is empty, Connect is disabled,
   and a line of text beside the picker says the server has no engine configured. It is on the page,
   not only in the select's `title`: a `title` is reachable only by pointing at an empty dropdown, and
@@ -1086,8 +1097,13 @@ is left ticked and unclickable.
 `heat` — or, for the active board, of the live analysis at the displayed cursor), the name with a
 ✎ and a ⧉ button, "move n/total" with Black's winrate when it has one, a tuple line
 (`profile · tuple · A/B`, where the tuple is abbreviated as `key value` pairs or "identity" when
-empty, and `A/B` appears while a compare tuple is set), and a × button in the corner. The × is
-shown on every tile, the last one included (§3.3: there it resets rather than removes). A tile's
+empty, and `A/B` appears while a compare tuple is set), and a × button in the corner.
+**The tuple line shows only while the board has a human setting of its own**: a profile other than
+the default, a non-empty tuple, or a compare tuple (`boards`, §4.2). A fresh board (§3.3) has none
+of the three, so its tile carries no tuple line. The line reads the board's own settings and not
+the engine connection, so a connect or disconnect neither shows nor hides it.
+The ✎, ⧉ and × show while the tile is hovered **or holds focus** (`:focus-within`), so a keyboard
+user who tabs to a tile finds them. The × is shown on every tile, the last one included (§3.3: there it resets rather than removes). A tile's
 winrate and its heatmap both come from a stored analysis, and losing the engine drops those (§3.2),
 so no figure on the strip outlives the engine that produced it. That is a consequence of the drop,
 not a rule of its own: a tile shows whatever its stored analysis holds, and what the drop removes is
@@ -1234,7 +1250,8 @@ errors, engine output — is shown as it arrives.
 added later follows:
 
 1. A control whose effect its name does not show carries a `?` with a static card beside it.
-2. A typed number or a knob carries a hover card (§3.8 "Human policy panel").
+2. A typed number or a knob carries a hover card, opened by hover or focus (§3.8 "Human policy
+   panel").
 3. What no single control owns — the candidate glyph, a task that spans controls — lives in the
    help panel (below), which points rather than restates.
 4. One string key per explanation; a second surface that shows it reuses the key.
@@ -1258,6 +1275,7 @@ place; hovering one `?` closes the card of a focused one beside it.
 | Raw policy heatmap | what the squares show, and the warm and cool form under the difference; "raw policy" is §2.2's `prior`, the engine's own number | "Raw policy heatmap", "Compare views"; §2.2 |
 | Move numbers | that every stone carries its number, and that the last-move ring is there either way | "Move numbers", "Last move" |
 | Compare two tuples | what a tuple is; the A / B tabs against Show; the filled disc of the difference | §2.5 "Policy tuples"; "Human policy panel", "Compare views" |
+| Engine (the protocol select) | one line per option of the select, saying what that protocol is | §2.3, §2.4, §2.5; §3.5; "Engine form", "Capability gating", "Human policy panel" |
 | Candidate table | one entry per column | "Candidate table", "What the numbers mean" |
 
 The table's `?` is on a caption row above the table's box, not inside the box. Each entry of its
