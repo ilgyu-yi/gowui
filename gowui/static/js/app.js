@@ -274,6 +274,11 @@
 
     // Capabilities come from the data, never from a protocol or mode name.
     $('genmove').disabled = !(state.engine.connected && state.engine.supportsGenmove);
+    // A control that starts engine work is inert without an engine; one that only configures
+    // the next search stays live (SPEC §3.8 "Capability gating").
+    ['analysis-on', 'black-engine', 'white-engine'].forEach(function (id) {
+      $(id).disabled = !state.engine.connected;
+    });
     $('final-score').disabled = !state.engine.supportsFinalScore;
     $('raw').disabled = !state.engine.console;
   }
@@ -1537,10 +1542,14 @@
       run: function () { send({ type: 'pass' }); } },
     { press: ['u'], label: 'help.key.undo',
       run: function () { send({ type: 'undo' }); } },
+    // g and a reach controls that start engine work, and are inert when those are (SPEC §3.7).
     { press: ['g'], label: 'help.key.genmove',
-      run: function () { send({ type: 'genmove', color: state.game.toPlay }); } },
+      run: function () {
+        if (!$('genmove').disabled) send({ type: 'genmove', color: state.game.toPlay });
+      } },
     { press: ['a'], label: 'help.key.analysis',
       run: function () {
+        if ($('analysis-on').disabled) return;
         $('analysis-on').checked = !$('analysis-on').checked;
         send({ type: 'analysis', enabled: $('analysis-on').checked });
       } },
