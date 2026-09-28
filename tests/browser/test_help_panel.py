@@ -401,3 +401,20 @@ def test_redrawing_a_still_empty_readout_keeps_focus_on_its_button(start_app, op
         && !!document.activeElement.closest('#candidate-readout')"""), \
         "redrawing the empty readout dropped focus to " + \
         g.page.evaluate("() => document.activeElement.tagName")
+
+
+def test_a_candidate_arriving_gives_focus_to_the_top_bar_control(start_app, open_page):
+    """§3.8 "Help panel": when the control that holds focus leaves the page, focus goes to the
+    top-bar Help control. The first candidate to arrive takes the "How to start" button out of the
+    readout — the flow the panel teaches: read "turn analysis on", close, press ``a``."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    start_button(g).focus()
+    size = g.state()["game"]["size"]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, [move_info(vertex(3, 3, size))])))
+    expect(start_button(g)).to_have_count(0, timeout=QUICK)
+    assert g.page.evaluate("() => document.activeElement.id") == "help-toggle", \
+        "a candidate arriving dropped focus to " + \
+        g.page.evaluate("() => document.activeElement.tagName")
