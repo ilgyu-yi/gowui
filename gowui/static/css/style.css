@@ -78,6 +78,7 @@ main {
 .board-pane { display: flex; flex-direction: column; gap: 10px; align-items: center;
               min-width: 0; }
 #board-wrap { width: 100%; max-width: min(78vh, 900px); }
+#board-wrap.drop-ready { outline: 3px dashed var(--accent); outline-offset: 2px; }
 #board { width: 100%; height: auto; display: block; border-radius: 6px; cursor: pointer; }
 
 /* SPEC §3.8 "Candidate readout": one line under the board, above the navigation row. It holds its
