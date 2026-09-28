@@ -1213,7 +1213,10 @@ it appeared.
   the board is no drop target for it. Dropping several files loads none of them and shows a
   localised red message. The board strip lies outside `#board-wrap`, so a file dropped on a tile
   loads nothing; tile reordering is a pointer drag ("Reordering" above), never an HTML drag, and
-  does not reach this target.
+  does not reach this target. Anywhere else on the page a drag carrying files is refused: the
+  document cancels its `dragover` and `drop`, so a file dropped beside the board — on a tile, on
+  the side panel — loads nothing and does not take the browser away from the page. A drag
+  carrying no file is left to the browser.
 
 **Preferences.** Two things the user chooses are the account's where the storage policy keeps
 them and this browser's where it does not (§6.4): the UI language and the user's own tuple
@@ -1322,7 +1325,7 @@ It holds, in order:
    address is typed, the engine picker where it is `catalog`, and the configured-no-engine note where
    the catalog is empty. The step is a `data-i18n` node, so a language switch re-renders the variant
    in force. A step names the surfaces the others do not: Players, New game with Save SGF and Load
-   SGF, and the engine console.
+   SGF, pasting an SGF or dropping its file on the board ("SGF" above), and the engine console.
 2. **What is drawn on a candidate** — the glyph of "Top candidates", which no single control owns:
    the two arcs over their track, no cobalt arc for a candidate without visits, the smaller cobalt
    line of the visits, and the white ring on the first candidate unless it is a pass. The filled disc
