@@ -111,9 +111,9 @@
   }
 
   function showConnectionProblem() {
-    if (closedFor === 'status.notSignedIn') setStatus(t('status.notSignedIn'), true, true);
-    else if (closedFor === 'status.refused') setStatus(t('status.refused'), true, true);
-    else if (closedFor === 'status.tooManySockets') setStatus(t('status.tooManySockets'), true, true);
+    if (closedFor === 'status.notSignedIn') showStatus(t('status.notSignedIn'), true, true);
+    else if (closedFor === 'status.refused') showStatus(t('status.refused'), true, true);
+    else if (closedFor === 'status.tooManySockets') showStatus(t('status.tooManySockets'), true, true);
     else setStatus(t('status.lost'), false, true);
   }
 
@@ -156,6 +156,9 @@
         break;
       case 'error':
         setStatus(message.message, true);
+        // A failure the server also reports in a state carries the same text a moment later:
+        // that state is this message again, not a second one (SPEC §3.8 "Status line").
+        state.lastError = message.message;
         reconcilePreferences();
         break;
     }
@@ -224,8 +227,16 @@
       state.analysis = null;
       board.clearAnalysis();
     }
-    if (message.status && message.status !== state.lastStatus) setStatus(message.status);
+    // The severity comes with the status, and a failure the user has to act on is a condition
+    // that still holds, so it stands until something replaces it (SPEC §3.8 "Status line").
+    var failed = !!message.statusIsError;
+    if (message.status && message.status === state.lastError) {
+      if (failed) holdStatus(message.status);
+    } else if (message.status && message.status !== state.lastStatus) {
+      setStatus(message.status, failed, failed);
+    }
     state.lastStatus = message.status;
+    state.lastError = null;
 
     state.boards = mergeBoards(message.boards || []);
     state.activeBoard = message.activeBoard;
@@ -1148,13 +1159,25 @@
   // message neither replaces it nor starts a timer over it.
   var statusTimer = null;
   function setStatus(text, isError, sticky) {
-    if (closedFor && !sticky) return;
+    if (!closedFor) showStatus(text, isError, sticky);
+  }
+
+  // The status line itself; only the reason a 4401 / 4403 / 4429 close gives writes past it.
+  function showStatus(text, isError, sticky) {
     var node = $('status');
     node.textContent = text || '';
     node.classList.toggle('error', !!isError);
     if (statusTimer) clearTimeout(statusTimer);
     statusTimer = null;
     if (text && !sticky) statusTimer = setTimeout(function () { node.textContent = ''; }, 8000);
+  }
+
+  // The message on the line turns out to report a condition: it stays, and its timer is off.
+  function holdStatus(text) {
+    if (closedFor || $('status').textContent !== text) return;
+    $('status').classList.add('error');
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = null;
   }
 
   /* -- controls ---------------------------------------------------------- */
