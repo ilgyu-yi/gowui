@@ -178,15 +178,28 @@ def test_a_dropped_file_the_reader_refuses_says_what_load_sgf_says(start_app, op
     expect(g.page.locator("#move-counter")).to_have_text("0 / 0")
 
 
-def test_a_file_dropped_on_a_tile_loads_nothing(start_app, open_page):
-    """§3.8 "SGF": the board strip is outside the drop target, so reordering keeps its meaning."""
+@pytest.mark.parametrize("beside", ["#board-list .thumb", "aside.side"])
+def test_a_file_dropped_beside_the_board_loads_nothing_and_keeps_the_page(beside, start_app,
+                                                                          open_page):
+    """§3.8 "SGF": the board strip and the side panel are outside the drop target, and the
+    document cancels a file drag there, so the browser does not open the file in place of the
+    page. A cancelled ``dragover`` / ``drop`` is what keeps Chromium from navigating."""
     g = open_page(start_app()).open()
+    url = g.page.url
     posts = sgf_posts(g)
-    drag(g, "dragover", [("game.sgf", GAME)], "#board-list .thumb")
-    drag(g, "drop", [("game.sgf", GAME)], "#board-list .thumb")
+    assert drag(g, "dragover", [("game.sgf", GAME)], beside) is True
+    assert drag(g, "drop", [("game.sgf", GAME)], beside) is True
     settle(g)
     assert posts == []
+    assert g.page.url == url
     expect(g.page.locator("#move-counter")).to_have_text("0 / 0")
+
+
+@pytest.mark.parametrize("beside", ["#board-list .thumb", "aside.side"])
+def test_a_drag_carrying_no_file_beside_the_board_is_left_alone(beside, start_app, open_page):
+    g = open_page(start_app()).open()
+    assert drag(g, "dragover", [], beside, text=GAME) is False
+    assert drag(g, "drop", [], beside, text=GAME) is False
 
 
 def test_several_dropped_files_load_none(start_app, open_page):
