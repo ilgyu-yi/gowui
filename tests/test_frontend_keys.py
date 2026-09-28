@@ -109,7 +109,14 @@ def handlers(sources: dict[str, str] | None = None) -> list[tuple[str, str]]:
 # -- the table -----------------------------------------------------------------------------------
 #: The table's rows, wherever ``app.js`` assembles them: ``press:`` is the table's own property and
 #: is written nowhere else, so the keys are collected without depending on how it is put together.
-PRESS = re.compile(r"\bpress\s*:\s*\[(?P<keys>[^\]]*)\]")
+#:
+#: The list is read as the string literals it holds, not as "everything up to the first ``]``".
+#: ``]`` is one of the ten keys §3.7 binds (`[` / `]` step the board), and a reader that stops at
+#: that character reads ``press: [']']`` as an **empty** group, whichever way the source spells it:
+#: ``']'``, ``"]"`` and ``'\]'`` all truncate, and ``'\x5d'`` / ``']'`` avoid the character but
+#: come back out of ``unquote`` as ``x5d`` / ``u005d``. No implementation could have satisfied
+#: ``test_the_exported_table_carries_every_key_group_the_source_declares`` while binding ``]``.
+PRESS = re.compile(r"\bpress\s*:\s*\[(?P<keys>(?:\s*'(?:[^'\\]|\\.)*'\s*,?)*)\s*\]")
 LABEL = re.compile(r"\blabel\s*:\s*'(?P<key>[^']+)'")
 SCOPE = re.compile(r"\bscope\s*:\s*'(?P<key>[^']+)'")
 STRING = re.compile(r"'(?:[^'\\]|\\.)*'")
