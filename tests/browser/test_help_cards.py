@@ -121,6 +121,10 @@ def test_a_tap_opens_a_card(start_app, browser):
         for card_id in static_dots(g):
             dot(g, card_id).tap()
             expect(card(g, card_id)).to_be_visible(timeout=QUICK)
+            # The tap's emulated hover would open the card by itself; §3.8's claim is the focus.
+            assert g.page.evaluate("(id) => document.activeElement.getAttribute("
+                                   "'aria-describedby') === id", card_id), \
+                f"a tap on the ? of {card_id} did not focus it"
             g.page.locator("h1").tap()
             expect(card(g, card_id)).to_be_hidden(timeout=QUICK)
     finally:
