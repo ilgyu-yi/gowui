@@ -31,47 +31,47 @@
 | §3 | Session and boards | 450 |
 | &nbsp;&nbsp;§3.1 | Spaces | 452 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 479 |
-| &nbsp;&nbsp;§3.3 | Boards | 560 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 591 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 617 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 632 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 636 |
-| &nbsp;&nbsp;§3.8 | The page | 693 |
-| §4 | WebSocket protocol | 1353 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1357 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1464 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1526 |
-| §5 | HTTP routes | 1620 |
-| §6 | Launch modes and policies | 1695 |
-| &nbsp;&nbsp;§6.1 | The rule | 1697 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1733 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1773 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1806 |
-| §7 | Authentication and security | 1848 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1850 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1922 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1958 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1978 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2026 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2047 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2093 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2127 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2141 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2150 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2186 |
-| §8 | Persistence | 2205 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2207 |
-| &nbsp;&nbsp;§8.2 | Saving | 2244 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2277 |
-| &nbsp;&nbsp;§8.4 | Server database | 2319 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2383 |
-| §9 | Command line | 2419 |
-| §10 | Configuration (server) | 2489 |
-| &nbsp;&nbsp;§10.1 | Container | 2527 |
-| §11 | Feature inventory | 2615 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2622 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2660 |
-| §12 | Non-goals | 2678 |
+| &nbsp;&nbsp;§3.3 | Boards | 558 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 589 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 615 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 630 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
+| &nbsp;&nbsp;§3.8 | The page | 691 |
+| §4 | WebSocket protocol | 1351 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1355 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1462 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1524 |
+| §5 | HTTP routes | 1618 |
+| §6 | Launch modes and policies | 1693 |
+| &nbsp;&nbsp;§6.1 | The rule | 1695 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1731 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1771 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1804 |
+| §7 | Authentication and security | 1846 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1848 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1920 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1956 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1976 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2024 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2045 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2091 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2125 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2139 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2148 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2184 |
+| §8 | Persistence | 2203 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2205 |
+| &nbsp;&nbsp;§8.2 | Saving | 2242 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2275 |
+| &nbsp;&nbsp;§8.4 | Server database | 2317 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2381 |
+| §9 | Command line | 2417 |
+| §10 | Configuration (server) | 2487 |
+| &nbsp;&nbsp;§10.1 | Container | 2525 |
+| §11 | Feature inventory | 2613 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2620 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2658 |
+| §12 | Non-goals | 2676 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -514,11 +514,9 @@ same key. A space is created in four steps:
   the engine disconnected with a status marked as a failure (§3.8 "Status line"), and the connection
   is released; a new `connect` works at once. The snapshot then records `connected: false` (§8.1), so
   a restart does not reconnect.
-- **A space with no engine runs nothing and claims nothing.** Four paths leave a space without the
+- **A space with no engine runs nothing and claims nothing.** These paths leave a space without the
   engine it had or wanted: a `disconnect`, a lost connection, a `connect` that fails, a stored
-  request the policy refuses on restore, and a restore of a snapshot that was not connected (§8.1).
-  The last is the one a user meets first after upgrading: a snapshot saved after a Disconnect,
-  before these settings were cleared on it, still holds them. Each of them sets `analysisEnabled`, `blackIsEngine`
+  request the policy refuses on restore, and a restore of a snapshot that was not connected (§8.1). Each of them sets `analysisEnabled`, `blackIsEngine`
   and `whiteIsEngine` to false and drops every board's stored analysis, so the next `state` carries no
   tile winrate and no tile heatmap (§4.2) and neither the strip nor the side panel holds a figure from
   a search that is no longer running (§3.8 "Evaluation", §3.8 "Board strip"). Clearing the three

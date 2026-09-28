@@ -79,6 +79,19 @@ async def test_a_snapshot_round_trips_through_restore(h, make_session):
     assert restored(make_session, data).session.snapshot() == expected
 
 
+async def test_a_connected_snapshot_round_trips_its_play_settings(h, make_session):
+    """The other half of the round trip, and the one §8.1's restore-and-reconnect rests on: a
+    snapshot that was connected keeps the three settings that start engine work, so a restart
+    resumes what was running. Restored without ``resume``, so nothing tries to connect."""
+    await configured(h)
+    data = h.session.snapshot()
+    data["engine"]["connected"] = True
+    data["engine"]["request"] = {"protocol": "gtp", "host": "127.0.0.1", "port": 6363}
+    assert (data["play"]["analysisEnabled"], data["play"]["blackIsEngine"]) == (True, True), \
+        "setup: the snapshot holds armed settings, or keeping them would be invisible here"
+    assert restored(make_session, data).session.snapshot()["play"] == data["play"]
+
+
 async def test_a_restored_space_keeps_the_board_order_a_move_made(h, make_session):
     """§3.3 "Move" with §8.1: the order is the strip's only handle, so a snapshot carries the
     order a ``board_move`` left behind, not the order the boards were made in."""
