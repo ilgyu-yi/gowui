@@ -65,9 +65,18 @@ async def test_a_snapshot_is_json(h):
 
 # -- round trip ------------------------------------------------------------------------------------
 async def test_a_snapshot_round_trips_through_restore(h, make_session):
+    """Everything round-trips except the three settings that start engine work. ``configured``
+    arms them on a space with no engine, so the snapshot is not connected, and a space restored
+    with no engine and none wanted is left without one (§3.2): they come back off."""
     await configured(h)
     data = h.session.snapshot()
-    assert restored(make_session, data).session.snapshot() == data
+    assert data["engine"]["connected"] is False, "setup: the round trip is of a disconnected space"
+    assert (data["play"]["analysisEnabled"], data["play"]["blackIsEngine"]) == (True, True), \
+        "setup: the snapshot holds armed settings, or clearing them would be invisible here"
+    expected = copy.deepcopy(data)
+    expected["play"].update({"analysisEnabled": False, "blackIsEngine": False,
+                             "whiteIsEngine": False})
+    assert restored(make_session, data).session.snapshot() == expected
 
 
 async def test_a_restored_space_keeps_the_board_order_a_move_made(h, make_session):
