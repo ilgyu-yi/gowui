@@ -981,7 +981,9 @@ finally either the PV preview or the candidates.
   candidate for the same move. **Δ** draws B − A: the heatmap is warm red where B plays a point
   more and cool blue where it plays it less; the candidates are the 20 moves with the largest
   difference of at least 0.001, drawn red when positive and blue when negative, and in the
-  `prior` label mode labelled with the signed difference in percentage points.
+  `prior` label mode labelled with the signed difference in percentage points. A Δ candidate is
+  not the ring of "Top candidates" but a **filled disc** (`board.js:462-467`); the first — the
+  largest difference (`app.js:936`) — is outlined in white (`board.js:489-497`).
 - The first time the human panel is shown after the page loads, the label mode switches to
   `prior` and the heatmap is ticked, since a human distribution has no visits.
 
@@ -1223,11 +1225,47 @@ select switches at once, re-renders the page, saves the choice — in the browse
 `preferences` when the server keeps them — and sets `<html lang>`. Text from the server — status,
 errors, engine output — is shown as it arrives.
 
+**Where explanation lives.** What a control is, a reader finds at the control. The rule a control
+added later follows:
+
+1. A control whose effect its name does not show carries a `?` with a static card beside it.
+2. A typed number or a knob carries a hover card (§3.8 "Human policy panel").
+3. What no single control owns — the candidate glyph, a task that spans controls — lives in the
+   help panel (below), which points rather than restates.
+4. One string key per explanation; a second surface that shows it reuses the key.
+
+The profile `?` (§3.8 "Human policy panel") is the exception to rule 1's "static": its card
+follows the profile typed beside it, so a script fills it (`profile.js`, `mountHelp`).
+
+A static card opens while its `?` is hovered or has focus — a tap focuses it — and closes when
+neither holds. The card is the `?`'s next element sibling and a stylesheet rule on `:hover` and
+`:focus` opens it; closed is a class rule, not the `hidden` attribute, which `style.css:357` makes
+`display: none !important`. No script opens a card, so the style-write census of §3.8 "Rendering
+safety" (§7.5) is unchanged. The `?` names its card with `aria-describedby`, and sits after its
+control's `<label>`, not inside it. A card opens against the right edge of its row (§3.8
+"Scrolling") and is never wider than the window less 24px. Two cards in one row open in the same
+place; hovering one `?` closes the card of a focused one beside it.
+
+| `?` beside | Its card carries | From |
+|---|---|---|
+| Label | one line per mode of the select, saying what the candidate's number becomes; for `prior`, the signed difference while comparing | "Label modes", "Compare views" |
+| Ownership | what the squares show, and that ticking it asks the engine for ownership; "ownership" is the engine's own value | "Ownership", "Controls"; §2.2 |
+| Raw policy heatmap | what the squares show, and the warm and cool form under the difference; "raw policy" is §2.2's `prior`, the engine's own number | "Raw policy heatmap", "Compare views"; §2.2 |
+| Move numbers | that every stone carries its number, and that the last-move ring is there either way | "Move numbers", "Last move" |
+| Compare two tuples | what a tuple is; the A / B tabs against Show; the filled disc of the difference | §2.5 "Policy tuples"; "Human policy panel", "Compare views" |
+| Candidate table | one entry per column | "Candidate table", "What the numbers mean" |
+
+The table's `?` is on a caption row above the table's box, not inside the box. Each entry of its
+card names the column keys it covers, and an entry whose columns the current mode does not show is
+hidden, so the card holds the current mode's columns and no others. Each column header carries its
+entry's text as its `title`, from the same key. The headers take no focus: the `?` is the table's
+one tab stop (§3.8 "Candidate readout").
+
 **Help panel.** A control in the top bar opens the panel and closes it again; its own close button
 closes it too, and nothing else opens or closes it (§3.7 leaves it no key). It holds three parts:
 the flow — what to do on this page, in a few steps; what the numbers mean (below); and the key
-list. It points at the hover cards and the profile `?` for what an individual control is rather
-than restating them.
+list. It points at the hover cards and the `?` cards (§3.8 "Where explanation lives") for what an
+individual control is rather than restating them.
 
 The key list is **derived, not authored**: one row per entry of the table of §3.7, rendered from
 that table, so a key the list omits cannot arise **for a group the table carries** — the panel
@@ -1288,6 +1326,9 @@ it says what those sources support and no more.
   panel carries no formula relating a winrate to a utility and no conversion factor: neither is
   derivable from anything this repo holds. Nothing beyond what these entries cite is added, because
   mis-explaining `utility` is worse than explaining nothing.
+
+The candidate table's `?` card and its column headers' titles show these same keys (§3.8 "Where
+explanation lives", rule 4); only Move, A, B and Δ have keys of their own.
 
 **Connection.** One WebSocket per tab to `/ws` (`wss:` under `https:`). Opening it resets the
 reconnect delay and clears the status. When it closes:
