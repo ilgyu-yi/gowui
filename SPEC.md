@@ -1199,6 +1199,21 @@ it appeared.
   arrives on the socket. An answer carrying `{"error": <message>}` shows that message, as text,
   in red for 8 s; any other failure shows a localised red message naming the HTTP status. The
   page never sends `load_sgf`; the server still accepts it (§4.1).
+- **Paste** takes the Load path with the clipboard's plain text in place of a file: the same
+  1 MiB check, on the text's UTF-8 bytes, the same route and the same messages. It answers a
+  `paste` whose target is not an `input`, `select`, `textarea` or editable element; a paste into
+  one of those, the board rename field included, is that field's and the page does nothing more.
+  Only text whose first non-whitespace character is `(` is sent, because the reader refuses
+  anything else (`_Reader.game_tree` in `gowui/sgf.py`). Other text is not a load attempt: no
+  request is made and a muted status says the text is not an SGF. A paste with no text does
+  nothing.
+- **Drop** takes the Load path with a file dropped on the board (`#board-wrap`), whatever the
+  file's name. While a drag carrying files is over the board, the board has the class
+  `drop-ready`, removed when the drag leaves it or drops. A drag carrying no file is not taken:
+  the board is no drop target for it. Dropping several files loads none of them and shows a
+  localised red message. The board strip lies outside `#board-wrap`, so a file dropped on a tile
+  loads nothing; tile reordering is a pointer drag ("Reordering" above), never an HTML drag, and
+  does not reach this target.
 
 **Preferences.** Two things the user chooses are the account's where the storage policy keeps
 them and this browser's where it does not (§6.4): the UI language and the user's own tuple
@@ -2731,7 +2746,7 @@ addition to the section in its Behaviour column.
 | B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
 | B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
 | B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
-| B11 | SGF load | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py` |
+| B11 | SGF load, also by paste and by drop on the board | §1.5, §3.8 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: `tests/browser/test_sgf_paste_drop.py` |
 | B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: `tests/browser/test_tours.py` |
 | B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: `tests/browser/test_tours.py` |
