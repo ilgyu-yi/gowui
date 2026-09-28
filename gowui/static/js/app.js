@@ -1110,6 +1110,9 @@
       if (buttonHadFocus) startButton.focus();
       return;
     }
+    // A line that fills has no button to hold focus, so it goes where the panel sends it when its
+    // opener has left the page: the top-bar Help control (§3.8 "Help panel").
+    if (buttonHadFocus) $('help-toggle').focus();
     if (best) line.appendChild(piece('mark', t('readout.best')));
     var searched = searchedSide();
     var fields = fieldsOf(info, searched, true);
