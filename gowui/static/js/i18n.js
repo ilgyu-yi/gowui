@@ -160,7 +160,7 @@
       'help.flow.boards': 'Every board in the strip on the left is a game of its own. "+ New board" adds one, clicking a tile switches to it, and ✎ renames it.',
       // §3.8 "Controls" (Players, New game and Engine console sections; index.html leaves the last
       // two closed); §3.5 (the console sends raw commands to a GTP engine, where allowed).
-      'help.flow.more': 'Further down the side panel: Players, with KataGo plays Black or White, Engine move now and Final score; New game · Save / Load SGF, closed until opened, which starts a game and holds Save SGF and Load SGF; and Engine console, also closed, with the lines exchanged with the engine and a field that sends a GTP engine a command of your own where that is allowed.',
+      'help.flow.more': 'Further down the side panel: Players, with KataGo plays Black or White, Engine move now and Final score; New game · Save / Load SGF, closed until opened, which starts a game and holds Save SGF and Load SGF — an SGF can also be pasted onto the page or its file dropped on the board; and Engine console, also closed, with the lines exchanged with the engine and a field that sends a GTP engine a command of your own where that is allowed.',
       // §3.8 "Help panel": this panel points at the hover cards and the "?" cards for what an
       // individual control is rather than restating them. §3.8 "Human policy panel": a knob or a
       // Raw values field shows its card while hovered or focused, and the profile "?" follows the
@@ -311,6 +311,8 @@
       'logout': 'Log out',
       'sgf.tooLarge': 'The SGF file is larger than 1 MiB.',
       'sgf.loadFailed': 'Could not load the SGF (HTTP {status}).',
+      'sgf.notSgf': 'The pasted text is not an SGF.',
+      'sgf.dropOne': 'Drop one SGF file at a time.',
       'tuple.json.invalid': 'The tuple must be a JSON object, e.g. {"min_p": 0.05}',
       'tuple.fix': 'Fix the tuple before it is sent: {problem}',
       'tuple.lambdaNeedsSearch': 'lambda_utility needs a search: set Visits above 1',
@@ -525,7 +527,7 @@
       'help.flow.boards': '왼쪽 띠에 있는 보드는 저마다 딴 대국이다. "+ 새 보드"로 하나 더하고, 타일을 누르면 그 보드로 넘어가고, ✎로 이름을 바꾼다.',
       // §3.8 "Controls"(대국자, 새 대국, 엔진 콘솔 항목. 뒤의 둘은 index.html에서 닫혀 있다);
       // §3.5(콘솔은 허용된 곳에서 GTP 엔진에만 명령을 보낸다).
-      'help.flow.more': '옆 패널 아래쪽에는 대국자(KataGo가 흑·백, 지금 엔진 착수, 계가)가 있고, 열어야 보이는 새 대국 · SGF 저장/열기는 대국을 시작하고 SGF 저장과 SGF 열기를 담고 있으며, 역시 닫혀 있는 엔진 콘솔에는 엔진과 주고받은 줄과, 허용된 곳에서 GTP 엔진에 명령을 직접 보내는 칸이 있다.',
+      'help.flow.more': '옆 패널 아래쪽에는 대국자(KataGo가 흑·백, 지금 엔진 착수, 계가)가 있고, 열어야 보이는 새 대국 · SGF 저장/열기는 대국을 시작하고 SGF 저장과 SGF 열기를 담고 있으며(SGF는 페이지에 붙여넣거나 그 파일을 판 위에 놓아도 열린다), 역시 닫혀 있는 엔진 콘솔에는 엔진과 주고받은 줄과, 허용된 곳에서 GTP 엔진에 명령을 직접 보내는 칸이 있다.',
       // §3.8 "Help panel": 조작 하나하나는 호버 카드와 "?" 카드가 맡는다. §3.8 "Human policy
       // panel": 손잡이와 원시 값 칸은 마우스를 올리거나 초점이 가면 카드를 띄우고, 프로파일 "?"는
       // 입력한 프로파일을 따른다. §3.8 "Where explanation lives": 고정 "?" 카드도 같은 식으로 열린다.
@@ -672,6 +674,8 @@
       'logout': '로그아웃',
       'sgf.tooLarge': 'SGF 파일이 1 MiB보다 크다.',
       'sgf.loadFailed': 'SGF를 불러오지 못했다 (HTTP {status}).',
+      'sgf.notSgf': '붙여넣은 글은 SGF가 아니다.',
+      'sgf.dropOne': 'SGF 파일은 한 번에 하나만 놓을 수 있다.',
       'tuple.json.invalid': '튜플은 JSON 객체여야 한다 (예: {"min_p": 0.05})',
       'tuple.fix': '보내기 전에 튜플을 고쳐야 한다: {problem}',
       'tuple.lambdaNeedsSearch': 'λ는 탐색이 필요하다 — 방문을 2 이상으로',

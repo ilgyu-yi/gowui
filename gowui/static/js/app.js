@@ -1541,11 +1541,14 @@
   };
   $('load-sgf').onclick = function () { $('sgf-file').click(); };
   var SGF_LIMIT = 1048576;
-  // The text goes to POST /api/sgf; the new state then arrives on the socket.
+  // The text goes to POST /api/sgf; the new state then arrives on the socket. Load, paste and
+  // drop all come through here (§3.8 "SGF"), so they share the limit and the messages.
   $('sgf-file').onchange = function () {
     var file = this.files && this.files[0];
     this.value = '';
-    if (!file) return;
+    if (file) loadSgf(file);
+  };
+  function loadSgf(file) {
     if (file.size > SGF_LIMIT) { setStatus(t('sgf.tooLarge'), true); return; }
     file.text().then(function (text) {
       return fetch('/api/sgf', { method: 'POST', body: text });
@@ -1558,7 +1561,48 @@
     }).catch(function () {
       setStatus(t('sgf.loadFailed', { status: '-' }), true);
     });
-  };
+  }
+
+  // A paste into a field is the field's. Text the reader would refuse at its first character is
+  // not a load attempt: a muted note, no request.
+  document.addEventListener('paste', function (event) {
+    var target = event.target;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName) || target.isContentEditable) return;
+    var text = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+    if (!text) return;
+    event.preventDefault();
+    if (text.trim().charAt(0) !== '(') { setStatus(t('sgf.notSgf')); return; }
+    loadSgf(new Blob([text]));
+  });
+
+  // Only a drag carrying files is taken, and only over the board: the strip is outside it.
+  var boardWrap = $('board-wrap');
+  function carriesFiles(event) {
+    return !!event.dataTransfer && Array.prototype.indexOf.call(event.dataTransfer.types, 'Files') >= 0;
+  }
+  boardWrap.addEventListener('dragover', function (event) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    boardWrap.classList.add('drop-ready');
+  });
+  boardWrap.addEventListener('dragleave', function (event) {
+    if (!boardWrap.contains(event.relatedTarget)) boardWrap.classList.remove('drop-ready');
+  });
+  boardWrap.addEventListener('drop', function (event) {
+    boardWrap.classList.remove('drop-ready');
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    var files = event.dataTransfer.files;
+    if (files.length !== 1) { setStatus(t('sgf.dropOne'), true); return; }
+    loadSgf(files[0]);
+  });
+  // A file dropped beside the board would otherwise be opened by the browser in place of the
+  // page. The board's own handlers run first and cancel what they take.
+  ['dragover', 'drop'].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      if (carriesFiles(event)) event.preventDefault();
+    });
+  });
 
   $('raw-form').onsubmit = function (event) {
     event.preventDefault();

@@ -37,41 +37,41 @@
 | &nbsp;&nbsp;§3.6 | Traffic log | 630 |
 | &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 634 |
 | &nbsp;&nbsp;§3.8 | The page | 691 |
-| §4 | WebSocket protocol | 1451 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1455 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1562 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1624 |
-| §5 | HTTP routes | 1718 |
-| §6 | Launch modes and policies | 1793 |
-| &nbsp;&nbsp;§6.1 | The rule | 1795 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1831 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1871 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1904 |
-| §7 | Authentication and security | 1946 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1948 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 2020 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 2056 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2076 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2124 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2145 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2191 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2225 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2239 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2248 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2284 |
-| §8 | Persistence | 2303 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2305 |
-| &nbsp;&nbsp;§8.2 | Saving | 2342 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2375 |
-| &nbsp;&nbsp;§8.4 | Server database | 2417 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2481 |
-| §9 | Command line | 2517 |
-| §10 | Configuration (server) | 2587 |
-| &nbsp;&nbsp;§10.1 | Container | 2625 |
-| §11 | Feature inventory | 2713 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2720 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2758 |
-| §12 | Non-goals | 2776 |
+| §4 | WebSocket protocol | 1469 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1473 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1580 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1642 |
+| §5 | HTTP routes | 1736 |
+| §6 | Launch modes and policies | 1811 |
+| &nbsp;&nbsp;§6.1 | The rule | 1813 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1849 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1889 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1922 |
+| §7 | Authentication and security | 1964 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1966 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 2038 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 2074 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 2094 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 2142 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 2163 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2209 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2243 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2257 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2266 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2302 |
+| §8 | Persistence | 2321 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2323 |
+| &nbsp;&nbsp;§8.2 | Saving | 2360 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2393 |
+| &nbsp;&nbsp;§8.4 | Server database | 2435 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2499 |
+| §9 | Command line | 2535 |
+| §10 | Configuration (server) | 2605 |
+| &nbsp;&nbsp;§10.1 | Container | 2643 |
+| §11 | Feature inventory | 2731 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2738 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2776 |
+| §12 | Non-goals | 2794 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -1199,6 +1199,24 @@ it appeared.
   arrives on the socket. An answer carrying `{"error": <message>}` shows that message, as text,
   in red for 8 s; any other failure shows a localised red message naming the HTTP status. The
   page never sends `load_sgf`; the server still accepts it (§4.1).
+- **Paste** takes the Load path with the clipboard's plain text in place of a file: the same
+  1 MiB check, on the text's UTF-8 bytes, the same route and the same messages. It answers a
+  `paste` whose target is not an `input`, `select`, `textarea` or editable element; a paste into
+  one of those, the board rename field included, is that field's and the page does nothing more.
+  Only text whose first non-whitespace character is `(` is sent, because the reader refuses
+  anything else (`_Reader.game_tree` in `gowui/sgf.py`). Other text is not a load attempt: no
+  request is made and a muted status says the text is not an SGF. A paste with no text does
+  nothing.
+- **Drop** takes the Load path with a file dropped on the board (`#board-wrap`), whatever the
+  file's name. While a drag carrying files is over the board, the board has the class
+  `drop-ready`, removed when the drag leaves it or drops. A drag carrying no file is not taken:
+  the board is no drop target for it. Dropping several files loads none of them and shows a
+  localised red message. The board strip lies outside `#board-wrap`, so a file dropped on a tile
+  loads nothing; tile reordering is a pointer drag ("Reordering" above), never an HTML drag, and
+  does not reach this target. Anywhere else on the page a drag carrying files is refused: the
+  document cancels its `dragover` and `drop`, so a file dropped beside the board — on a tile, on
+  the side panel — loads nothing and does not take the browser away from the page. A drag
+  carrying no file is left to the browser.
 
 **Preferences.** Two things the user chooses are the account's where the storage policy keeps
 them and this browser's where it does not (§6.4): the UI language and the user's own tuple
@@ -1307,7 +1325,7 @@ It holds, in order:
    address is typed, the engine picker where it is `catalog`, and the configured-no-engine note where
    the catalog is empty. The step is a `data-i18n` node, so a language switch re-renders the variant
    in force. A step names the surfaces the others do not: Players, New game with Save SGF and Load
-   SGF, and the engine console.
+   SGF, pasting an SGF or dropping its file on the board ("SGF" above), and the engine console.
 2. **What is drawn on a candidate** — the glyph of "Top candidates", which no single control owns:
    the two arcs over their track, no cobalt arc for a candidate without visits, the smaller cobalt
    line of the visits, and the white ring on the first candidate unless it is a pass. The filled disc
@@ -2731,7 +2749,7 @@ addition to the section in its Behaviour column.
 | B8 | Winrate and score shown from Black's view | §0 | both | engine: `tests/test_gtp.py`, `tests/test_analysis.py`, `tests/test_handol.py`; UI: `tests/browser/test_tours.py` |
 | B9 | Rule adjudication: capture, suicide, ko, superko | §1.3 | both | `tests/test_board.py`, `tests/test_rules.py`, `tests/test_game.py` |
 | B10 | New game: size, komi, rules, handicap | §1.2 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
-| B11 | SGF load | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py` |
+| B11 | SGF load, also by paste and by drop on the board | §1.5, §3.8 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: `tests/browser/test_sgf_paste_drop.py` |
 | B12 | SGF save with a user-chosen file name | §1.5 | both | model: `tests/test_sgf.py`; transport: `tests/test_app_local.py`; UI: `tests/browser/test_tours.py` |
 | B13 | Move list and navigation (first, −10, −1, +1, +10, last, click a move) | §1.4 | both | model: `tests/test_game.py`; UI: `tests/browser/test_tours.py` |
 | B14 | Undo, pass, resign | §1.4, §3.2 | both | model: `tests/test_game.py`; session: `tests/test_session_play.py`; UI: `tests/browser/test_tours.py` |
