@@ -104,6 +104,68 @@
       'col.value': 'Value',
       'readout.best': 'best',
       'readout.none': 'no candidate',
+      // The help panel (SPEC §3.8 "Help panel"). Every legend line below carries the source it
+      // comes from on the line above it, so a reviewer checks a claim against a named source
+      // instead of deriving it again. None of them says more than its source supports.
+      'help.open': 'Help',
+      'help.open.title': 'What this page does, what its numbers mean, and every key it binds',
+      'help.title': 'Using gowui',
+      'help.close': 'Close',
+      'help.close.title': 'Close the help panel',
+      'help.flow.title': 'How to use this page',
+      // §3.8 "Engine form": the protocol select, host, port, the Connect button and the badge.
+      'help.flow.connect': 'Pick the engine interface, type the address it listens on and press Connect. The badge beside it names the engine that answered, or says none is connected.',
+      // §3.8 "Layout" (the board pane) and "Controls" (Navigation: a click on a point sends play).
+      'help.flow.play': 'Click a point on the board to play there. Under the board are first, −10, −1, the position counter, +1, +10 and last, then Pass, Undo and Resign.',
+      // §3.8 "Controls" (Analysis section) and "Board overlays" (where the candidates are drawn).
+      'help.flow.analyse': 'Tick Continuous analysis and the engine reads the position on screen: its candidates are drawn on the board and listed in the table of the Analysis section.',
+      // §3.8 "Board strip": one tile per board, "+ New board", a click selects, ✎ renames.
+      'help.flow.boards': 'Every board in the strip on the left is a game of its own. "+ New board" adds one, clicking a tile switches to it, and ✎ renames it.',
+      // §3.8 "Help panel": this panel points at the hover cards and the profile "?" for what an
+      // individual control is (§3.8 "Human policy panel", "Scrolling") rather than restating them.
+      'help.flow.controls': 'What one control is, you read where it is: hover a field or a knob for its card, and the "?" beside the profile field for what that profile imitates. This panel does not repeat them.',
+      'help.numbers.title': 'What the numbers mean',
+      // §0 "Perspective" makes the winrate the one exception to Black's view; §3.8 "Candidate
+      // table" shows Win from the side searched for and the score lead as Black's. Said in one
+      // breath because the asymmetry is inside a single row.
+      'help.num.winScore': "The two on one line are read from different sides. Win is the winning chance of the side the engine searched for; Score is the point lead and stays Black's. The winrate is the one place this page leaves Black's view.",
+      // §3.8 "Candidate table".
+      'help.num.visits': 'How much of the search went to that move.',
+      // §2.2 `prior`; §3.8 "Label modes" and "Candidate table" (Prob. for a handol-mux analysis).
+      'help.num.policy': 'The raw policy probability of the move. A handol-mux analysis shows the same column as Prob.',
+      // §2.2 (`utility`: signed, centred on zero, not a probability, Black's view); §3.8
+      // "Candidate table" (two decimals); §3.8 "Candidate readout" (recentred per position).
+      'help.num.value': "The engine's utility: one signed number centred on zero, not a probability, in Black's view like the score, to two decimals. Compare it between the candidates of one position and not between positions — its score part is recentred on that position's own expected score.",
+      // §2.2 `utilityLcb`; §3.8 "Candidate readout" (the parentheses are style.css:92-93).
+      'help.num.lcb': "The number in parentheses beside the Value under the board is utilityLcb, that Value's lower confidence bound, in the same view.",
+      // §3.8 "Human policy panel" and the strings field.lambda_utility.help, field.trust_mu.help
+      // and field.fill_kappa.help, where û is the value μ and κ have shrunk toward the fill value.
+      'help.num.collision': "One word, two quantities. The Value of this table is the engine's raw utility above. The û of the λ, μ and κ cards is a different number: a move's search value after μ and κ have shrunk it toward the fill value.",
+      // §3.8 "What the numbers mean": no formula and no conversion factor between the two is
+      // derivable from anything this repo holds, so the panel carries neither.
+      'help.num.noConversion': 'Different quantities in different units, and gowui defines no conversion between them. There is no formula here that turns a winrate into a Value, or a Value into a winrate.',
+      // The list below is rendered from the table of §3.7; these name its five surfaces and the
+      // groups within them.
+      'help.keys.title': 'Keys',
+      'help.scope.nav': 'The page, outside a text field',
+      'help.scope.tile': 'A board tile with the focus',
+      'help.scope.drag': 'While a board tile is being dragged',
+      'help.scope.rename': 'In the board name field',
+      'help.key.prev': 'One move back',
+      'help.key.next': 'One move forward',
+      'help.key.first': 'The first position',
+      'help.key.last': 'The last position',
+      'help.key.pass': 'Pass',
+      'help.key.undo': 'Undo the last move',
+      'help.key.genmove': 'Let the engine play the side to move',
+      'help.key.analysis': 'Turn continuous analysis on or off',
+      'help.key.prevBoard': 'The previous board',
+      'help.key.nextBoard': 'The next board',
+      'help.key.tileMove': 'Move the tile one place earlier or later',
+      'help.key.tileSelect': 'Switch to that board',
+      'help.key.cancelDrag': 'Cancel the drag',
+      'help.key.renameSave': 'Save the name',
+      'help.key.renameCancel': 'Abandon the edit',
       'players.section': 'Players',
       'players.black': 'KataGo plays Black',
       'players.white': 'KataGo plays White',
@@ -341,6 +403,66 @@
       'col.value': '가치',
       'readout.best': '최선',
       'readout.none': '후보 없음',
+      // 도움말 패널(SPEC §3.8 "Help panel"). 설명 한 줄마다 바로 위에 근거를 적어 둔다.
+      // 읽는 사람이 다시 따져 보는 대신 적힌 자리에서 확인하면 된다. 근거가 받쳐 주지
+      // 않는 말은 넣지 않았다.
+      'help.open': '도움말',
+      'help.open.title': '이 페이지로 무엇을 하는지, 숫자가 무슨 뜻인지, 어떤 키가 있는지',
+      'help.title': 'gowui 쓰는 법',
+      'help.close': '닫기',
+      'help.close.title': '도움말 닫기',
+      'help.flow.title': '이 페이지 쓰는 차례',
+      // §3.8 "Engine form": 프로토콜 선택, 호스트, 포트, 연결 단추와 배지.
+      'help.flow.connect': '엔진 방식을 고르고 엔진이 열려 있는 주소를 넣은 다음 연결을 누른다. 옆 배지가 대답한 엔진의 이름을 보여 주고, 붙은 엔진이 없으면 없다고 말한다.',
+      // §3.8 "Layout"(판 영역)과 "Controls"(내비게이션 — 판 위를 누르면 play를 보낸다).
+      'help.flow.play': '판 위의 자리를 누르면 그 자리에 둔다. 판 아래에는 처음, −10, −1, 국면 세기, +1, +10, 끝이 있고 그다음에 패스·무르기·기권이 있다.',
+      // §3.8 "Controls"(분석 항목)과 "Board overlays"(후보를 판 위에 어떻게 그리는지).
+      'help.flow.analyse': '계속 분석을 켜면 엔진이 화면에 떠 있는 국면을 읽는다. 후보 수는 판 위에 그려지고 분석 항목의 표에 줄지어 나온다.',
+      // §3.8 "Board strip": 보드마다 타일 하나, "+ 새 보드", 누르면 선택, ✎로 이름 변경.
+      'help.flow.boards': '왼쪽 띠에 있는 보드는 저마다 딴 대국이다. "+ 새 보드"로 하나 더하고, 타일을 누르면 그 보드로 넘어가고, ✎로 이름을 바꾼다.',
+      // §3.8 "Help panel": 조작 하나하나는 호버 카드와 프로파일 "?"가 맡는다
+      // (§3.8 "Human policy panel", "Scrolling"). 이 패널은 그것을 다시 옮겨 적지 않는다.
+      'help.flow.controls': '조작 하나가 무엇인지는 그 조작이 있는 자리에서 읽는다. 입력칸이나 손잡이에 마우스를 올리면 설명 카드가 뜨고, 프로파일 칸 옆 "?"는 그 프로파일이 무엇을 흉내 내는지 알려 준다. 이 패널은 그것을 되풀이하지 않는다.',
+      'help.numbers.title': '숫자가 뜻하는 것',
+      // §0 "Perspective"에서 승률만이 흑 기준의 예외이고, §3.8 "Candidate table"에서
+      // 승률은 탐색한 쪽 기준, 집 차이는 흑 기준이다. 어긋남이 한 줄 안에 있으니 한 호흡에 적는다.
+      'help.num.winScore': '한 줄에 있는 둘은 서로 다른 쪽에서 읽은 값이다. 승률은 엔진이 탐색한 쪽이 이길 확률이고, 집은 흑 기준의 집 차이 그대로다. 이 페이지에서 흑 기준을 벗어나는 것은 승률 하나뿐이다.',
+      // §3.8 "Candidate table".
+      'help.num.visits': '그 수에 탐색을 얼마나 썼는지.',
+      // §2.2 `prior`; §3.8 "Label modes", "Candidate table"(handol-mux 분석에서는 확률).
+      'help.num.policy': '그 수의 날 정책 확률. handol-mux 분석에서는 같은 칸이 확률로 나온다.',
+      // §2.2(`utility` — 부호 있는 값, 0이 가운데, 확률이 아니고 흑 기준); §3.8
+      // "Candidate table"(소수 두 자리); §3.8 "Candidate readout"(국면마다 기준을 다시 맞춘다).
+      'help.num.value': '엔진의 utility 값. 0을 가운데 둔 부호 있는 수 하나이고 확률이 아니며, 집처럼 흑 기준으로 소수 두 자리까지 나온다. 한 국면 안의 후보끼리 견주는 값이지 국면끼리 견주는 값이 아니다. 집에 해당하는 부분이 그 국면의 기대 집 수를 기준으로 다시 맞춰지기 때문이다.',
+      // §2.2 `utilityLcb`; §3.8 "Candidate readout"(괄호는 style.css:92-93).
+      'help.num.lcb': '판 아래 줄의 가치 옆 괄호 안 숫자는 utilityLcb, 같은 기준으로 본 그 가치의 신뢰 하한이다.',
+      // §3.8 "Human policy panel"과 field.lambda_utility.help, field.trust_mu.help,
+      // field.fill_kappa.help — 거기서 û는 μ와 κ가 채움값 쪽으로 당긴 뒤의 값이다.
+      'help.num.collision': '같은 말이 둘을 가리킨다. 이 표의 가치는 위에서 말한 엔진의 날 utility다. λ·μ·κ 설명 카드의 û는 다른 수다. 그 수의 탐색 가치를 μ와 κ가 채움값 쪽으로 당기고 난 값이다.',
+      // §3.8 "What the numbers mean": 둘 사이의 식도 환산 계수도 이 저장소에 있는
+      // 어떤 것에서도 끌어낼 수 없으니, 패널은 둘 다 싣지 않는다.
+      'help.num.noConversion': '단위가 다른 서로 다른 값이고, gowui는 둘 사이의 환산을 정해 두지 않았다. 승률을 가치로, 가치를 승률로 바꾸는 식은 여기에 없다.',
+      // 아래 목록은 §3.7의 표에서 그려 낸다. 여기 있는 것은 그 다섯 자리와 그 안의 묶음 이름이다.
+      'help.keys.title': '단축키',
+      'help.scope.nav': '글자 입력칸 밖, 페이지 전체',
+      'help.scope.tile': '보드 타일에 초점이 있을 때',
+      'help.scope.drag': '보드 타일을 끄는 동안',
+      'help.scope.rename': '보드 이름 칸에서',
+      'help.key.prev': '한 수 뒤로',
+      'help.key.next': '한 수 앞으로',
+      'help.key.first': '맨 처음 국면',
+      'help.key.last': '맨 끝 국면',
+      'help.key.pass': '패스',
+      'help.key.undo': '마지막 수 무르기',
+      'help.key.genmove': '둘 차례인 쪽을 엔진이 두게 한다',
+      'help.key.analysis': '계속 분석 켜고 끄기',
+      'help.key.prevBoard': '앞 보드로',
+      'help.key.nextBoard': '뒤 보드로',
+      'help.key.tileMove': '타일을 한 자리 앞이나 뒤로 옮긴다',
+      'help.key.tileSelect': '그 보드로 넘어간다',
+      'help.key.cancelDrag': '끌던 것을 무른다',
+      'help.key.renameSave': '이름을 저장한다',
+      'help.key.renameCancel': '고치던 것을 버린다',
       'players.section': '대국자',
       'players.black': 'KataGo가 흑',
       'players.white': 'KataGo가 백',
