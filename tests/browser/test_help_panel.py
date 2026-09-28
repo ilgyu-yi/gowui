@@ -379,3 +379,25 @@ def test_closing_after_the_readout_button_left_gives_focus_to_the_top_bar_contro
     expect(panel(g)).to_be_hidden(timeout=QUICK)
     assert g.page.evaluate("() => document.activeElement.id") == "help-toggle", \
         "closing the panel after its opener left dropped focus"
+
+
+def test_redrawing_a_still_empty_readout_keeps_focus_on_its_button(start_app, open_page):
+    """§3.8 "Help panel": closing returns focus to the control that opened it. The readout is
+    redrawn on every state and analysis frame; a redraw that leaves the line empty must not drop
+    focus from its button to the page body."""
+    g = open_page(start_app())
+    g.proxy_ws()
+    g.open()
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    start_button(g).click()
+    expect(panel(g)).to_be_visible(timeout=QUICK)
+    g.page.locator("#help-close").click()
+    expect(panel(g)).to_be_hidden(timeout=QUICK)
+    size = g.state()["game"]["size"]
+    g.inject(analysis_frame(g.state(), analysis_payload(size, [])))
+    g.page.wait_for_timeout(200)
+    expect(start_button(g)).to_have_count(1, timeout=QUICK)
+    assert g.page.evaluate("""() => document.activeElement.tagName === 'BUTTON'
+        && !!document.activeElement.closest('#candidate-readout')"""), \
+        "redrawing the empty readout dropped focus to " + \
+        g.page.evaluate("() => document.activeElement.tagName")
