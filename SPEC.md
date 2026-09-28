@@ -32,46 +32,46 @@
 | &nbsp;&nbsp;§3.1 | Spaces | 452 |
 | &nbsp;&nbsp;§3.2 | Engine play and analysis | 479 |
 | &nbsp;&nbsp;§3.3 | Boards | 545 |
-| &nbsp;&nbsp;§3.4 | Engine settings | 577 |
-| &nbsp;&nbsp;§3.5 | Final score and console | 603 |
-| &nbsp;&nbsp;§3.6 | Traffic log | 618 |
-| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 622 |
-| &nbsp;&nbsp;§3.8 | The page | 631 |
-| §4 | WebSocket protocol | 1152 |
-| &nbsp;&nbsp;§4.1 | Browser → server | 1156 |
-| &nbsp;&nbsp;§4.2 | Server → browser | 1263 |
-| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1305 |
-| §5 | HTTP routes | 1399 |
-| §6 | Launch modes and policies | 1474 |
-| &nbsp;&nbsp;§6.1 | The rule | 1476 |
-| &nbsp;&nbsp;§6.2 | Identity policy | 1512 |
-| &nbsp;&nbsp;§6.3 | Engine-address policy | 1552 |
-| &nbsp;&nbsp;§6.4 | Storage policy | 1585 |
-| §7 | Authentication and security | 1627 |
-| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1629 |
-| &nbsp;&nbsp;§7.2 | Sessions (server) | 1693 |
-| &nbsp;&nbsp;§7.3 | SSO header (server) | 1729 |
-| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1749 |
-| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1797 |
-| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1818 |
-| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 1864 |
-| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 1898 |
-| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 1912 |
-| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 1921 |
-| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 1957 |
-| §8 | Persistence | 1976 |
-| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 1978 |
-| &nbsp;&nbsp;§8.2 | Saving | 2014 |
-| &nbsp;&nbsp;§8.3 | Local state file | 2047 |
-| &nbsp;&nbsp;§8.4 | Server database | 2089 |
-| &nbsp;&nbsp;§8.5 | Browser storage | 2153 |
-| §9 | Command line | 2180 |
-| §10 | Configuration (server) | 2250 |
-| &nbsp;&nbsp;§10.1 | Container | 2288 |
-| §11 | Feature inventory | 2376 |
-| &nbsp;&nbsp;§11.1 | Baseline features | 2383 |
-| &nbsp;&nbsp;§11.2 | New in this rebuild | 2421 |
-| §12 | Non-goals | 2439 |
+| &nbsp;&nbsp;§3.4 | Engine settings | 576 |
+| &nbsp;&nbsp;§3.5 | Final score and console | 602 |
+| &nbsp;&nbsp;§3.6 | Traffic log | 617 |
+| &nbsp;&nbsp;§3.7 | Keyboard shortcuts | 621 |
+| &nbsp;&nbsp;§3.8 | The page | 670 |
+| §4 | WebSocket protocol | 1272 |
+| &nbsp;&nbsp;§4.1 | Browser → server | 1276 |
+| &nbsp;&nbsp;§4.2 | Server → browser | 1383 |
+| &nbsp;&nbsp;§4.3 | Tabs and delivery | 1439 |
+| §5 | HTTP routes | 1533 |
+| §6 | Launch modes and policies | 1608 |
+| &nbsp;&nbsp;§6.1 | The rule | 1610 |
+| &nbsp;&nbsp;§6.2 | Identity policy | 1646 |
+| &nbsp;&nbsp;§6.3 | Engine-address policy | 1686 |
+| &nbsp;&nbsp;§6.4 | Storage policy | 1719 |
+| §7 | Authentication and security | 1761 |
+| &nbsp;&nbsp;§7.1 | Password accounts (server) | 1763 |
+| &nbsp;&nbsp;§7.2 | Sessions (server) | 1835 |
+| &nbsp;&nbsp;§7.3 | SSO header (server) | 1871 |
+| &nbsp;&nbsp;§7.4 | Origin and Host rules (both modes) | 1891 |
+| &nbsp;&nbsp;§7.5 | Response headers and rendering | 1939 |
+| &nbsp;&nbsp;§7.6 | Limits (both modes) | 1960 |
+| &nbsp;&nbsp;§7.7 | Engine addresses and the console (server) | 2006 |
+| &nbsp;&nbsp;§7.8 | Isolation and idle release (server) | 2040 |
+| &nbsp;&nbsp;§7.9 | Fail-closed startup (server) | 2054 |
+| &nbsp;&nbsp;§7.10 | Behind a reverse proxy (server) | 2063 |
+| &nbsp;&nbsp;§7.11 | Sign-in page (server) | 2099 |
+| §8 | Persistence | 2118 |
+| &nbsp;&nbsp;§8.1 | Snapshot format (version 1) | 2120 |
+| &nbsp;&nbsp;§8.2 | Saving | 2157 |
+| &nbsp;&nbsp;§8.3 | Local state file | 2190 |
+| &nbsp;&nbsp;§8.4 | Server database | 2232 |
+| &nbsp;&nbsp;§8.5 | Browser storage | 2296 |
+| §9 | Command line | 2332 |
+| §10 | Configuration (server) | 2402 |
+| &nbsp;&nbsp;§10.1 | Container | 2440 |
+| §11 | Feature inventory | 2528 |
+| &nbsp;&nbsp;§11.1 | Baseline features | 2535 |
+| &nbsp;&nbsp;§11.2 | New in this rebuild | 2573 |
+| §12 | Non-goals | 2591 |
 <!-- TOC END -->
 
 ## 0. Purpose and conventions
@@ -620,12 +620,52 @@ The session keeps the last 400 log lines; a newly attached tab receives the last
 
 ### 3.7 Keyboard shortcuts
 
-Outside text fields: `←` / `→` one move back / forward, `Home` / `End` first / last position,
-`p` pass, `u` undo, `g` engine move, `a` toggle analysis, `[` / `]` previous / next board.
+**Four surfaces, one table.** The page binds keys in four places, all in `js/app.js`: the document
+set below, the document's `Escape`, a focused board tile, and the board rename field. One table
+declares all four. The dispatch of the document set reads that table, and the help panel renders
+it (§3.8 "Help panel"), so a bound key the panel leaves out cannot arise — the panel iterates the
+table. Only the document set's rows carry behaviour; the other three surfaces keep the handlers
+they have and contribute a name and its keys to the table and nothing else. The tile contributes
+two groups, its reordering keys and its selecting keys, which have different guards (below).
+
+**The document set.** Outside text fields: `←` / `→` one move back / forward, `Home` / `End`
+first / last position, `p` pass, `u` undo, `g` engine move, `a` toggle analysis, `[` / `]`
+previous / next board.
 A key is ignored while an `input`, `select` or `textarea` has focus (the board rename field
 included, §3.8), before the first `state` has arrived, and while Ctrl, Cmd or Alt is held (those
 combinations stay the browser's, such as Ctrl/Cmd+P to print). A handled key does not also perform
 the browser's default action (no page scroll on `Home` / `End`).
+
+**The other three surfaces.** Their guards are their own; the paragraph above governs the document
+set only.
+
+- The document's `Escape` cancels a board-strip drag (§3.8 "Reordering").
+- A focused strip tile: `Alt` with the up or down arrow moves it one place earlier or later,
+  `Enter` or `Space` selects its board (§3.8 "Reordering by keyboard"). A key whose target is
+  something inside the tile — a button, the open rename field — is that control's and does not
+  also act on the tile.
+- The board rename field: `Enter` saves the name, `Escape` abandons the edit (§3.8 "Rename in
+  place").
+
+**The tile keys' modifier rule is their own.** `Enter` and `Space` on a tile are ignored while
+Ctrl, Cmd or Alt is held, as the document set is. `Alt` with the up or down arrow is the reorder
+binding, and it reorders whether or not Ctrl or Cmd is held with the `Alt`. It is written down
+because the document set's sentence about Ctrl, Cmd and Alt governs the document set alone, and a
+reader who carried it across to the tile keys would have this one wrong. Nothing is built on it:
+it is pinned by `tests/browser/test_keyboard.py::test_alt_arrow_reorders_even_while_ctrl_is_held`
+so that narrowing it is a decision someone takes, and narrowing it is not a change to this
+contract.
+
+**`Escape` on the document keeps one meaning: it cancels a drag.** The help panel takes no key of
+its own — the header control that opens it closes it again, and its close button closes it (§3.8
+"Help panel") — so there is no precedence to settle between a drag in flight and a panel. The
+rename field's `Escape` is the other surface, reached only while that field has focus (§3.8
+"Rename in place").
+
+**The document set stays live while the help panel is open.** The panel is a teaching surface: a
+reader who has just read that `←` walks the game presses `←`, and it walks the game. The panel is
+not modal and takes no layout room (§3.8 "Help panel"), so the board those keys act on is still on
+screen and still visible while they act.
 
 ### 3.8 The page
 
@@ -639,8 +679,8 @@ too follows the data, never a mode name.
 
 **Layout.**
 
-- **Top bar:** the title, the engine form (below), the language select (한국어 / English) and
-  the status line.
+- **Top bar:** the title, the engine form (below), the language select (한국어 / English), the
+  help control (below) and the status line.
 - **Board strip** (left): one thumbnail per board and a "+ New board" button.
 - **Board pane** (centre): the board canvas; under it the navigation row — first, −10, −1, the
   counter `cursor / moveCount`, +1, +10, last — then Pass, Undo and Resign.
@@ -1103,6 +1143,72 @@ replaces that initial choice as soon as a `state` carrying `preferences` arrives
 select switches at once, re-renders the page, saves the choice — in the browser, or by sending
 `preferences` when the server keeps them — and sets `<html lang>`. Text from the server — status,
 errors, engine output — is shown as it arrives.
+
+**Help panel.** A control in the top bar opens the panel and closes it again; its own close button
+closes it too, and nothing else opens or closes it (§3.7 leaves it no key). It holds three parts:
+the flow — what to do on this page, in a few steps; what the numbers mean (below); and the key
+list. It points at the hover cards and the profile `?` for what an individual control is rather
+than restating them.
+
+The key list is **derived, not authored**: one row per entry of the table of §3.7, rendered from
+that table, so a key the list omits cannot arise **for a group the table carries** — the panel
+iterates it. Two things can still arise, and both are what a test has to look for: a key bound
+outside the table, and a **group** declared in the page's source and left out of the table. The
+second is invisible to anything that reads the table on both sides.
+
+The panel hangs from the top bar and takes no room in the layout: it is out of flow, so opening it
+moves no control and changes no box the page measures — the board canvas and the controls under it
+are the same boxes open as closed, **read in document coordinates**: opening moves focus into the
+panel, which in the narrow layout can scroll the page, and a viewport rectangle that moved only
+because the page scrolled is not a box that changed. It is **not modal**, because the legend is read while looking at
+the board, which is the thing it exists for. It is bounded in height — `max-height: 70dvh` and its
+own vertical scrolling — since it carries the flow, the legend and a row per bound key, and
+unbounded it runs off the bottom of a short window with nothing to reach the rest by. The bound is
+**the room left below the top bar**, not a flat share of the window: the panel hangs from a bar
+whose height is measured because it wraps (§3.8 "The page"), so a flat `70dvh` plus a bar that has
+wrapped puts the panel's bottom edge off a short screen while obeying the number. What the contract
+requires is that the bottom edge stay inside the window, and the height rule is whatever delivers
+that. Its scrolling
+body is a tab stop, which is how a keyboard user scrolls it. Opening it moves focus to its close
+button; closing it returns focus to the control that opened it. From 320px up it adds no horizontal
+scrolling to the document (§3.8 "The page scrolls down, never across"): its key rows wrap and each
+key is its own token, so the widest thing it cannot make narrower is one key's name.
+
+Open and closed is the `hidden` attribute, not a style write, so the style-write census of §3.8
+"Rendering safety" (§7.5) is unchanged: the panel adds no CSSOM assignment to the six that section
+counts.
+
+**What the numbers mean.** The legend names the fields of the candidate table and the readout
+(§3.8 "Candidate table", "Candidate readout"). Every line of it traces to a source named here, and
+it says what those sources support and no more.
+
+- **Win** is a probability, shown from **the side the engine searched for** (§3.8 "Candidate
+  table"), which §0 "Perspective" makes the one exception to Black's view; **Score** is a signed
+  point lead and stays **Black's** (§0; §3.8 "Candidate table"). The legend says those two in one
+  breath, because the exception is winrates only and the asymmetry is inside a **single row**: the
+  Win and the Score on one line are from two different sides. Written as two separate entries they
+  read as two unrelated facts and the asymmetry is stated nowhere, which is the thing a reader
+  trips on.
+- **Visits** is what the search spent on that move (§3.8 "Candidate table").
+- **Policy**, and **Prob** for a handol-mux analysis, is the raw policy probability (§2.2 `prior`;
+  §3.8 "Label modes").
+- **Value** is `utility`: one signed number, centred on zero and **not a probability** (§2.2),
+  Black's view like the score (§2.2), two decimals (§3.8 "Candidate table"). It is comparable
+  between the candidates of **one** position and not between positions, its score part being
+  recentred on that position's own expected score (§3.8 "Candidate readout").
+- **The number in parentheses** beside the readout's Value is `utilityLcb`, the Value's lower
+  confidence bound, in the same view (§2.2; §3.8 "Candidate readout"). The parentheses are the
+  mark of a bound and are not words, so they are the same in both languages.
+- **The name collision the legend has to settle.** The table's Value — `가치` in the Korean table —
+  is the engine's raw `utility` above. The `û` of the λ, μ and κ help cards (§3.8 "Human policy
+  panel"; the strings `field.lambda_utility.help`, `field.trust_mu.help` and `field.fill_kappa.help`)
+  is a **different quantity**: a move's search value after it has been shrunk toward the fill value
+  by μ and κ. The same word carries both in the English table and in the Korean one, so the legend
+  names the collision rather than leaving a reader to find it.
+- **Win and Value are different quantities, and gowui defines no conversion between them.** The
+  panel carries no formula relating a winrate to a utility and no conversion factor: neither is
+  derivable from anything this repo holds. Nothing beyond what these entries cite is added, because
+  mis-explaining `utility` is worse than explaining nothing.
 
 **Connection.** One WebSocket per tab to `/ws` (`wss:` under `https:`). Opening it resets the
 reconnect delay and clears the status. When it closes:

@@ -1,5 +1,5 @@
 /* Wires the board, the control panel and the server's WebSocket together. */
-(function () {
+(function (global) {
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1481,26 +1481,118 @@
     $('raw').value = '';
   };
 
+  /* -- the keyboard table (§3.7 "Four surfaces, one table") ----------------- */
+  // One table for every key the page binds. Only the document set's rows carry behaviour: the
+  // dispatch below looks a key up here, and the help panel renders the whole table (§3.8 "Help
+  // panel"), so a key the table carries and the panel omits cannot arise. The other surfaces keep
+  // the handlers they already have -- tileKey, the document's Escape and the rename field -- and
+  // contribute a name and their keys and nothing else: `press` and `label`, never `run`.
+  var NAV_KEYS = [
+    { press: ['ArrowLeft'], label: 'help.key.prev',
+      run: function () { navigate(state.game.cursor - 1); } },
+    { press: ['ArrowRight'], label: 'help.key.next',
+      run: function () { navigate(state.game.cursor + 1); } },
+    { press: ['Home'], label: 'help.key.first',
+      run: function () { navigate(0); } },
+    { press: ['End'], label: 'help.key.last',
+      run: function () { navigate(state.game.moveCount); } },
+    { press: ['p'], label: 'help.key.pass',
+      run: function () { send({ type: 'pass' }); } },
+    { press: ['u'], label: 'help.key.undo',
+      run: function () { send({ type: 'undo' }); } },
+    { press: ['g'], label: 'help.key.genmove',
+      run: function () { send({ type: 'genmove', color: state.game.toPlay }); } },
+    { press: ['a'], label: 'help.key.analysis',
+      run: function () {
+        $('analysis-on').checked = !$('analysis-on').checked;
+        send({ type: 'analysis', enabled: $('analysis-on').checked });
+      } },
+    { press: ['['], label: 'help.key.prevBoard',
+      run: function () { stepBoard(-1); } },
+    { press: [']'], label: 'help.key.nextBoard',
+      run: function () { stepBoard(1); } }
+  ];
+
+  // The five groups of §3.7 across its four surfaces, in the order the panel lists them. The tile contributes two
+  // groups, its reordering keys and its selecting keys, because their guards differ (§3.7).
+  var KEY_HELP = [
+    { scope: 'help.scope.nav', keys: NAV_KEYS },
+    { scope: 'help.scope.tile', keys: [
+      { press: ['Alt', 'ArrowUp', 'ArrowDown'], label: 'help.key.tileMove' },
+      { press: ['Enter', ' '], label: 'help.key.tileSelect' }
+    ] },
+    { scope: 'help.scope.drag', keys: [
+      { press: ['Escape'], label: 'help.key.cancelDrag' }
+    ] },
+    { scope: 'help.scope.rename', keys: [
+      { press: ['Enter'], label: 'help.key.renameSave' },
+      { press: ['Escape'], label: 'help.key.renameCancel' }
+    ] }
+  ];
+
+  // Read by the help panel, which renders one row per entry (§3.8 "Help panel").
+  global.keyHelp = KEY_HELP;
+
   document.addEventListener('keydown', function (event) {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;  // the browser's own (§3.7)
     if (!state.game) return;
-    var handlers = {
-      ArrowLeft: function () { navigate(state.game.cursor - 1); },
-      ArrowRight: function () { navigate(state.game.cursor + 1); },
-      Home: function () { navigate(0); },
-      End: function () { navigate(state.game.moveCount); },
-      p: function () { send({ type: 'pass' }); },
-      '[': function () { stepBoard(-1); },
-      ']': function () { stepBoard(1); },
-      u: function () { send({ type: 'undo' }); },
-      g: function () { send({ type: 'genmove', color: state.game.toPlay }); },
-      a: function () { $('analysis-on').checked = !$('analysis-on').checked;
-                       send({ type: 'analysis', enabled: $('analysis-on').checked }); }
-    };
-    var handler = handlers[event.key];
-    if (handler) { event.preventDefault(); handler(); }
+    var bound = NAV_KEYS.find(function (row) { return row.press.indexOf(event.key) >= 0; });
+    if (bound) { event.preventDefault(); bound.run(); }
   });
+
+  /* -- the help panel (§3.8 "Help panel") ---------------------------------- */
+  // The key list is derived, not authored: one row per entry of KEY_HELP, so a group the table
+  // gains is listed without a second place having to be edited. Each row's label is data-i18n
+  // rather than text, which is what makes a language switch re-render it: i18n.switchTo applies
+  // the tables over the whole document before it notifies anyone.
+  function buildKeyHelp() {
+    var container = $('help-keys');
+    container.replaceChildren();
+    KEY_HELP.forEach(function (group) {
+      var box = document.createElement('div');
+      box.className = 'help-group';
+      var heading = document.createElement('h4');
+      heading.className = 'help-scope';
+      heading.setAttribute('data-i18n', group.scope);
+      box.appendChild(heading);
+      group.keys.forEach(function (entry) {
+        var row = document.createElement('div');
+        row.className = 'help-row';
+        row.dataset.scope = group.scope;
+        var press = document.createElement('span');
+        press.className = 'help-press';
+        entry.press.forEach(function (key) {
+          var tag = document.createElement('kbd');
+          tag.dataset.key = key;
+          // Every key reads as itself; the space bar is the one with no name of its own.
+          tag.textContent = key === ' ' ? 'Space' : key;
+          press.appendChild(tag);
+        });
+        var label = document.createElement('span');
+        label.className = 'help-label';
+        label.setAttribute('data-i18n', entry.label);
+        row.appendChild(press);
+        row.appendChild(label);
+        box.appendChild(row);
+      });
+      container.appendChild(box);
+    });
+    i18n.apply(container);
+  }
+
+  // Open and closed is the hidden attribute, never a style write (§3.8 "Rendering safety"). The
+  // panel is not modal, so nothing holds the keyboard inside it: opening moves focus to the close
+  // button and closing gives it back to the control that opened it, which is what a keyboard user
+  // gets instead. It takes no key of its own (§3.7).
+  function showHelp(open) {
+    $('help-panel').hidden = !open;
+    $(open ? 'help-close' : 'help-toggle').focus();
+  }
+
+  $('help-toggle').onclick = function () { showHelp($('help-panel').hidden); };
+  $('help-close').onclick = function () { showHelp(false); };
+  buildKeyHelp();
 
   $('lang').value = i18n.lang();
   $('lang').onchange = function () {
@@ -1521,4 +1613,4 @@
 
   connect();
   board.resize();
-})();
+})(window);

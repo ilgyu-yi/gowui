@@ -369,6 +369,9 @@ def test_the_sgf_picker_accepts_sgf_files():
 # Every id the browser tests drive (tests/browser); §3.8 names what each one is.
 PAGE_IDS = [
     "protocol", "host", "port", "connect", "engine-state", "lang", "status",
+    # The help panel (§3.8 "Help panel"): the top-bar control that opens and closes it, the panel
+    # itself, its own close button, and the container its derived key list is rendered into.
+    "help-toggle", "help-panel", "help-close", "help-keys",
     "board-list", "board-new", "board",
     "candidate-readout",
     "first", "prev10", "prev", "move-counter", "next", "next10", "last", "pass", "undo", "resign",
