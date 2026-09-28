@@ -108,17 +108,19 @@
       'help.label.prior': "The move's raw policy probability, as a percentage. While comparing on Difference B − A, the signed difference in percentage points.",
       'help.label.score': "The move's score lead in Black's view — positive while Black leads — to one decimal.",
       'help.ownership': "Squares on the board: dark where Black owns the point, light where White does, stronger the larger the value. Ownership is the engine's own value for each point; ticking this asks the engine to report it.",
-      'help.heatmap': "A purple square on each point the raw policy gives weight to, stronger the closer it is to the largest. The raw policy is the engine's own probability for each move, the number in the Policy column; gowui does not compute it. While comparing on Difference B − A the squares are warm red where B plays a point more and cool blue where it plays it less.",
+      'help.heatmap': "A purple square on each point the raw policy gives weight to, stronger the closer it is to the largest. The raw policy is the engine's own probability for each move — what the candidate table shows under Policy, under Prob. for a handol-mux analysis, and while comparing under A or B for the tuple Show draws; gowui does not compute it. While comparing on Difference B − A the squares are warm red where B plays a point more and cool blue where it plays it less.",
       'help.numbers': 'Every stone shows the number of the move that played it. The ring on the last move is there whether or not this is ticked.',
       'help.compare.tuple': 'A tuple is the set of eight human-policy settings under Raw values; the distribution the engine answers with depends on it. Ticking this sends a second tuple, B, with the first, A.',
       'help.compare.views': 'The A / B tabs choose which tuple the controls edit; Show chooses which one is drawn.',
-      'help.compare.diff': 'Under Difference B − A each candidate is a filled disc — red where B plays the move more than A, blue where less — and the largest difference is outlined in white.',
+      'help.compare.diff': 'Under Difference B − A each candidate is a filled disc — red where B plays the move more than A, blue where less — and the largest difference is outlined in white, unless that move is a pass, which has no point on the board.',
       'help.col.move': 'The candidate move.',
       'help.col.a': "The move's probability under tuple A.",
       'help.col.b': "The move's probability under tuple B.",
       'help.col.delta': 'B − A, signed.',
       'readout.best': 'best',
       'readout.none': 'no candidate',
+      // §3.8 "Candidate readout": the button that opens the help panel while no candidate shows.
+      'help.start': 'How to start',
       // The help panel (SPEC §3.8 "Help panel"). Every legend line below carries the source it
       // comes from on the line above it, so a reviewer checks a claim against a named source
       // instead of deriving it again. None of them says more than its source supports.
@@ -130,15 +132,40 @@
       'help.flow.title': 'How to use this page',
       // §3.8 "Engine form": the protocol select, host, port, the Connect button and the badge.
       'help.flow.connect': 'Pick the engine interface, type the address it listens on and press Connect. The badge beside it names the engine that answered, or says none is connected.',
+      // §3.8 "Engine picker": with engineAddress.kind catalog a select of entries replaces the
+      // three fields, and Connect sends the picked entry.
+      'help.flow.connect.catalog': 'Pick an engine in the list beside Connect and press Connect. The badge beside it names the engine that answered, or says none is connected.',
+      // §3.8 "Engine picker": an empty catalog disables Connect and shows a note beside the picker.
+      'help.flow.connect.empty': 'This server has no engine configured, so there is nothing to connect: Connect is disabled, and the note beside it says so.',
       // §3.8 "Layout" (the board pane) and "Controls" (Navigation: a click on a point sends play).
       'help.flow.play': 'Click a point on the board to play there. Under the board are first, −10, −1, the position counter, +1, +10 and last, then Pass, Undo and Resign.',
       // §3.8 "Controls" (Analysis section) and "Board overlays" (where the candidates are drawn).
       'help.flow.analyse': 'Tick Continuous analysis and the engine reads the position on screen: its candidates are drawn on the board and listed in the table of the Analysis section.',
       // §3.8 "Board strip": one tile per board, "+ New board", a click selects, ✎ renames.
       'help.flow.boards': 'Every board in the strip on the left is a game of its own. "+ New board" adds one, clicking a tile switches to it, and ✎ renames it.',
+      // §3.8 "Controls" (Players, New game and Engine console sections; index.html leaves the last
+      // two closed); §3.5 (the console sends raw commands to a GTP engine, where allowed).
+      'help.flow.more': 'Further down the side panel: Players, with KataGo plays Black or White, Engine move now and Final score; New game, closed until opened, which starts a game and holds Save SGF and Load SGF; and Engine console, also closed, with the lines exchanged with the engine and a field that sends a GTP engine a command of your own where that is allowed.',
       // §3.8 "Help panel": this panel points at the hover cards and the profile "?" for what an
       // individual control is (§3.8 "Human policy panel", "Scrolling") rather than restating them.
       'help.flow.controls': 'What one control is, you read where it is: hover a field or a knob for its card, and the "?" beside the profile field for what that profile imitates. This panel does not repeat them.',
+      // §3.8 "Top candidates" (board.js _drawCandidates): the ring, its two arcs from six
+      // o'clock, the track; no cobalt arc without visits; the smaller visits line under the label.
+      'help.glyph.title': 'What is drawn on a candidate',
+      'help.glyph.ring': "Each candidate is a ring over a faint track. From the bottom, the vermilion left half rises with the move's raw policy probability, and the blue right half with the move's share of the search.",
+      'help.glyph.visits': 'A move the search did not reach has no blue arc. The smaller blue number is its visits; the number above it is the one the Label select chooses, and the ? beside Label says which.',
+      // §3.8 "Top candidates": the white outer ring, and a pass has no point (board.js:16, 453).
+      'help.glyph.best': 'The first candidate, the one the table marks as best, has a white outer ring — unless it is a pass, which has no point on the board, and then no candidate is ringed.',
+      // §3.8 "Compare views": the filled disc is the Compare card's (help.compare.diff), not repeated.
+      'help.glyph.diff': 'While comparing on Difference B − A a candidate is drawn another way: the ? beside Compare two tuples says how.',
+      // §3.8 "Help panel" part 3: one line per switch with a ? card, which each line points at.
+      'help.task.title': 'To see a thing, what to turn on',
+      'help.task.label': 'To choose the number written in each candidate:',
+      'help.task.ownership': 'To see which side owns each point:',
+      'help.task.heatmap': 'To see the raw policy on every point, not only on the candidates:',
+      'help.task.numbers': 'To read the order the stones were played in:',
+      'help.task.compare': 'To see how two human-policy tuples differ, with handol-mux:',
+      'help.task.see': '— the ? beside it says what it shows.',
       'help.numbers.title': 'What the numbers mean',
       // §0 "Perspective" makes the winrate the one exception to Black's view; §3.8 "Candidate
       // table" shows Win from the side searched for and the score lead as Black's. Said in one
@@ -151,11 +178,15 @@
       // §2.2 (`utility`: signed, centred on zero, not a probability, Black's view); §3.8
       // "Candidate table" (two decimals); §3.8 "Candidate readout" (recentred per position).
       'help.num.value': "The engine's utility: one signed number centred on zero, not a probability, in Black's view like the score, to two decimals. Compare it between the candidates of one position and not between positions — its score part is recentred on that position's own expected score.",
+      // §3.8 "What the numbers mean": the legend points at the table's ? for these three.
+      'help.num.inTable': 'These, and every other column of the candidate table, are explained by the ? beside Candidate moves.',
       // §2.2 `utilityLcb`; §3.8 "Candidate readout" (the parentheses are style.css:92-93).
       'help.num.lcb': "The number in parentheses beside the Value under the board is utilityLcb, that Value's lower confidence bound, in the same view.",
       // §3.8 "Human policy panel" and the strings field.lambda_utility.help, field.trust_mu.help
       // and field.fill_kappa.help, where û is the value μ and κ have shrunk toward the fill value.
-      'help.num.collision': "One word, two quantities. The Value of this table is the engine's raw utility above. The û of the λ, μ and κ cards is a different number: a move's search value after μ and κ have shrunk it toward the fill value.",
+      // Named as the reader sees them: the Value pull knob sets those three (tuple.js:66-75), and
+      // field.lambda_utility, field.trust_mu and field.fill_kappa are the fields' labels.
+      'help.num.collision': "One word, two quantities. The Value of the candidate table is the engine's raw utility. The û behind the Value pull knob — in the cards of Utility temperature λ, Trust μ and Pessimism κ under Raw values — is a different number: a move's search value after Trust and Pessimism have shrunk it toward the fill value.",
       // §3.8 "What the numbers mean": no formula and no conversion factor between the two is
       // derivable from anything this repo holds, so the panel carries neither.
       'help.num.noConversion': 'Different quantities in different units, and gowui defines no conversion between them. There is no formula here that turns a winrate into a Value, or a Value into a winrate.',
@@ -422,17 +453,19 @@
       'help.label.prior': '그 수의 날 정책 확률(%). 차이 B − A를 볼 때는 부호 있는 차이(%p).',
       'help.label.score': '그 수의 집 차이. 흑 기준이라 흑이 앞서면 +이고, 소수 한 자리까지 나온다.',
       'help.ownership': '판 위의 네모: 흑이 차지하는 자리는 어둡게, 백이 차지하는 자리는 밝게, 값이 클수록 진하게 칠한다. 영역은 엔진이 자리마다 내는 값이고, 이것을 켜면 엔진에게 그 값을 보내 달라고 한다.',
-      'help.heatmap': '날 정책이 무게를 두는 자리마다 보라색 네모를 칠하고, 가장 큰 값에 가까울수록 진하다. 날 정책은 엔진이 수마다 내는 확률로, 정책 칸의 그 수이며 gowui가 계산하지 않는다. 차이 B − A를 볼 때는 B가 더 두는 자리는 따뜻한 빨강, 덜 두는 자리는 차가운 파랑이다.',
+      'help.heatmap': '날 정책이 무게를 두는 자리마다 보라색 네모를 칠하고, 가장 큰 값에 가까울수록 진하다. 날 정책은 엔진이 수마다 내는 확률이다. 후보 표에서는 정책 칸에 나오는 값이고, handol-mux 분석에서는 확률 칸, 비교할 때는 보기가 그리는 튜플의 A 또는 B 칸에 나오는 값이다. gowui가 계산하지 않는다. 차이 B − A를 볼 때는 B가 더 두는 자리는 따뜻한 빨강, 덜 두는 자리는 차가운 파랑이다.',
       'help.numbers': '판 위의 돌마다 그 돌을 둔 수순 번호를 보여 준다. 마지막 수의 고리는 이것을 켜든 끄든 있다.',
       'help.compare.tuple': '튜플은 원시 값 아래 여덟 가지 휴먼 정책 설정의 묶음이고, 엔진이 돌려주는 분포는 튜플에 따라 달라진다. 이것을 켜면 첫 튜플 A와 함께 두 번째 튜플 B를 보낸다.',
       'help.compare.views': 'A / B 탭은 조작이 어느 튜플을 고칠지 고르고, 보기는 어느 쪽을 그릴지 고른다.',
-      'help.compare.diff': '차이 B − A에서는 후보마다 채운 원이 된다. B가 A보다 더 두는 수는 빨강, 덜 두는 수는 파랑이고, 차이가 가장 큰 수에는 흰 테두리를 두른다.',
+      'help.compare.diff': '차이 B − A에서는 후보마다 채운 원이 된다. B가 A보다 더 두는 수는 빨강, 덜 두는 수는 파랑이고, 차이가 가장 큰 수에는 흰 테두리를 두른다. 다만 그 수가 패스면 판 위에 자리가 없어 두르지 않는다.',
       'help.col.move': '후보 수.',
       'help.col.a': '튜플 A에서 그 수의 확률.',
       'help.col.b': '튜플 B에서 그 수의 확률.',
       'help.col.delta': 'B − A, 부호 있음.',
       'readout.best': '최선',
       'readout.none': '후보 없음',
+      // §3.8 "Candidate readout": 후보가 없는 동안 도움말을 여는 단추.
+      'help.start': '시작하는 법',
       // 도움말 패널(SPEC §3.8 "Help panel"). 설명 한 줄마다 바로 위에 근거를 적어 둔다.
       // 읽는 사람이 다시 따져 보는 대신 적힌 자리에서 확인하면 된다. 근거가 받쳐 주지
       // 않는 말은 넣지 않았다.
@@ -444,15 +477,39 @@
       'help.flow.title': '이 페이지 쓰는 차례',
       // §3.8 "Engine form": 프로토콜 선택, 호스트, 포트, 연결 단추와 배지.
       'help.flow.connect': '엔진 방식을 고르고 엔진이 열려 있는 주소를 넣은 다음 연결을 누른다. 옆 배지가 대답한 엔진의 이름을 보여 주고, 붙은 엔진이 없으면 없다고 말한다.',
+      // §3.8 "Engine picker": engineAddress.kind가 catalog면 세 칸 대신 목록이 나온다.
+      'help.flow.connect.catalog': '연결 옆 목록에서 엔진을 고르고 연결을 누른다. 옆 배지가 대답한 엔진의 이름을 보여 주고, 붙은 엔진이 없으면 없다고 말한다.',
+      // §3.8 "Engine picker": 목록이 비면 연결이 꺼지고 목록 옆에 안내가 나온다.
+      'help.flow.connect.empty': '이 서버에는 설정된 엔진이 없어서 연결할 것이 없다. 연결 단추는 꺼져 있고, 옆의 안내가 그렇게 말한다.',
       // §3.8 "Layout"(판 영역)과 "Controls"(내비게이션 — 판 위를 누르면 play를 보낸다).
       'help.flow.play': '판 위의 자리를 누르면 그 자리에 둔다. 판 아래에는 처음, −10, −1, 국면 세기, +1, +10, 끝이 있고 그다음에 패스·무르기·기권이 있다.',
       // §3.8 "Controls"(분석 항목)과 "Board overlays"(후보를 판 위에 어떻게 그리는지).
       'help.flow.analyse': '계속 분석을 켜면 엔진이 화면에 떠 있는 국면을 읽는다. 후보 수는 판 위에 그려지고 분석 항목의 표에 줄지어 나온다.',
       // §3.8 "Board strip": 보드마다 타일 하나, "+ 새 보드", 누르면 선택, ✎로 이름 변경.
       'help.flow.boards': '왼쪽 띠에 있는 보드는 저마다 딴 대국이다. "+ 새 보드"로 하나 더하고, 타일을 누르면 그 보드로 넘어가고, ✎로 이름을 바꾼다.',
+      // §3.8 "Controls"(대국자, 새 대국, 엔진 콘솔 항목. 뒤의 둘은 index.html에서 닫혀 있다);
+      // §3.5(콘솔은 허용된 곳에서 GTP 엔진에만 명령을 보낸다).
+      'help.flow.more': '옆 패널 아래쪽에는 대국자(KataGo가 흑·백, 지금 엔진 착수, 계가)가 있고, 열어야 보이는 새 대국은 대국을 시작하고 SGF 저장과 SGF 열기를 담고 있으며, 역시 닫혀 있는 엔진 콘솔에는 엔진과 주고받은 줄과, 허용된 곳에서 GTP 엔진에 명령을 직접 보내는 칸이 있다.',
       // §3.8 "Help panel": 조작 하나하나는 호버 카드와 프로파일 "?"가 맡는다
       // (§3.8 "Human policy panel", "Scrolling"). 이 패널은 그것을 다시 옮겨 적지 않는다.
       'help.flow.controls': '조작 하나가 무엇인지는 그 조작이 있는 자리에서 읽는다. 입력칸이나 손잡이에 마우스를 올리면 설명 카드가 뜨고, 프로파일 칸 옆 "?"는 그 프로파일이 무엇을 흉내 내는지 알려 준다. 이 패널은 그것을 되풀이하지 않는다.',
+      // §3.8 "Top candidates"(board.js _drawCandidates): 고리, 여섯 시에서 오르는 두 호, 바탕 고리;
+      // 방문이 없으면 파란 호가 없다; 라벨 아래 작은 방문 수.
+      'help.glyph.title': '후보 위에 그려지는 것',
+      'help.glyph.ring': '후보마다 옅은 바탕 고리 위에 고리를 그린다. 아래에서부터 왼쪽 주홍 반쪽은 그 수의 날 정책 확률만큼, 오른쪽 파란 반쪽은 탐색 가운데 그 수에 쓴 몫만큼 올라간다.',
+      'help.glyph.visits': '탐색이 닿지 않은 수에는 파란 호가 없다. 작은 파란 숫자는 그 수의 방문 수이고, 그 위의 숫자는 라벨 선택이 고른 값이다. 라벨 옆 ?가 무엇인지 알려 준다.',
+      // §3.8 "Top candidates": 흰 바깥 고리, 패스는 자리가 없다(board.js:16, 453).
+      'help.glyph.best': '첫 후보, 곧 표가 최선으로 표시하는 수에는 흰 바깥 고리가 있다. 다만 그 수가 패스면 판 위에 자리가 없어서 어느 후보에도 고리가 없다.',
+      // §3.8 "Compare views": 채운 원은 비교 카드(help.compare.diff)가 맡고, 여기서 되풀이하지 않는다.
+      'help.glyph.diff': '차이 B − A를 볼 때는 후보를 다르게 그린다. 두 튜플 비교 옆 ?가 어떻게 그리는지 알려 준다.',
+      // §3.8 "Help panel" 셋째 부분: ? 카드가 있는 스위치마다 한 줄, 그 ?를 가리킨다.
+      'help.task.title': '무엇을 보려면 무엇을 켜나',
+      'help.task.label': '후보마다 적히는 숫자를 고르려면:',
+      'help.task.ownership': '자리마다 어느 쪽 차지인지 보려면:',
+      'help.task.heatmap': '후보 자리만이 아니라 모든 자리의 날 정책을 보려면:',
+      'help.task.numbers': '돌이 놓인 차례를 읽으려면:',
+      'help.task.compare': '두 휴먼 정책 튜플이 어떻게 다른지 보려면(handol-mux):',
+      'help.task.see': '— 옆의 ?가 무엇을 보여 주는지 알려 준다.',
       'help.numbers.title': '숫자가 뜻하는 것',
       // §0 "Perspective"에서 승률만이 흑 기준의 예외이고, §3.8 "Candidate table"에서
       // 승률은 탐색한 쪽 기준, 집 차이는 흑 기준이다. 어긋남이 한 줄 안에 있으니 한 호흡에 적는다.
@@ -463,12 +520,16 @@
       'help.num.policy': '그 수의 날 정책 확률. handol-mux 분석에서는 같은 칸이 확률로 나온다.',
       // §2.2(`utility` — 부호 있는 값, 0이 가운데, 확률이 아니고 흑 기준); §3.8
       // "Candidate table"(소수 두 자리); §3.8 "Candidate readout"(국면마다 기준을 다시 맞춘다).
+      // §3.8 "What the numbers mean": 이 셋은 범례가 표의 ?를 가리킨다.
+      'help.num.inTable': '이 셋과 후보 표의 다른 칸은 후보 수 옆 ?가 설명한다.',
       'help.num.value': '엔진의 utility 값. 0을 가운데 둔 부호 있는 수 하나이고 확률이 아니며, 집처럼 흑 기준으로 소수 두 자리까지 나온다. 한 국면 안의 후보끼리 견주는 값이지 국면끼리 견주는 값이 아니다. 집에 해당하는 부분이 그 국면의 기대 집 수를 기준으로 다시 맞춰지기 때문이다.',
       // §2.2 `utilityLcb`; §3.8 "Candidate readout"(괄호는 style.css:92-93).
       'help.num.lcb': '판 아래 줄의 가치 옆 괄호 안 숫자는 utilityLcb, 같은 기준으로 본 그 가치의 신뢰 하한이다.',
       // §3.8 "Human policy panel"과 field.lambda_utility.help, field.trust_mu.help,
       // field.fill_kappa.help — 거기서 û는 μ와 κ가 채움값 쪽으로 당긴 뒤의 값이다.
-      'help.num.collision': '같은 말이 둘을 가리킨다. 이 표의 가치는 위에서 말한 엔진의 날 utility다. λ·μ·κ 설명 카드의 û는 다른 수다. 그 수의 탐색 가치를 μ와 κ가 채움값 쪽으로 당기고 난 값이다.',
+      // 읽는 이가 보는 이름으로 적는다: 가치 끌림 손잡이가 그 셋을 정하고(tuple.js:66-75),
+      // field.lambda_utility, field.trust_mu, field.fill_kappa가 그 칸들의 이름이다.
+      'help.num.collision': '같은 말이 둘을 가리킨다. 후보 표의 가치는 엔진의 날 utility다. 가치 끌림 손잡이 뒤의 û — 원시 값 아래 가치 온도 λ·신뢰 μ·비관도 κ 카드에 나오는 û — 는 다른 수다. 그 수의 탐색 가치를 신뢰와 비관도가 채움값 쪽으로 당기고 난 값이다.',
       // §3.8 "What the numbers mean": 둘 사이의 식도 환산 계수도 이 저장소에 있는
       // 어떤 것에서도 끌어낼 수 없으니, 패널은 둘 다 싣지 않는다.
       'help.num.noConversion': '단위가 다른 서로 다른 값이고, gowui는 둘 사이의 환산을 정해 두지 않았다. 승률을 가치로, 가치를 승률로 바꾸는 식은 여기에 없다.',

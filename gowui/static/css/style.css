@@ -92,6 +92,12 @@ main {
 .readout .field { display: flex; gap: 4px; align-items: baseline; flex: none; }
 .readout .num { color: var(--text); }
 .readout .mark { color: var(--accent); font-weight: 600; }
+/* The "How to start" button of an empty line (SPEC §3.8 "Candidate readout"): small enough to keep
+   the line at its one height, so the controls below do not move when it goes. */
+.readout .readout-start {
+  flex: none; padding: 0 8px; font-size: 12px; line-height: 18px;
+  border-color: var(--accent); color: var(--accent);
+}
 /* The parentheses are the mark of a bound, not words: they read the same in every language. */
 .readout .lcb::before { content: "("; }
 .readout .lcb::after { content: ")"; }
@@ -111,6 +117,9 @@ button, select, input[type=text], input[type=number] {
 button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* The help control is second in weight to Connect: the accent as an outline and text, never as a
+   fill, which stays Connect's alone in the top bar (SPEC §3.8 "Help panel"). */
+#help-toggle { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 input[type=number] { width: 78px; }
 
