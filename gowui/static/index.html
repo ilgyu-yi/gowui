@@ -11,11 +11,21 @@
 <header class="topbar">
   <h1>gowui</h1>
   <div class="engine-line">
-    <select id="protocol" data-i18n-title="protocol.title">
-      <option value="gtp">GTP</option>
-      <option value="analysis">Analysis</option>
-      <option value="handol" data-i18n="protocol.handol">handol-mux (human)</option>
-    </select>
+    <!-- The label names the engine fields; its ? card has one line per option (SPEC §3.8 "Engine
+         form", "Where explanation lives"). A catalog hides the select and the ?, not the label. -->
+    <label><span data-i18n="engine.label">Engine</span>
+      <select id="protocol" data-i18n-title="protocol.title">
+        <option value="gtp" data-i18n="protocol.gtp">GTP</option>
+        <option value="analysis" data-i18n="protocol.analysis">Analysis engine</option>
+        <option value="handol" data-i18n="protocol.handol">handol-mux (human)</option>
+      </select></label>
+    <span id="engine-help" class="help-dot" tabindex="0" aria-describedby="help-card-engine">?</span>
+    <div class="help-card" id="help-card-engine" role="tooltip">
+      <div data-i18n="help.engine.intro">How gowui talks to the engine.</div>
+      <div data-option="gtp"><b data-i18n="protocol.gtp">GTP</b> — <span data-i18n="help.engine.gtp">…</span></div>
+      <div data-option="analysis"><b data-i18n="protocol.analysis">Analysis engine</b> — <span data-i18n="help.engine.analysis">…</span></div>
+      <div data-option="handol"><b data-i18n="protocol.handol">handol-mux (human)</b> — <span data-i18n="help.engine.handol">…</span></div>
+    </div>
     <input id="host" type="text" value="127.0.0.1" size="11" data-i18n-title="host.title">
     <input id="port" type="number" value="6363" min="1" max="65535" data-i18n-title="port.title">
     <select id="engine-pick" data-i18n-title="picker.title" hidden></select>
@@ -290,7 +300,7 @@
     </details>
 
     <details>
-      <summary data-i18n="newGame.section">New game</summary>
+      <summary data-i18n="newGame.section">New game · Save / Load SGF</summary>
       <div class="row">
         <label><span data-i18n="newGame.size">Size</span>
           <select id="new-size">

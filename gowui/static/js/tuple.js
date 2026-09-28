@@ -345,7 +345,7 @@
 
     FIELDS.forEach(function (field) {
       var wrap = fieldInputs[field.key].wrap;
-      wrap.addEventListener('mouseenter', function () {
+      function openCard() {
         showCard(wrap, function () {
           cardLine(label(field.key), 'hover-title');
           cardLine(t('field.key') + ': ' + field.key, 'hover-key');
@@ -353,8 +353,12 @@
           cardLine(t('field.range') + ': ' + t('field.' + field.key + '.range'), 'hover-meta');
           cardLine(t('field.example') + ': ' + t('field.' + field.key + '.example'), 'hover-meta');
         });
-      });
+      }
+      // Focus as well as the pointer (SPEC §3.8 "Human policy panel"): the field is a tab stop.
+      wrap.addEventListener('mouseenter', openCard);
+      wrap.addEventListener('focusin', openCard);
       wrap.addEventListener('mouseleave', hideCard);
+      wrap.addEventListener('focusout', hideCard);
     });
 
     var KNOB_KEYS = {
@@ -365,7 +369,7 @@
     };
     KNOBS.forEach(function (knob) {
       var row = knobParts[knob.id].row;
-      row.addEventListener('mouseenter', function () {
+      function openCard() {
         showCard(row, function () {
           cardLine(t('knob.' + knob.id), 'hover-title');
           cardLine(t('knob.' + knob.id + '.help'));
@@ -375,8 +379,11 @@
           });
           cardLine(owned.join(' · '), 'hover-key');
         });
-      });
+      }
+      row.addEventListener('mouseenter', openCard);
+      row.addEventListener('focusin', openCard);
       row.addEventListener('mouseleave', hideCard);
+      row.addEventListener('focusout', hideCard);
     });
 
     /* -- labels (and again on a language switch) ----------------------- */
