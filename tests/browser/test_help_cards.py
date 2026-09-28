@@ -227,6 +227,21 @@ def test_the_table_card_follows_the_mode(start_app, open_page):
         assert wrong == [], f"{mode}: a header's title is not its entry's text: {wrong}"
 
 
+def test_a_header_title_follows_a_language_switch(start_app, open_page):
+    """§3.8: a header's ``title`` is its entry's text "from the same key", so a language switch
+    (``i18n.apply``) re-renders it with the card rather than leaving the language it was built
+    in."""
+    g = open_page(start_app()).open()
+    card_id = table_card_id(g)
+    before = table_reading(g, card_id)["titles"]
+    g.page.locator("#lang").select_option("ko")
+    expect(g.page.locator("html")).to_have_attribute("lang", "ko", timeout=QUICK)
+    after = table_reading(g, card_id)["titles"]
+    wrong = [(key, title, text) for key, title, text in after if not title or title != text]
+    assert wrong == [], f"after the switch a header's title is not its entry's text: {wrong}"
+    assert [t for _, t, _ in after] != [t for _, t, _ in before], "no title changed language"
+
+
 def assert_no_foreign_entry(g: Gowui, card_id: str, heads: list[str], mode: str) -> None:
     """No entry is on show whose columns the mode does not have."""
     dot(g, card_id).focus()
