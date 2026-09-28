@@ -146,6 +146,12 @@ details > .row:first-of-type { margin-top: 8px; }
   display: flex; align-items: center; justify-content: center;
   font-weight: 600; color: #888; mix-blend-mode: difference;
 }
+/* No root winrate: one neutral tone that is neither stone's colour, so no width can be read as a
+   position (SPEC §3.8 "Evaluation"). The label is blended for the two stone colours; over this
+   tone a blend would all but hide it. */
+.winbar.idle { background: var(--line); }
+.winbar.idle .winbar-black { visibility: hidden; }
+.winbar.idle .winbar-label { color: var(--muted); mix-blend-mode: normal; }
 .eval-line {
   display: flex; justify-content: space-between; gap: 8px;
   color: var(--muted); font-variant-numeric: tabular-nums;

@@ -216,6 +216,7 @@
 
   function applyState(message) {
     var previousKey = state.game ? positionKey(state.game) : null;
+    var lostEngine = !!(state.engine && state.engine.connected) && !message.engine.connected;
     applyPreferences(message.preferences);
     state.game = message.game;
     state.engine = message.engine;
@@ -223,10 +224,13 @@
     state.thinking = message.thinking;
 
     var analysisOff = state.settings && !state.settings.analysisEnabled;
-    if (positionKey(message.game) !== previousKey || analysisOff) {
+    if (positionKey(message.game) !== previousKey || analysisOff || lostEngine) {
       state.analysis = null;
       board.clearAnalysis();
     }
+    // The server drops every board's stored analysis with the engine (SPEC §3.2), but a tile
+    // this state does not re-send keeps the copy the page cached: drop that too.
+    if (lostEngine) forgetThumbnailAnalyses();
     // The severity comes with the status, and a failure the user has to act on is a condition
     // that still holds, so it stands until something replaces it (SPEC §3.8 "Status line").
     var failed = !!message.statusIsError;
@@ -382,11 +386,14 @@
     var bar = $('winbar-black');
     var label = $('winbar-label');
 
+    // No root winrate is no position: the track is one neutral tone, not a width that would
+    // read as an even game or as White 100% (SPEC §3.8 "Evaluation").
+    bar.parentNode.classList.toggle('idle', !root || root.winrate == null);
     if (!root || root.winrate == null) {
       bar.style.width = '50%';
       label.textContent = state.engine.connected ? '--' : t('noEngine');
       $('score-lead').textContent = t('score.none');
-      $('visit-count').textContent = t('visits.count', { n: 0 });
+      $('visit-count').textContent = t('visits.count', { n: '--' });
     } else {
       var blackWinrate = root.winrate;    // already Black's point of view
       bar.style.width = (blackWinrate * 100).toFixed(1) + '%';
@@ -427,6 +434,13 @@
     if (!state.boards) return;
     state.boards = mergeBoards(state.boards);
     renderBoards();
+  }
+
+  function forgetThumbnailAnalyses() {
+    Object.keys(thumbnailCache).forEach(function (key) {
+      thumbnailCache[key].heat = [];
+      thumbnailCache[key].winrate = null;
+    });
   }
 
   function rememberActiveAnalysis() {
