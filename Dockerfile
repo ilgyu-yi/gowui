@@ -3,7 +3,7 @@
 # The base is pinned by digest (Dependabot proposes bumps). The dependencies are floor-bounded, so
 # the build is not reproducible: the digest pins the OS and Python only.
 
-FROM python:3.13-slim@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS builder
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS builder
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN python -m venv /opt/venv
 WORKDIR /src
@@ -12,7 +12,7 @@ COPY pyproject.toml README.md ./
 COPY gowui ./gowui
 RUN /opt/venv/bin/pip install .
 
-FROM python:3.13-slim@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH \
     GOWUI_DB=/data/gowui.db
